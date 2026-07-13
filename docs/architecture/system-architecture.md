@@ -6,45 +6,6 @@ Automation Studio is an AI-Native Quality Engineering Platform for managing auto
 
 AI-native means the platform has explicit AI domain, security, audit, and integration boundaries. It does not make the core automation path dependent on an AI provider. In v0.1, a user can run an OrangeHRM Playwright smoke suite, collect evidence, and review the result without AI being enabled.
 
-## Design Principles
-
-- Separate the authoritative control plane from isolated execution workloads.
-- Use contract-first, versioned extensions for engines and future integrations.
-- Prefer asynchronous, durable workflows for long-running operations.
-- Preserve immutable execution facts and make historical runs reproducible.
-- Treat AI output as evidence-grounded advice, never as an authoritative fact.
-- Apply least privilege, explicit authorization, and secret references by default.
-- Start with deployable simplicity while preserving evolution-ready boundaries.
-
-## Quality Attributes
-
-| Attribute | Architectural response |
-|---|---|
-| Extensibility | Versioned engine, artifact, work-transport, LLM-provider, and MCP interfaces |
-| Reliability | Durable execution state, transactional outbox, guarded leases, retries, and immutable history |
-| Security | Scoped identities, secret references, runner isolation, redaction, audit, and approval gates |
-| Maintainability | Domain-oriented modules and explicit dependency boundaries |
-| Observability | Correlation identifiers, execution events, structured logs, metrics, and audit records |
-| Portability | Separate runtime boundaries and replaceable infrastructure adapters |
-
-## Non Goals
-
-- Requiring AI services, MCP, Kubernetes, an external broker, multi-tenancy, or high availability for v0.1.
-- Replacing human quality-engineering judgment with automated AI decisions.
-- Allowing AI or engine plugins to modify authoritative execution outcomes or history.
-- Defining the detailed database schema or REST API contract; those belong to AS-008 and AS-009.
-- Prescribing a single cloud provider, model provider, message broker, or artifact-store implementation.
-
-## Architecture Constraints
-
-- The initial control plane remains a Spring Boot modular monolith.
-- Automation runs through a dedicated execution runner, not an HTTP request thread.
-- Engines implement the shared, versioned contract defined by ADR-001.
-- PostgreSQL is the initial authoritative metadata store and supports initial job claiming and outbox delivery.
-- Artifact bytes remain behind an external storage abstraction; a local filesystem adapter is acceptable in v0.1.
-- Secrets are stored and exchanged as references, not persisted values.
-- AI and MCP capabilities use the same authorization, audit, and safety boundaries as the control plane.
-
 ## Architecture Goals
 
 - Keep control-plane responsibilities separate from automation execution.
@@ -54,6 +15,42 @@ AI-native means the platform has explicit AI domain, security, audit, and integr
 - Keep secrets as references and resolve them only for a scoped execution.
 - Make AI advice evidence-grounded, auditable, and non-authoritative.
 - Provide an evolution path for MCP clients and enterprise deployment.
+
+## Design Principles
+
+1. Simplicity over premature optimization.
+
+2. Clear ownership boundaries.
+
+3. AI assists but does not own execution.
+
+4. Contract-first integrations.
+
+5. Security by default.
+
+6. Observable systems.
+
+7. Modular evolution over framework coupling.
+
+## Non Goals
+
+v0.1 is not intended to:
+
+- Replace Jenkins
+
+- Replace GitHub Actions
+
+- Replace TestRail
+
+- Become a Kubernetes platform
+
+- Provide AI autonomy
+
+- Automatically modify source code
+
+## Add Guiding Philosophy
+Automation Studio is designed to evolve from a single-developer open-source project into an enterprise-grade quality engineering platform.
+The architecture intentionally separates today's implementation decisions from tomorrow's scalability decisions.
 
 ## Logical Planes
 
@@ -66,6 +63,38 @@ AI-native means the platform has explicit AI domain, security, audit, and integr
 
 The control plane owns authoritative business state. The execution plane may report results, but it does not change project configuration or authorization rules. The AI capability plane produces recommendations only; it cannot alter authoritative execution outcomes or history.
 
+# Quality Attributes
+
+Availability
+
+Maintainability
+
+Extensibility
+
+Observability
+
+Security
+
+Performance
+
+Portability
+
+Auditability
+
+## Architecture Constraints
+Java 21
+
+Spring Boot
+
+PostgreSQL
+
+Next.js
+
+Docker
+
+Playwright Java
+
+Maven
 ## System Context
 
 ```mermaid
