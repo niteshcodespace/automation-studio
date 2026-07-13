@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: automation-studio-postgres
+    environment:
+      POSTGRES_DB: automation_studio
+      POSTGRES_USER: automation_studio
+      POSTGRES_PASSWORD: automation_studio
+    ports:
+      - "5432:5432"
+    volumes:
+      - automation_studio_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U automation_studio -d automation_studio"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  automation_studio_postgres_data:
