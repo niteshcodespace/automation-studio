@@ -1,0 +1,12 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Debug Studio API",
+      "request": "launch",
+      "mainClass": "com.automationstudio.api.StudioApiApplication",
+      "projectName": "studio-api"
+    }
+  ]
+}

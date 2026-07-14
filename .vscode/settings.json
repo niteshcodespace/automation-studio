@@ -1,0 +1,27 @@
+{
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "java.autobuild.enabled": true,
+  "java.compile.nullAnalysis.mode": "automatic",
+  "java.debug.settings.enableRunDebugCodeLens": true,
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  },
+  "todo-tree.general.tags": [
+    "BUG",
+    "FIXME",
+    "HACK",
+    "TODO",
+    "NOTE"
+  ],
+  "files.exclude": {
+    "**/target": true
+  }
+}
