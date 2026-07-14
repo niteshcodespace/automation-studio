@@ -2,28 +2,24 @@
 
 > Last updated: 2026-07-14
 
-## Sprint 1 — AS-007 Database Schema
+## Sprint 1 — AS-008 Execution Domain Model
 
 **Status:** **Completed**
-**Branch:** `feature/AS-007-database-schema`
-**Implementation commit:** `bbcde9d feat(as-007): create core execution database schema`
 
 ## Objective
 
-Create the core execution database schema as a versioned Flyway migration.
+Implement the JPA execution domain model against the existing Flyway V2 schema.
 
 ## Completed
 
-- Created `backend/studio-api/src/main/resources/db/migration/V2__create_execution_schema.sql`.
-- Verified that Flyway successfully applied version 2.
-- Verified successful Flyway history entries for version 1 (`initialize database`) and version 2 (`create execution schema`).
-- Verified the `project`, `environment`, `test_suite`, `execution`, `execution_artifact`, `flyway_schema_history`, and `schema_version_marker` tables.
-- Verified the `execution` table structure, indexes, check constraints, and foreign keys.
-- Verified UUID identifiers and the `execution.version` column for optimistic locking.
-- Verified that `execution_artifact` references `execution` with `ON DELETE CASCADE`.
-- Verified that the `project`, `environment`, and `test_suite` execution relationships use `ON DELETE RESTRICT`.
-- Verified that Maven tests passed after the migration.
+- Created JPA entities for `Project`, `Environment`, `TestSuite`, `Execution`, and `ExecutionArtifact`.
+- Mapped entity fields, relationships, validation constraints, UUID identifiers, timestamps, and status enums to the Flyway V2 schema.
+- Applied optimistic locking to `Execution` through its `version` field.
+- Created Spring Data JPA repository interfaces for every entity.
+- Verified Hibernate mapping validation against the existing database schema.
+- Verified Flyway schema validation successfully.
+- Verified that Maven tests passed.
 
 ## Exact Next Recommended Story
 
-AS-008 Execution Domain Model.
+AS-009 Execution REST API.

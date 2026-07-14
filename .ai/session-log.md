@@ -73,3 +73,10 @@ Entries preserve repository-verified history and clearly identify facts reported
 - **Result:** **Completed.** Flyway successfully applied version 2. `flyway_schema_history` records version 1 (`initialize database`) and version 2 (`create execution schema`) with `success=true`. The `project`, `environment`, `test_suite`, `execution`, `execution_artifact`, `flyway_schema_history`, and `schema_version_marker` tables were verified. The `execution` table structure, indexes, check constraints, and foreign keys were verified, including UUID identifiers and its optimistic-locking `version` column. `execution_artifact` uses `ON DELETE CASCADE`; the `project`, `environment`, and `test_suite` execution relationships use `ON DELETE RESTRICT`. Maven tests passed after the migration.
 - **Problems:** None recorded for AS-007 completion.
 - **Next action:** Begin AS-008 Execution Domain Model.
+
+## 2026-07-14 — AS-008 Execution Domain Model Completion
+
+- **Work performed:** Implemented JPA entities for `Project`, `Environment`, `TestSuite`, `Execution`, and `ExecutionArtifact`, mapped their fields and relationships to the Flyway V2 schema, and created a Spring Data JPA repository interface for each entity.
+- **Result:** **Completed.** Hibernate successfully validated the entity mappings, Flyway successfully validated the database schema, and Maven tests passed.
+- **Problems:** None recorded for AS-008 completion.
+- **Next action:** Begin AS-009 Execution REST API.

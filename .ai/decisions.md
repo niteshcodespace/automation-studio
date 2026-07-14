@@ -14,5 +14,6 @@
 | 2026-07-14 | Use UUID identifiers for the core execution schema. | AS-007 implements and verifies UUID identifiers across the schema. | Accepted; implemented in AS-007 |
 | 2026-07-14 | Use optimistic locking for executions through the `execution.version` column. | AS-007 implements and verifies the version column on `execution`. | Accepted; implemented in AS-007 |
 | 2026-07-14 | Cascade deletion from `execution` to `execution_artifact`, while restricting execution relationship deletion from `project`, `environment`, and `test_suite`. | AS-007 verifies `ON DELETE CASCADE` for execution artifacts and `ON DELETE RESTRICT` for the other execution relationships. | Accepted; implemented in AS-007 |
+| 2026-07-14 | Map the Flyway V2 execution schema with JPA entities and Spring Data repository interfaces. | Keeps persistence mappings aligned with the versioned database contract while preserving separate controller, service, domain, entity, and repository boundaries. | Accepted; implemented and validated in AS-008 |
 
 See the detailed architecture records under [`docs/adr/`](../docs/adr/) and [`docs/architecture/`](../docs/architecture/).

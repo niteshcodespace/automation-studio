@@ -12,7 +12,7 @@ Build the first vertical foundation for accepting, queuing, running, and reporti
 |---|---|---|
 | AS-006 | Backend Skeleton | **Completed** |
 | AS-007 | Database Schema | **Completed** |
-| AS-008 | Execution Domain Model | **Planned** |
+| AS-008 | Execution Domain Model | **Completed** |
 | AS-009 | Execution REST API | **Planned** |
 | AS-010 | Execution Queue | **Planned** |
 | AS-011 | Runner Service | **Planned** |
@@ -23,8 +23,8 @@ Build the first vertical foundation for accepting, queuing, running, and reporti
 
 ## Current Status
 
-AS-006 Backend Skeleton and AS-007 Database Schema are verified complete. AS-007 added `V2__create_execution_schema.sql` in implementation commit `bbcde9d`. Flyway successfully applied version 2, and its history records versions 1 and 2 with `success=true`. The core tables, execution table structure, indexes, check constraints, foreign keys, deletion rules, UUID identifiers, and optimistic-locking version column were verified. Maven tests passed after the migration.
+AS-006 Backend Skeleton, AS-007 Database Schema, and AS-008 Execution Domain Model are verified complete. AS-008 added the five JPA entities and their Spring Data JPA repository interfaces, mapped them to the Flyway V2 schema, and applied optimistic locking to executions. Hibernate mapping validation and Flyway schema validation completed successfully, and Maven tests passed.
 
 ## Next Recommended Story
 
-Proceed with AS-008 Execution Domain Model, followed by the execution API/queue, runner and engine contract, Playwright integration, reporting, and durable history.
+Proceed with AS-009 Execution REST API, followed by the execution queue, runner and engine contract, Playwright integration, reporting, and durable history.

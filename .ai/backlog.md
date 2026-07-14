@@ -8,7 +8,7 @@ This is the current proposed sequence. A checked item means the whole story is v
 |---|---|---|
 | AS-006 | Backend Skeleton | **Completed** |
 | AS-007 | Database Schema | **Completed** |
-| AS-008 | Execution Domain Model | **Planned** |
+| AS-008 | Execution Domain Model | **Completed** |
 | AS-009 | Execution REST API | **Planned** |
 | AS-010 | Execution Queue | **Planned** |
 | AS-011 | Runner Service | **Planned** |
@@ -17,4 +17,4 @@ This is the current proposed sequence. A checked item means the whole story is v
 | AS-014 | Result Reporting | **Planned** |
 | AS-015 | Execution History | **Planned** |
 
-AS-006 and AS-007 are verified complete. The next recommended story is AS-008 Execution Domain Model; AS-007 completion details are in [`current-story.md`](current-story.md).
+AS-006, AS-007, and AS-008 are verified complete. The next recommended story is AS-009 Execution REST API; AS-008 completion details are in [`current-story.md`](current-story.md).
