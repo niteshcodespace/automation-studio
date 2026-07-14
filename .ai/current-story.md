@@ -1,10 +1,10 @@
 # Current Story
 
-> Last updated: 2026-07-13
+> Last updated: 2026-07-14
 
 ## Sprint 1 — AS-006 Backend Skeleton
 
-**Status:** **In progress**  
+**Status:** **Completed**
 **Branch:** `feature/AS-006-backend-skeleton`
 
 ## Objective
@@ -13,28 +13,25 @@ Establish a runnable, testable Spring Boot control-plane API skeleton with Postg
 
 ## Completed
 
-- Generated the Maven/Spring Boot project under `backend/studio-api`.
-- Selected Java 21 and generated Web MVC, JPA, Validation, PostgreSQL, Flyway, Actuator, Lombok, and DevTools dependencies.
-- Renamed the main application package and source location to `com.automationstudio.api`.
-- Moved the test source to `src/test/java/com/automationstudio/api/` and changed its declared package to `com.automationstudio.api`; the package rename is structurally complete for main and test sources.
-- Added a PostgreSQL service definition to the root `docker-compose.yml`.
-- Investigated the reported initial Maven context-load failure: JPA and Flyway attempted initialization without datasource driver/configuration.
+- Generated the Maven/Spring Boot project under `backend/studio-api` with Java 21 and the required dependencies.
+- Configured externalized datasource settings and added the initial versioned Flyway migration.
+- Verified that the PostgreSQL container is healthy.
+- Verified successful Spring Boot application startup and Flyway database initialization.
+- Verified `/actuator/health`: overall status is `UP`, the database component reports PostgreSQL with status `UP`, and liveness and readiness both report `UP`.
+- Ran Maven tests successfully: `Tests run: 1, Failures: 0, Errors: 0, Skipped: 0`; `BUILD SUCCESS`.
+- Verified that main and test package paths consistently use `com.automationstudio.api`.
+- Updated AS-006 project memory and development logs to reflect the verified final state.
 
-## In Progress
-
-- Datasource configuration and Flyway bootstrap migration are not present.
-- PostgreSQL runtime readiness, application startup, Actuator response, and test success are not verified.
-
-## Remaining Tasks
+## Completion Checklist
 
 - [x] Move `StudioApiApplicationTests.java` to `src/test/java/com/automationstudio/api/`.
-- [ ] Add safe datasource configuration using externalized values; do not commit private credentials.
-- [ ] Add an initial versioned Flyway migration under `src/main/resources/db/migration/`.
-- [ ] Start and verify the PostgreSQL service.
-- [ ] Start the application and verify successful database/Flyway initialization.
-- [ ] Verify the Actuator health endpoint.
-- [ ] Run Maven tests and record a successful result.
-- [ ] Review and update AS-006 documentation before completion.
+- [x] Add safe datasource configuration using externalized values; do not commit private credentials.
+- [x] Add an initial versioned Flyway migration under `src/main/resources/db/migration/`.
+- [x] Start and verify the PostgreSQL service.
+- [x] Start the application and verify successful database/Flyway initialization.
+- [x] Verify the Actuator health endpoint.
+- [x] Run Maven tests and record a successful result.
+- [x] Review and update AS-006 documentation before completion.
 
 ## Definition of Done
 
@@ -48,6 +45,6 @@ Establish a runnable, testable Spring Boot control-plane API skeleton with Postg
 - Maven tests pass.
 - Documentation reflects the verified final state.
 
-## Exact Next Recommended Action
+## Exact Next Recommended Story
 
-Add safe, externalized datasource configuration for the PostgreSQL service without committing private credentials; then add the initial Flyway migration before rerunning tests.
+AS-007 Database Schema.

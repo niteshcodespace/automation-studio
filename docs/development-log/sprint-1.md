@@ -1,6 +1,6 @@
 # Sprint 1 Development Log
 
-> Last updated: 2026-07-13
+> Last updated: 2026-07-14
 
 ## Objective
 
@@ -10,7 +10,7 @@ Build the first vertical foundation for accepting, queuing, running, and reporti
 
 | ID | Story | Status |
 |---|---|---|
-| AS-006 | Backend Skeleton | **In progress** |
+| AS-006 | Backend Skeleton | **Completed** |
 | AS-007 | Database Schema | **Planned** |
 | AS-008 | Execution Domain Model | **Planned** |
 | AS-009 | Execution REST API | **Planned** |
@@ -23,10 +23,8 @@ Build the first vertical foundation for accepting, queuing, running, and reporti
 
 ## Current Status
 
-Sprint 1 has started on `feature/AS-006-backend-skeleton`. The Spring Boot project and PostgreSQL Compose definition exist. The package rename to `com.automationstudio.api` is structurally complete for both main and test sources. Datasource configuration, an initial Flyway migration, runtime startup, health verification, and passing tests remain unverified.
+AS-006 Backend Skeleton is verified complete. The PostgreSQL container is healthy, Spring Boot starts successfully, and Flyway initializes the database successfully. `/actuator/health` reports overall status `UP`, PostgreSQL database status `UP`, and liveness and readiness states `UP`. Maven tests pass with `Tests run: 1, Failures: 0, Errors: 0, Skipped: 0` and `BUILD SUCCESS`. Main and test package paths consistently use `com.automationstudio.api`.
 
-No Sprint 1 story is verified complete.
+## Next Recommended Story
 
-## Remaining Work
-
-Complete and verify [`AS-006`](AS-006.md), then proceed through database schema, execution domain/API/queue, runner and engine contract, Playwright integration, reporting, and durable history.
+Proceed with AS-007 Database Schema, followed by the execution domain/API/queue, runner and engine contract, Playwright integration, reporting, and durable history.

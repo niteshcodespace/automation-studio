@@ -1,12 +1,12 @@
 # Sprint 1 Backlog
 
-> Last updated: 2026-07-13
+> Last updated: 2026-07-14
 
 This is the current proposed sequence. A checked item means the whole story is verified complete, not merely started.
 
 | ID | Story | Status |
 |---|---|---|
-| AS-006 | Backend Skeleton | **In progress** |
+| AS-006 | Backend Skeleton | **Completed** |
 | AS-007 | Database Schema | **Planned** |
 | AS-008 | Execution Domain Model | **Planned** |
 | AS-009 | Execution REST API | **Planned** |
@@ -17,5 +17,4 @@ This is the current proposed sequence. A checked item means the whole story is v
 | AS-014 | Result Reporting | **Planned** |
 | AS-015 | Execution History | **Planned** |
 
-No Sprint 1 story is currently verified complete. Details for the active story are in [`current-story.md`](current-story.md).
-
+AS-006 is verified complete. The next recommended story is AS-007 Database Schema; completion details are in [`current-story.md`](current-story.md).
