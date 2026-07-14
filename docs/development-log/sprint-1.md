@@ -11,7 +11,7 @@ Build the first vertical foundation for accepting, queuing, running, and reporti
 | ID | Story | Status |
 |---|---|---|
 | AS-006 | Backend Skeleton | **Completed** |
-| AS-007 | Database Schema | **Planned** |
+| AS-007 | Database Schema | **Completed** |
 | AS-008 | Execution Domain Model | **Planned** |
 | AS-009 | Execution REST API | **Planned** |
 | AS-010 | Execution Queue | **Planned** |
@@ -23,8 +23,8 @@ Build the first vertical foundation for accepting, queuing, running, and reporti
 
 ## Current Status
 
-AS-006 Backend Skeleton is verified complete. The PostgreSQL container is healthy, Spring Boot starts successfully, and Flyway initializes the database successfully. `/actuator/health` reports overall status `UP`, PostgreSQL database status `UP`, and liveness and readiness states `UP`. Maven tests pass with `Tests run: 1, Failures: 0, Errors: 0, Skipped: 0` and `BUILD SUCCESS`. Main and test package paths consistently use `com.automationstudio.api`.
+AS-006 Backend Skeleton and AS-007 Database Schema are verified complete. AS-007 added `V2__create_execution_schema.sql` in implementation commit `bbcde9d`. Flyway successfully applied version 2, and its history records versions 1 and 2 with `success=true`. The core tables, execution table structure, indexes, check constraints, foreign keys, deletion rules, UUID identifiers, and optimistic-locking version column were verified. Maven tests passed after the migration.
 
 ## Next Recommended Story
 
-Proceed with AS-007 Database Schema, followed by the execution domain/API/queue, runner and engine contract, Playwright integration, reporting, and durable history.
+Proceed with AS-008 Execution Domain Model, followed by the execution API/queue, runner and engine contract, Playwright integration, reporting, and durable history.
