@@ -83,6 +83,14 @@ public class Execution {
     @Column(name = "failed_tests")
     private Integer failedTests;
 
+    @PositiveOrZero
+    @Column(name = "skipped_tests")
+    private Integer skippedTests;
+
+    @PositiveOrZero
+    @Column(name = "duration_ms")
+    private Long durationMs;
+
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 

@@ -1,16 +1,13 @@
 package com.automationstudio.api.entity;
 
-import com.automationstudio.api.domain.ProjectStatus;
+import com.automationstudio.api.domain.WorkspaceStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -24,25 +21,25 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
-@Table(name = "project")
+@Table(name = "workspace")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Project {
+public class Workspace {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "workspace_id", nullable = false)
-    private Workspace workspace;
-
     @NotBlank
     @Size(max = 120)
     @Column(nullable = false, length = 120)
     private String name;
+
+    @NotBlank
+    @Size(max = 120)
+    @Column(nullable = false, unique = true, length = 120)
+    private String slug;
 
     @Column(columnDefinition = "TEXT")
     private String description;
@@ -50,7 +47,7 @@ public class Project {
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private ProjectStatus status = ProjectStatus.ACTIVE;
+    private WorkspaceStatus status = WorkspaceStatus.ACTIVE;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
