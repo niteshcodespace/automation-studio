@@ -3,6 +3,7 @@ package com.automationstudio.api.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.automationstudio.api.domain.AutomationSuiteStatus;
 import com.automationstudio.api.domain.SuiteType;
 import com.automationstudio.api.entity.AutomationSuite;
 import com.automationstudio.api.entity.Environment;
@@ -25,6 +26,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 class AutomationSuiteIntegrationTest extends IntegrationTestBase {
@@ -190,6 +194,98 @@ class AutomationSuiteIntegrationTest extends IntegrationTestBase {
             first.close();
             second.close();
         }
+    }
+
+    @Test
+    void projectScopedQueriesReturnOnlySuitesOwnedByTheRequestedProject() {
+        Project firstProject = projectRepository.findById(insertProject()).orElseThrow();
+        Project secondProject = projectRepository.findById(insertProject()).orElseThrow();
+        AutomationSuite first = automationSuiteRepository.saveAndFlush(
+                newSuite(firstProject, "First project suite"));
+        AutomationSuite second = automationSuiteRepository.saveAndFlush(
+                newSuite(firstProject, "Second project suite"));
+        automationSuiteRepository.saveAndFlush(newSuite(secondProject, "Other project suite"));
+
+        assertThat(automationSuiteRepository.findByProjectIdAndId(
+                firstProject.getId(), first.getId()))
+                .map(AutomationSuite::getId).contains(first.getId());
+        assertThat(automationSuiteRepository.findByProjectIdAndId(
+                secondProject.getId(), first.getId())).isEmpty();
+        assertThat(automationSuiteRepository.findByProjectId(firstProject.getId()))
+                .extracting(AutomationSuite::getId)
+                .containsExactlyInAnyOrder(first.getId(), second.getId());
+        assertThat(automationSuiteRepository.countByProjectId(firstProject.getId()))
+                .isEqualTo(2);
+        assertThat(automationSuiteRepository.countByProjectId(secondProject.getId()))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void projectScopedPaginationReturnsRequestedSliceAndMetadata() {
+        Project project = projectRepository.findById(insertProject()).orElseThrow();
+        automationSuiteRepository.saveAndFlush(newSuite(project, "Alpha suite"));
+        automationSuiteRepository.saveAndFlush(newSuite(project, "Beta suite"));
+        automationSuiteRepository.saveAndFlush(newSuite(project, "Gamma suite"));
+
+        Page<AutomationSuite> page = automationSuiteRepository.findByProjectId(
+                project.getId(), PageRequest.of(1, 2, Sort.by("name")));
+
+        assertThat(page.getTotalElements()).isEqualTo(3);
+        assertThat(page.getTotalPages()).isEqualTo(2);
+        assertThat(page.getNumber()).isEqualTo(1);
+        assertThat(page.getContent()).extracting(AutomationSuite::getName)
+                .containsExactly("Gamma suite");
+    }
+
+    @Test
+    void nameQueriesAndExistenceChecksAreProjectScoped() {
+        Project firstProject = projectRepository.findById(insertProject()).orElseThrow();
+        Project secondProject = projectRepository.findById(insertProject()).orElseThrow();
+        AutomationSuite suite = automationSuiteRepository.saveAndFlush(
+                newSuite(firstProject, "Named suite"));
+
+        assertThat(automationSuiteRepository.findByProjectIdAndName(
+                firstProject.getId(), "Named suite"))
+                .map(AutomationSuite::getId).contains(suite.getId());
+        assertThat(automationSuiteRepository.findByProjectIdAndName(
+                secondProject.getId(), "Named suite")).isEmpty();
+        assertThat(automationSuiteRepository.existsByProjectIdAndName(
+                firstProject.getId(), "Named suite")).isTrue();
+        assertThat(automationSuiteRepository.existsByProjectIdAndName(
+                firstProject.getId(), "Missing suite")).isFalse();
+    }
+
+    @Test
+    void statusQueriesSupportProjectScopingAndPagination() {
+        Project firstProject = projectRepository.findById(insertProject()).orElseThrow();
+        Project secondProject = projectRepository.findById(insertProject()).orElseThrow();
+        AutomationSuite active = automationSuiteRepository.saveAndFlush(
+                newSuite(firstProject, "Active suite"));
+        AutomationSuite archivedOne = newSuite(firstProject, "Archived alpha");
+        archivedOne.setStatus(AutomationSuiteStatus.ARCHIVED);
+        archivedOne = automationSuiteRepository.saveAndFlush(archivedOne);
+        AutomationSuite archivedTwo = newSuite(firstProject, "Archived beta");
+        archivedTwo.setStatus(AutomationSuiteStatus.ARCHIVED);
+        archivedTwo = automationSuiteRepository.saveAndFlush(archivedTwo);
+        AutomationSuite otherProjectArchived = newSuite(secondProject, "Other archived");
+        otherProjectArchived.setStatus(AutomationSuiteStatus.ARCHIVED);
+        automationSuiteRepository.saveAndFlush(otherProjectArchived);
+
+        assertThat(automationSuiteRepository.findByProjectIdAndStatus(
+                firstProject.getId(), AutomationSuiteStatus.ACTIVE))
+                .extracting(AutomationSuite::getId).containsExactly(active.getId());
+        assertThat(automationSuiteRepository.findByProjectIdAndStatus(
+                firstProject.getId(), AutomationSuiteStatus.ARCHIVED))
+                .extracting(AutomationSuite::getId)
+                .containsExactlyInAnyOrder(archivedOne.getId(), archivedTwo.getId());
+
+        Page<AutomationSuite> page = automationSuiteRepository.findByProjectIdAndStatus(
+                firstProject.getId(), AutomationSuiteStatus.ARCHIVED,
+                PageRequest.of(0, 1, Sort.by("name")));
+        assertThat(page.getTotalElements()).isEqualTo(2);
+        assertThat(page.getTotalPages()).isEqualTo(2);
+        assertThat(page.getContent()).extracting(AutomationSuite::getName)
+                .containsExactly("Archived alpha");
     }
 
     private AutomationSuite newSuite(Project project, String name) {
