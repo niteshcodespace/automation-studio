@@ -49,7 +49,7 @@ public class Execution {
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "test_suite_id", nullable = false)
-    private TestSuite testSuite;
+    private AutomationSuite automationSuite;
 
     @NotNull
     @Enumerated(EnumType.STRING)
