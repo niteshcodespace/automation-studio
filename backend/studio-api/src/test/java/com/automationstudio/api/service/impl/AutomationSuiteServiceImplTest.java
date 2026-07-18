@@ -143,10 +143,12 @@ class AutomationSuiteServiceImplTest {
     void listWithoutStatusUsesUnfilteredMethodAndPreservesPageable() {
         Pageable pageable = PageRequest.of(2, 25);
         Page<AutomationSuite> expected = new PageImpl<>(java.util.List.of(persistedSuite()));
+        when(projectRepository.existsById(PROJECT_ID)).thenReturn(true);
         when(automationSuiteRepository.findByProjectId(PROJECT_ID, pageable))
                 .thenReturn(expected);
 
         assertThat(automationSuiteService.list(PROJECT_ID, null, pageable)).isSameAs(expected);
+        verify(projectRepository).existsById(PROJECT_ID);
         verify(automationSuiteRepository).findByProjectId(PROJECT_ID, pageable);
         verify(automationSuiteRepository, never())
                 .findByProjectIdAndStatus(any(), any(), any());
@@ -156,14 +158,29 @@ class AutomationSuiteServiceImplTest {
     void listWithStatusUsesFilteredMethodAndPreservesPageable() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<AutomationSuite> expected = Page.empty(pageable);
+        when(projectRepository.existsById(PROJECT_ID)).thenReturn(true);
         when(automationSuiteRepository.findByProjectIdAndStatus(
                 PROJECT_ID, AutomationSuiteStatus.ARCHIVED, pageable)).thenReturn(expected);
 
         assertThat(automationSuiteService.list(
                 PROJECT_ID, AutomationSuiteStatus.ARCHIVED, pageable)).isSameAs(expected);
+        verify(projectRepository).existsById(PROJECT_ID);
         verify(automationSuiteRepository).findByProjectIdAndStatus(
                 PROJECT_ID, AutomationSuiteStatus.ARCHIVED, pageable);
         verify(automationSuiteRepository, never()).findByProjectId(any(), any(Pageable.class));
+    }
+
+    @Test
+    void listRejectsMissingProjectBeforeQueryingSuites() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(projectRepository.existsById(PROJECT_ID)).thenReturn(false);
+
+        assertThatExceptionOfType(ResourceNotFoundException.class)
+                .isThrownBy(() -> automationSuiteService.list(PROJECT_ID, null, pageable))
+                .withMessage("Project not found with id: " + PROJECT_ID);
+
+        verify(projectRepository).existsById(PROJECT_ID);
+        verifyNoInteractions(automationSuiteRepository);
     }
 
     @Test

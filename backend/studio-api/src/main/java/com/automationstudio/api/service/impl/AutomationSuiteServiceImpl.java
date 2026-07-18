@@ -56,6 +56,10 @@ public class AutomationSuiteServiceImpl implements AutomationSuiteService {
     @Transactional(readOnly = true)
     public Page<AutomationSuite> list(
             UUID projectId, AutomationSuiteStatus status, Pageable pageable) {
+        if (!projectRepository.existsById(projectId)) {
+            throw new ResourceNotFoundException(
+                    "Project not found with id: " + projectId);
+        }
         if (status == null) {
             return automationSuiteRepository.findByProjectId(projectId, pageable);
         }
