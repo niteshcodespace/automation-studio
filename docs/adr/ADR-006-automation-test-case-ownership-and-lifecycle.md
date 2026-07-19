@@ -213,3 +213,33 @@ transaction completion.
   platform error-contract work.
 - Very large suites may require bounded reorder requests or an alternative sortable-key design.
 - Authentication and authorization must eventually apply the same complete ownership hierarchy.
+
+## Implementation Outcome Amendment (2026-07-19)
+
+AS-016A through AS-016F delivered the ownership and lifecycle decision above without changing its
+architectural direction. This amendment records the implementation outcome without rewriting the
+accepted decision history.
+
+`AutomationTestCase` is independently persisted in the physical `automation_test_case` table,
+independently versioned, and mandatorily owned by one `AutomationSuite` through the transitional
+`test_suite_id` foreign key. The foreign key references `test_suite(id)` with `ON DELETE RESTRICT`.
+`AutomationSuite` has no reverse mutable case collection. Java and REST operations enforce the
+complete Project-to-Suite-to-Case scope. Cases inherit the suite's engine identity and store no
+case-level `engineId` or `engineType`; `suiteReference` identifies the native container and
+`caseReference` identifies a native test within it. The delivered model remains reference-only.
+
+Cases use explicit deterministic integer positions. Suite-position uniqueness is
+`DEFERRABLE INITIALLY DEFERRED`. Create, case delete, complete-set reorder, protected suite update,
+and suite delete use the Project-scoped suite-first pessimistic lock order. Reorder locks current
+case rows deterministically, requires complete membership exactly once, assigns positions from
+zero, and commits atomically. Any case status blocks suite deletion and changes to `engineId`,
+`engineType`, or `suiteReference`; unchanged protected values and non-engine metadata updates
+remain permitted.
+
+Physical case deletion remains the delivered behavior because Execution has no case relationship.
+Every case must be physically deleted before suite deletion. Existing Execution references may
+still independently block suite deletion through the database; application translation of that
+conflict remains deferred. Shared optimistic-lock translation, Execution-to-TestCase
+relationships, immutable execution snapshots, archival enforcement after execution history,
+runner behavior, scheduling, structured definitions, engine-specific validation, and the Engine
+Registry also remain deferred. No engine enum or Engine Registry was introduced.

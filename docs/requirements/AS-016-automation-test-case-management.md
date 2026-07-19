@@ -1,8 +1,10 @@
 # AS-016: Automation Test Case Management Software Requirements Specification
 
-## 1. Overview and Goals
+## 1. Status and Purpose
 
-AS-016 defines Project- and Automation-Suite-scoped management of engine-native automation test
+**Status:** Implemented; documentation reconciled with the delivered contract on 2026-07-19.
+
+AS-016 delivers Project- and Automation-Suite-scoped management of engine-native automation test
 cases. An Automation Test Case identifies one native test inside the native suite or container
 identified by its owning Automation Suite.
 
@@ -10,11 +12,12 @@ The goals are to provide independently versioned case CRUD, engine-neutral refer
 explicit lifecycle management, deterministic ordering, safe concurrent reordering, and deletion
 rules that protect suite contents and future execution history.
 
-This specification implements the durable decisions in
+This document is the as-built contract for AS-016A through AS-016F. The implementation follows
+the durable decisions in
 [ADR-006](../adr/ADR-006-automation-test-case-ownership-and-lifecycle.md) and preserves the string
 engine-identity strategy and transitional persistence boundary documented by ADR-005 and AS-015.
 
-## 2. Current Repository Baseline
+## 2. Implementation Baseline and Outcome
 
 The AS-016 branch starts from merge commit `cde007b`, where AS-015 is complete and its full Maven
 suite has 116 passing tests. The current baseline provides:
@@ -31,8 +34,10 @@ suite has 116 passing tests. The current baseline provides:
 - `ApiErrorResponse` for standard API errors.
 - PostgreSQL Testcontainers foundations and full REST integration tests.
 
-No Automation Test Case table, entity, repository, service, API, or Execution relationship exists
-at this baseline.
+AS-016 preserves that baseline and adds the test-case migration, domain, repository, service,
+mapper, DTOs, nested REST API, suite safeguards, and PostgreSQL verification. Execution remains
+unchanged and still has no relationship to an individual test case. Production code follows the
+repository's existing layer-first package structure.
 
 ## 3. Scope
 
@@ -174,6 +179,10 @@ platform does not verify their native syntax or existence during AS-016.
 PUT may change `name`, `description`, `caseReference`, and `configuration`. It cannot change
 status, position, ownership, version, identity, or timestamps.
 
+Create cannot control `id`, ownership, position, version, or timestamps. PUT cannot control
+identity, ownership, status, position, version, or timestamps; unknown raw server fields are
+ignored at the DTO boundary.
+
 ## 9. Validation and Normalization
 
 | Input | Rule |
@@ -187,6 +196,7 @@ status, position, ownership, version, identity, or timestamps.
 | `configuration` | Optional JSON object; other top-level JSON types are invalid. |
 | `status` on create | Optional; defaults to `ACTIVE`. |
 | `status` on PATCH | Required supported value. |
+| `caseIds` on reorder | Required collection of non-null UUID elements. |
 | `position` | Server-controlled and nonnegative. |
 | `version` | Server-controlled and nonnegative. |
 
@@ -217,7 +227,7 @@ cases.
 
 ## 11. Suite Engine-Field Protection
 
-If a suite contains one or more cases in any status, suite PUT must reject changes to:
+If a suite contains one or more cases in any status, suite PUT rejects changes to:
 
 - `engineId`
 - Transitional `engineType`
@@ -240,10 +250,10 @@ The smallest implementation extends the test-case repository with an existence q
 from `AutomationSuiteServiceImpl` only when an engine-defining value differs. No mutable case
 collection is added to the suite.
 
-Tests must cover each protected field, unchanged protected values, allowed metadata updates,
-archived cases, no-case suites, ownership isolation, and absence of partial updates after a
-conflict. PostgreSQL concurrency tests must prove that case creation racing with a protected suite
-update serializes on the suite lock and cannot produce a case attached to a newly changed engine
+Tests cover each protected field, unchanged protected values, allowed metadata updates, archived
+cases, no-case suites, ownership isolation, and absence of partial updates after a conflict.
+PostgreSQL service integration verifies that case creation racing with a protected suite update
+serializes on the suite lock and cannot produce a case attached to a newly changed engine
 definition.
 
 ## 12. Suite and Test-Case Deletion Behavior
@@ -326,8 +336,11 @@ The `(test_suite_id, position)` unique constraint is `DEFERRABLE INITIALLY DEFER
 swaps do not fail at an intermediate update. Validation or constraint failure rolls back the
 complete transaction; partial reorder is forbidden.
 
-Concurrent integration tests must cover reorder versus reorder, concurrent creates, create versus
-reorder, delete versus reorder, swaps, complete reversal, invalid ID sets, and rollback.
+Service and PostgreSQL integration tests cover concurrent creates, suite-lock contention with
+protected suite update and suite deletion, swaps, complete reversal, invalid ID sets, and rollback.
+Exact PostgreSQL PID lock-wait behavior is verified at the service integration layer. HTTP
+integration verifies concurrent creates and final database invariants without claiming exact
+HTTP-boundary lock observation. A concurrent HTTP reorder scenario is deferred.
 
 ## 14. REST API
 
@@ -348,8 +361,9 @@ Base path:
 | PUT | `/order` | 200 | Atomically reorder all suite cases. |
 
 List accepts Spring pagination and sorting parameters and an optional `status` filter. With no
-client sort, it uses position ascending and ID ascending. As in AS-015, direct Spring `Page`
-serialization may be used initially; a stable custom envelope remains deferred.
+client sort, it uses position ascending and ID ascending. Explicit caller sorting replaces those
+defaults. The delivered response is Spring's directly serialized root-level `Page` JSON; this is
+a known stability risk, and a stable custom envelope remains deferred.
 
 The reorder response returns the complete ordered case list rather than a partial page.
 
@@ -555,18 +569,16 @@ CREATE TABLE automation_test_case (
 );
 ```
 
-Recommended indexes support ownership lookup, status filtering, and default ordering:
+V8 adds the one justified non-unique index used for suite/status filtering:
 
 ```sql
-CREATE INDEX idx_automation_test_case_test_suite_id
-    ON automation_test_case (test_suite_id);
-
 CREATE INDEX idx_automation_test_case_suite_status
     ON automation_test_case (test_suite_id, status);
-
-CREATE INDEX idx_automation_test_case_suite_position
-    ON automation_test_case (test_suite_id, position, id);
 ```
+
+No separate ownership or position index is added. The suite-leading unique constraints already
+provide indexes for ownership/name, ownership/reference, and ownership/position access, so the
+proposed duplicates were omitted.
 
 The physical `test_suite_id` name is transitional. Java and API contracts use
 `AutomationSuite` and `automationSuiteId`.
@@ -604,84 +616,82 @@ Future foreign keys must use `ON DELETE RESTRICT`. Once execution history refere
 physical deletion must be rejected and archival becomes the retention path. Historical results
 must not depend solely on mutable current suite or case rows.
 
-## 20. Testing Strategy
+## 20. Delivered Verification
 
-| Layer | Required coverage |
+| Layer | Delivered coverage |
 |---|---|
 | Service unit tests | Ownership, normalization, uniqueness, status, append position, deletion, reorder validation, suite deletion guard, and engine-field guard. |
 | Mapper tests | Real generated MapStruct mappings, ignored server fields, ownership mapping, and defensive configuration copying. |
 | Controller MVC tests | Nested routes, DTO validation, pagination, sorting, status filtering, reorder, status changes, HTTP codes, and error shape. |
 | Repository integration tests | Hierarchical scoping, uniqueness, JSONB, optimistic versioning, locking queries, deterministic order, and restrictive deletion. |
 | Migration integration tests | Exact schema, existing AS-015 data preservation, check constraints, foreign keys, and deferrable uniqueness. |
-| Concurrency integration tests | Concurrent creates, reorder versus reorder, create/delete versus reorder, position swaps, rollback, and final ordering invariants. |
-| REST integration tests | Full Spring Boot, Flyway, MockMvc, and PostgreSQL CRUD, isolation, conflicts, ordering, configuration, exact reorder responses, and validation. |
+| Suite-service regression tests | Existing AS-015 behavior plus case-related deletion and protected-engine-field guards. |
+| Exception-handler tests | Stable 400 and 409 mappings with the shared safe `ApiErrorResponse`. |
+| Concurrency integration tests | Deterministic PostgreSQL PID lock contention, concurrent creates, case creation versus protected suite update or suite deletion, swaps, rollback, and final invariants. |
+| REST integration tests | Full Spring Boot, Flyway, MockMvc, and PostgreSQL CRUD, isolation, conflicts, ordering, configuration, exact reorder responses, validation, and concurrent HTTP creates. |
 
 PostgreSQL Testcontainers is required for persistence, migration, locking, constraint, and full
-REST integration tests. In-memory database behavior is not an acceptable substitute. All 116
-baseline tests must continue to pass.
+REST integration tests. In-memory database behavior is not an acceptable substitute. The AS-016F
+HTTP-to-PostgreSQL integration class contains 17 tests. The last known complete Maven result is
+272 tests passed with no failures, errors, or skips; these counts record a verification run and are
+not part of the permanent API contract.
 
-MVC and full PostgreSQL REST integration tests must verify the reorder JSON-array response type,
+MVC and full PostgreSQL REST integration tests verify the reorder JSON-array response type,
 committed response order, valid empty-suite reorder, rejected empty request for a nonempty suite,
-and absence of partial responses after failure. PostgreSQL concurrency tests must also verify that
+and absence of partial responses after failure. PostgreSQL concurrency tests also verify that
 case creation racing with protected suite update or suite deletion serializes safely and cannot
 violate ownership or inherited-engine integrity.
 
-Test cleanup must delete test cases before executions and suites, then projects and workspaces, in
+Test cleanup deletes test cases before executions and suites, then projects and workspaces, in
 foreign-key-safe order.
 
 ## 21. Acceptance Criteria
 
-- [ ] Create a case under an existing Project-owned suite and return 201 with server-owned fields.
-- [ ] Require a trimmed, nonblank name with a maximum length of 150.
-- [ ] Require a trimmed, nonblank case reference with a maximum length of 300.
-- [ ] Store no case-level `engineId` or `engineType` and introduce no engine enum.
-- [ ] Preserve the distinct suite-container and native-case reference semantics.
-- [ ] Store optional configuration as a JSON object without engine-specific interpretation.
-- [ ] Default omitted create status to `ACTIVE`.
-- [ ] Reject missing or cross-Project suites with 404.
-- [ ] Reject missing or cross-suite cases with 404.
-- [ ] Enforce case-sensitive suite-scoped name uniqueness.
-- [ ] Enforce case-sensitive suite-scoped case-reference uniqueness.
-- [ ] Permit the same names and references in different suites.
-- [ ] List cases with pagination, sorting, optional status filtering, and deterministic default order.
-- [ ] Append new cases at a concurrency-safe maximum position plus one.
-- [ ] Permit gaps after deletion.
-- [ ] Update mutable metadata without changing ownership, status, position, version, identity, or timestamps.
-- [ ] Change status only through PATCH and support ACTIVE, INACTIVE, and ARCHIVED.
-- [ ] Increment the internal JPA version after successful updates.
-- [ ] Do not claim stable 409 translation for optimistic-lock failures.
-- [ ] Reorder the complete current case-ID set atomically.
-- [ ] Return HTTP 200 and a non-paginated JSON array of `AutomationTestCaseResponse` in committed position order after reorder.
-- [ ] Return the complete suite membership and never a partial reorder response.
-- [ ] Accept an empty case-ID list for an empty suite and return `[]`.
-- [ ] Reject an empty case-ID list for a nonempty suite with 400 and preserve the existing order.
-- [ ] Support swaps using PostgreSQL-safe deferred position uniqueness.
-- [ ] Reject incomplete, duplicate, extra, cross-suite, and cross-Project reorder IDs.
-- [ ] Roll back every reorder change on validation or constraint failure.
-- [ ] Serialize case create, delete, and reorder through the same suite lock.
-- [ ] Physically delete a case and return 204 while no Execution references cases.
-- [ ] Block suite deletion with 409 whenever any case exists, including an archived case.
-- [ ] Require physical deletion of every case before suite deletion.
-- [ ] Block changes to `engineId`, `engineType`, or `suiteReference` while any case exists.
-- [ ] Allow unchanged engine values and other AS-015 suite metadata updates while cases exist.
-- [ ] Use the Project-scoped suite lock before suite deletion and protected suite update checks.
-- [ ] Prove concurrent case creation and protected suite update cannot commit an incompatible case and engine definition.
-- [ ] Prove concurrent case creation and suite deletion serialize without an inserted orphan or untranslated case conflict.
-- [ ] Do not claim translation of suite deletion conflicts caused by existing Execution records.
-- [ ] Preserve transitional `test_suite` and `test_suite_id` physical names.
-- [ ] Leave Execution schema and behavior unchanged.
-- [ ] Verify schema, locking, concurrency, isolation, and REST behavior with PostgreSQL Testcontainers.
-- [ ] Keep structured definitions, step builders, AI generation, and engine translation deferred.
-- [ ] Keep every existing AS-015 test passing.
+- [x] CRUD and status endpoints enforce the complete Project-to-Suite-to-Case scope and return the
+  documented success statuses with server-owned identity, ownership, position, version, and audit
+  fields isolated from requests.
+- [x] Names and case references are trimmed, nonblank, length-bounded, case-sensitive, and unique
+  within a suite while the same values remain valid in different suites.
+- [x] Optional description and JSON-object configuration persist without engine interpretation;
+  create status defaults to `ACTIVE`, and PATCH supports `ACTIVE`, `INACTIVE`, and `ARCHIVED`.
+- [x] Cases inherit suite engine identity, distinguish `suiteReference` from `caseReference`, and
+  introduce no case-level engine fields, engine enum, or Engine Registry.
+- [x] Listing provides Spring pagination, caller sorting, optional status filtering, and default
+  `position ASC, id ASC` ordering using the current root-level Spring Page representation.
+- [x] Create appends at the locked suite maximum plus one, detects integer exhaustion, and permits
+  deletion gaps.
+- [x] PUT changes only mutable metadata; PATCH changes status; successful writes retain JPA
+  versioning without claiming stable optimistic-lock API translation.
+- [x] Reorder requires complete membership exactly once, rejects null, duplicate, missing, extra,
+  foreign, and invalid IDs, supports an empty suite, assigns positions from zero, returns the raw
+  committed array, and rolls back completely on failure.
+- [x] PostgreSQL deferrable position uniqueness permits atomic swaps, and the Project-scoped
+  suite-first lock protocol serializes create, delete, reorder, protected suite update, and suite
+  deletion.
+- [x] Cases are physically deleted while Execution has no case relationship; every case status
+  blocks suite deletion and changes to `engineId`, `engineType`, or `suiteReference`.
+- [x] Unchanged protected fields and non-engine suite metadata remain editable while cases exist.
+- [x] Deterministic PostgreSQL contention tests prove safe create-versus-protected-update and
+  create-versus-suite-delete outcomes without orphaning or engine reinterpretation.
+- [x] V8 preserves transitional `test_suite` and `test_suite_id` names, existing suites and
+  executions, and restrictive ownership while requiring no data backfill.
+- [x] Standard safe errors, migration, repository, service, mapper, MVC, HTTP-to-PostgreSQL, suite
+  regression, and concurrent HTTP create behavior are verified with PostgreSQL 16 Testcontainers.
+- [x] Existing Execution-reference deletion and optimistic-lock translations remain explicitly
+  deferred, along with structured definitions, runner, scheduling, AI, frontend, and security work.
 
 ## 22. AS-016B-G Implementation Phases
+
+AS-016B through AS-016F are complete. The bullets below record the delivered layer sequence; G is
+the documentation reconciliation and complete-branch review.
 
 ### AS-016B: Database migration and migration tests
 
 - Create `automation_test_case` with the approved fields.
 - Add ownership, name, reference, position, JSON, status, and version constraints.
 - Make suite-position uniqueness deferrable and initially deferred.
-- Add ownership, status, and ordering indexes.
+- Add the minimal suite/status non-unique index while relying on suite-leading unique-constraint
+  indexes for ownership, name, reference, and position access.
 - Test the migration against empty and populated AS-015 schemas.
 - Prove existing suite and Execution compatibility and restrictive suite deletion.
 
@@ -725,7 +735,7 @@ foreign-key-safe order.
 - Exercise the complete HTTP-to-PostgreSQL path.
 - Cover CRUD, isolation, uniqueness, configuration, lifecycle, ordering, and physical deletion.
 - Cover suite deletion and engine-field conflicts without partial mutations.
-- Cover concurrent create, delete, and reorder operations.
+- Cover concurrent HTTP creates and verify final database identities and positions.
 - Cover case creation racing with protected suite update and suite deletion.
 - Verify exact reorder response type, committed ordering, empty-suite behavior, and no partial response.
 - Verify cleanup order and run the complete Maven suite.
@@ -752,10 +762,10 @@ foreign-key-safe order.
 - Case-level Execution, result, and immutable snapshot design.
 - Physical deletion restrictions after execution history references cases.
 - Very large suite reorder limits or alternative ranking strategies.
-- INTEGER position exhaustion is theoretically possible; AS-016B must validate the position type
-  and overflow handling before finalizing the migration.
-- Proposed indexes may overlap indexes created by unique constraints; AS-016B must select the
-  minimal final index set using actual repository queries and PostgreSQL query plans.
+- Concurrent HTTP reorder coverage; service-layer atomicity, deterministic case locking, rollback,
+  and PostgreSQL suite-lock contention are already verified.
+- Maximum suite-size and reorder performance policy. INTEGER position exhaustion is detected and
+  returned as a conflict; an alternative position strategy remains future work if scale requires it.
 - Bulk import, export, cloning, and moving cases between suites.
 - Authentication and authorization.
 - Physical renaming of `test_suite` and related foreign keys.
@@ -781,6 +791,7 @@ foreign-key-safe order.
   Execution-reference conflict translation.
 - Unit, MVC, mapper, migration, repository, concurrency, and full PostgreSQL REST integration tests
   pass.
-- The existing 116-test baseline remains passing.
+- The complete Maven suite last known result for AS-016G is 272 tests passing with no failures,
+  errors, or skips.
 - Documentation matches the implemented contract and the final branch review finds no unrelated
   changes.
