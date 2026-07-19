@@ -189,3 +189,31 @@ symmetry.
   implementation work and are not delivered by this ADR.
 - Future automation entities should follow the same platform-owned naming and feature boundary
   unless superseded by another accepted ADR.
+
+## Implementation Outcome Amendment (2026-07-19)
+
+AS-015 retained the architectural naming and migration direction in this ADR, but its delivered
+contract differs from two original decisions. This amendment records the outcome without rewriting
+the decision history above.
+
+### Source organization
+
+AS-015 production code follows the repository's existing layer-first packages under
+`com.automationstudio.api`: controller, domain, DTO, entity, mapper, repository, and service.
+The proposed `com.automationstudio.api.automation.suite` feature-first root was not introduced.
+Reorganizing packages is deferred to separate work so that a structural migration can be planned
+and reviewed independently.
+
+### Transitional engine contract
+
+The delivered API preserves the existing required `engineType` and `suiteReference` fields while
+adding an optional string `engineId`. The original decision described `engineId` as required; the
+implementation keeps it nullable during the compatibility period because legacy rows and clients
+still use the transitional fields. `engineId` remains an opaque string with a maximum length of
+100. No engine enum or Engine Registry was introduced. Registry ownership, availability checks,
+and engine-specific configuration validation remain future work.
+
+All other migration boundaries remain in force: `AutomationSuite` is the Java/API term for the
+single logical aggregate, the PostgreSQL table remains `test_suite`, and executions continue to
+use the physical `execution.test_suite_id` foreign-key column. Physical database renaming remains
+a later compatibility-gated change.
