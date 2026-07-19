@@ -1,6 +1,6 @@
 package com.automationstudio.api.domain;
 
-public enum TestSuiteStatus {
+public enum AutomationSuiteStatus {
     ACTIVE,
     INACTIVE,
     ARCHIVED
