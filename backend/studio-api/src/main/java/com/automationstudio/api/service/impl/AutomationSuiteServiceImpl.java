@@ -4,8 +4,10 @@ import com.automationstudio.api.domain.AutomationSuiteStatus;
 import com.automationstudio.api.entity.AutomationSuite;
 import com.automationstudio.api.entity.Project;
 import com.automationstudio.api.exception.DuplicateResourceException;
+import com.automationstudio.api.exception.ResourceConflictException;
 import com.automationstudio.api.exception.ResourceNotFoundException;
 import com.automationstudio.api.repository.AutomationSuiteRepository;
+import com.automationstudio.api.repository.AutomationTestCaseRepository;
 import com.automationstudio.api.repository.ProjectRepository;
 import com.automationstudio.api.service.AutomationSuiteService;
 import java.util.Objects;
@@ -20,12 +22,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class AutomationSuiteServiceImpl implements AutomationSuiteService {
 
     private final AutomationSuiteRepository automationSuiteRepository;
+    private final AutomationTestCaseRepository testCaseRepository;
     private final ProjectRepository projectRepository;
 
     public AutomationSuiteServiceImpl(
             AutomationSuiteRepository automationSuiteRepository,
+            AutomationTestCaseRepository testCaseRepository,
             ProjectRepository projectRepository) {
         this.automationSuiteRepository = automationSuiteRepository;
+        this.testCaseRepository = testCaseRepository;
         this.projectRepository = projectRepository;
     }
 
@@ -69,8 +74,18 @@ public class AutomationSuiteServiceImpl implements AutomationSuiteService {
     @Override
     public AutomationSuite update(
             UUID projectId, UUID suiteId, AutomationSuite updates) {
-        AutomationSuite suite = findSuite(projectId, suiteId);
+        verifyProject(projectId);
+        AutomationSuite suite = lockSuite(projectId, suiteId);
         String normalizedName = updates.getName().trim();
+        boolean protectedFieldChanged = !Objects.equals(
+                suite.getEngineId(), updates.getEngineId())
+                || !Objects.equals(suite.getEngineType(), updates.getEngineType())
+                || !Objects.equals(suite.getSuiteReference(), updates.getSuiteReference());
+        if (protectedFieldChanged && testCaseRepository.existsByAutomationSuiteId(suiteId)) {
+            throw new ResourceConflictException(
+                    "Automation suite engine fields cannot change while test cases exist: "
+                            + suiteId);
+        }
         if (!normalizedName.equals(suite.getName().trim())) {
             rejectDuplicateName(projectId, normalizedName);
         }
@@ -96,7 +111,13 @@ public class AutomationSuiteServiceImpl implements AutomationSuiteService {
 
     @Override
     public void delete(UUID projectId, UUID suiteId) {
-        automationSuiteRepository.delete(findSuite(projectId, suiteId));
+        verifyProject(projectId);
+        AutomationSuite suite = lockSuite(projectId, suiteId);
+        if (testCaseRepository.existsByAutomationSuiteId(suiteId)) {
+            throw new ResourceConflictException(
+                    "Automation suite cannot be deleted while test cases exist: " + suiteId);
+        }
+        automationSuiteRepository.delete(suite);
     }
 
     private AutomationSuite findSuite(UUID projectId, UUID suiteId) {
@@ -104,6 +125,19 @@ public class AutomationSuiteServiceImpl implements AutomationSuiteService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Automation suite not found with id: " + suiteId
                                 + " in project: " + projectId));
+    }
+
+    private AutomationSuite lockSuite(UUID projectId, UUID suiteId) {
+        return automationSuiteRepository.findByProjectIdAndIdForUpdate(projectId, suiteId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Automation suite not found with id: " + suiteId
+                                + " in project: " + projectId));
+    }
+
+    private void verifyProject(UUID projectId) {
+        if (!projectRepository.existsById(projectId)) {
+            throw new ResourceNotFoundException("Project not found with id: " + projectId);
+        }
     }
 
     private void rejectDuplicateName(UUID projectId, String name) {

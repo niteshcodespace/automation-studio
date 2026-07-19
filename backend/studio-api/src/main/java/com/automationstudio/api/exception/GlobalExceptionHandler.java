@@ -48,6 +48,26 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 request.getRequestURI());
     }
 
+    @ExceptionHandler(ResourceConflictException.class)
+    public ResponseEntity<Object> handleResourceConflictException(
+            ResourceConflictException exception,
+            HttpServletRequest request) {
+        return buildErrorResponse(
+                HttpStatus.CONFLICT,
+                exception.getMessage(),
+                request.getRequestURI());
+    }
+
+    @ExceptionHandler(InvalidRequestException.class)
+    public ResponseEntity<Object> handleInvalidRequestException(
+            InvalidRequestException exception,
+            HttpServletRequest request) {
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                exception.getMessage(),
+                request.getRequestURI());
+    }
+
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException exception,
