@@ -14,8 +14,10 @@ import com.automationstudio.api.domain.SuiteType;
 import com.automationstudio.api.entity.AutomationSuite;
 import com.automationstudio.api.entity.Project;
 import com.automationstudio.api.exception.DuplicateResourceException;
+import com.automationstudio.api.exception.ResourceConflictException;
 import com.automationstudio.api.exception.ResourceNotFoundException;
 import com.automationstudio.api.repository.AutomationSuiteRepository;
+import com.automationstudio.api.repository.AutomationTestCaseRepository;
 import com.automationstudio.api.repository.ProjectRepository;
 import java.time.OffsetDateTime;
 import java.util.Map;
@@ -25,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -45,6 +48,9 @@ class AutomationSuiteServiceImplTest {
 
     @Mock
     private AutomationSuiteRepository automationSuiteRepository;
+
+    @Mock
+    private AutomationTestCaseRepository testCaseRepository;
 
     @Mock
     private ProjectRepository projectRepository;
@@ -205,7 +211,8 @@ class AutomationSuiteServiceImplTest {
         long originalVersion = existing.getVersion();
         OffsetDateTime originalCreatedAt = existing.getCreatedAt();
         OffsetDateTime originalUpdatedAt = existing.getUpdatedAt();
-        when(automationSuiteRepository.findByProjectIdAndId(PROJECT_ID, SUITE_ID))
+        when(projectRepository.existsById(PROJECT_ID)).thenReturn(true);
+        when(automationSuiteRepository.findByProjectIdAndIdForUpdate(PROJECT_ID, SUITE_ID))
                 .thenReturn(Optional.of(existing));
         when(automationSuiteRepository.existsByProjectIdAndName(
                 PROJECT_ID, "Updated suite")).thenReturn(false);
@@ -238,7 +245,8 @@ class AutomationSuiteServiceImplTest {
         updates.setEngineId(null);
         updates.setSuiteType(null);
         updates.setConfiguration(null);
-        when(automationSuiteRepository.findByProjectIdAndId(PROJECT_ID, SUITE_ID))
+        when(projectRepository.existsById(PROJECT_ID)).thenReturn(true);
+        when(automationSuiteRepository.findByProjectIdAndIdForUpdate(PROJECT_ID, SUITE_ID))
                 .thenReturn(Optional.of(existing));
         when(automationSuiteRepository.save(existing)).thenReturn(existing);
 
@@ -254,7 +262,8 @@ class AutomationSuiteServiceImplTest {
     void updateRejectsConflictingRename() {
         AutomationSuite existing = persistedSuite();
         AutomationSuite updates = suite("Conflicting suite");
-        when(automationSuiteRepository.findByProjectIdAndId(PROJECT_ID, SUITE_ID))
+        when(projectRepository.existsById(PROJECT_ID)).thenReturn(true);
+        when(automationSuiteRepository.findByProjectIdAndIdForUpdate(PROJECT_ID, SUITE_ID))
                 .thenReturn(Optional.of(existing));
         when(automationSuiteRepository.existsByProjectIdAndName(
                 PROJECT_ID, "Conflicting suite")).thenReturn(true);
@@ -266,12 +275,71 @@ class AutomationSuiteServiceImplTest {
 
     @Test
     void updateRejectsMissingSuite() {
-        when(automationSuiteRepository.findByProjectIdAndId(PROJECT_ID, SUITE_ID))
+        when(projectRepository.existsById(PROJECT_ID)).thenReturn(true);
+        when(automationSuiteRepository.findByProjectIdAndIdForUpdate(PROJECT_ID, SUITE_ID))
                 .thenReturn(Optional.empty());
 
         assertMissingSuite(() -> automationSuiteService.update(
                 PROJECT_ID, SUITE_ID, suite("Updated suite")), PROJECT_ID);
         verify(automationSuiteRepository, never()).save(any());
+    }
+
+    @Test
+    void updateRejectsProtectedEngineChangeWhenAnyCaseExistsBeforeMutation() {
+        AutomationSuite existing = persistedSuite();
+        AutomationSuite updates = suite("Renamed suite");
+        updates.setEngineId("new-engine");
+        when(projectRepository.existsById(PROJECT_ID)).thenReturn(true);
+        when(automationSuiteRepository.findByProjectIdAndIdForUpdate(PROJECT_ID, SUITE_ID))
+                .thenReturn(Optional.of(existing));
+        when(testCaseRepository.existsByAutomationSuiteId(SUITE_ID)).thenReturn(true);
+
+        assertThatExceptionOfType(ResourceConflictException.class)
+                .isThrownBy(() -> automationSuiteService.update(PROJECT_ID, SUITE_ID, updates));
+
+        assertThat(existing.getName()).isEqualTo("Checkout suite");
+        assertThat(existing.getEngineId()).isNull();
+        verify(automationSuiteRepository, never()).save(any());
+        verify(automationSuiteRepository, never()).existsByProjectIdAndName(any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"engineType", "suiteReference"})
+    void updateRejectsEveryTransitionalProtectedFieldWhenCasesExist(String field) {
+        AutomationSuite existing = persistedSuite();
+        AutomationSuite updates = suite("Checkout suite");
+        if (field.equals("engineType")) {
+            updates.setEngineType("SELENIUM");
+        } else {
+            updates.setSuiteReference("tests/changed");
+        }
+        when(projectRepository.existsById(PROJECT_ID)).thenReturn(true);
+        when(automationSuiteRepository.findByProjectIdAndIdForUpdate(PROJECT_ID, SUITE_ID))
+                .thenReturn(Optional.of(existing));
+        when(testCaseRepository.existsByAutomationSuiteId(SUITE_ID)).thenReturn(true);
+
+        assertThatExceptionOfType(ResourceConflictException.class)
+                .isThrownBy(() -> automationSuiteService.update(PROJECT_ID, SUITE_ID, updates));
+
+        verify(automationSuiteRepository, never()).save(any());
+    }
+
+    @Test
+    void updateWithUnchangedProtectedFieldsAllowsMetadataWithoutCaseQuery() {
+        AutomationSuite existing = persistedSuite();
+        AutomationSuite updates = suite("Updated metadata");
+        updates.setDescription("Allowed");
+        when(projectRepository.existsById(PROJECT_ID)).thenReturn(true);
+        when(automationSuiteRepository.findByProjectIdAndIdForUpdate(PROJECT_ID, SUITE_ID))
+                .thenReturn(Optional.of(existing));
+        when(automationSuiteRepository.existsByProjectIdAndName(
+                PROJECT_ID, "Updated metadata")).thenReturn(false);
+        when(automationSuiteRepository.save(existing)).thenReturn(existing);
+
+        AutomationSuite result = automationSuiteService.update(PROJECT_ID, SUITE_ID, updates);
+
+        assertThat(result.getDescription()).isEqualTo("Allowed");
+        verifyNoInteractions(testCaseRepository);
     }
 
     @ParameterizedTest
@@ -309,7 +377,8 @@ class AutomationSuiteServiceImplTest {
     @Test
     void deleteRemovesProjectOwnedSuite() {
         AutomationSuite suite = persistedSuite();
-        when(automationSuiteRepository.findByProjectIdAndId(PROJECT_ID, SUITE_ID))
+        when(projectRepository.existsById(PROJECT_ID)).thenReturn(true);
+        when(automationSuiteRepository.findByProjectIdAndIdForUpdate(PROJECT_ID, SUITE_ID))
                 .thenReturn(Optional.of(suite));
 
         automationSuiteService.delete(PROJECT_ID, SUITE_ID);
@@ -319,10 +388,25 @@ class AutomationSuiteServiceImplTest {
 
     @Test
     void deleteRejectsMissingSuiteWithoutCallingDelete() {
-        when(automationSuiteRepository.findByProjectIdAndId(PROJECT_ID, SUITE_ID))
+        when(projectRepository.existsById(PROJECT_ID)).thenReturn(true);
+        when(automationSuiteRepository.findByProjectIdAndIdForUpdate(PROJECT_ID, SUITE_ID))
                 .thenReturn(Optional.empty());
 
         assertMissingSuite(() -> automationSuiteService.delete(PROJECT_ID, SUITE_ID), PROJECT_ID);
+        verify(automationSuiteRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteRejectsAnyExistingCaseIncludingArchivedCases() {
+        AutomationSuite suite = persistedSuite();
+        when(projectRepository.existsById(PROJECT_ID)).thenReturn(true);
+        when(automationSuiteRepository.findByProjectIdAndIdForUpdate(PROJECT_ID, SUITE_ID))
+                .thenReturn(Optional.of(suite));
+        when(testCaseRepository.existsByAutomationSuiteId(SUITE_ID)).thenReturn(true);
+
+        assertThatExceptionOfType(ResourceConflictException.class)
+                .isThrownBy(() -> automationSuiteService.delete(PROJECT_ID, SUITE_ID));
+
         verify(automationSuiteRepository, never()).delete(any());
     }
 
