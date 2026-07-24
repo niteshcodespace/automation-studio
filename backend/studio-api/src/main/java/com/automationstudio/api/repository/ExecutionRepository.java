@@ -5,4 +5,6 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ExecutionRepository extends JpaRepository<Execution, UUID> {
+
+    boolean existsByProjectIdAndEnvironmentId(UUID projectId, UUID environmentId);
 }
