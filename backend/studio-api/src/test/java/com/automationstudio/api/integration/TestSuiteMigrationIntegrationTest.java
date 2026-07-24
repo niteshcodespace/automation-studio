@@ -219,8 +219,8 @@ class TestSuiteMigrationIntegrationTest extends IntegrationTestBase {
     private UUID insertEnvironment(UUID projectId) {
         UUID environmentId = UUID.randomUUID();
         jdbcTemplate.update("""
-                INSERT INTO environment (id, project_id, name, base_url, status)
-                VALUES (?, ?, 'Migration Test Environment', 'https://example.test', 'ACTIVE')
+                INSERT INTO environment (id, project_id, name, base_url, type, status)
+                VALUES (?, ?, 'Migration Test Environment', 'https://example.test', 'TEST', 'ACTIVE')
                 """, environmentId, projectId);
         return environmentId;
     }

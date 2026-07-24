@@ -486,8 +486,8 @@ class AutomationTestCaseMigrationIntegrationTest extends IntegrationTestBase {
     private UUID insertEnvironment(UUID projectId) {
         UUID environmentId = UUID.randomUUID();
         jdbcTemplate.update("""
-                INSERT INTO environment (id, project_id, name, base_url, status)
-                VALUES (?, ?, ?, 'https://example.test', 'ACTIVE')
+                INSERT INTO environment (id, project_id, name, base_url, type, status)
+                VALUES (?, ?, ?, 'https://example.test', 'TEST', 'ACTIVE')
                 """, environmentId, projectId, "AS-016B Environment " + environmentId);
         return environmentId;
     }
