@@ -22,4 +22,9 @@ public record CreateEnvironmentRequest(
         Map<String, Object> secretReferences,
         EnvironmentStatus status,
         Boolean isDefault) {
+
+    @Override
+    public String toString() {
+        return "CreateEnvironmentRequest[redacted]";
+    }
 }

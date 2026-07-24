@@ -19,4 +19,9 @@ public record UpdateEnvironmentRequest(
         EnvironmentType type,
         Map<String, Object> configuration,
         Map<String, Object> secretReferences) {
+
+    @Override
+    public String toString() {
+        return "UpdateEnvironmentRequest[redacted]";
+    }
 }
