@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -23,8 +23,8 @@ AS-017 evolves the singular existing `environment` table and `Environment` entit
 Project relationships, names, base URLs, timestamps, uniqueness, and Execution foreign keys are
 preserved. No parallel environment model or table is introduced.
 
-An additive Flyway migration after V8 will add description, type, configuration, secret
-references, default flag, and optimistic version; expand status to include ARCHIVED; and add the
+The additive V9 Flyway migration adds description, type, configuration, secret references,
+default flag, and optimistic version; expands status to include ARCHIVED; and adds the
 required checks and partial unique index. Applied migrations remain immutable.
 
 Every existing row is backfilled to `TEST`. The current portfolio-stage system has no
@@ -217,9 +217,11 @@ users may correct it through the delivered API. Migration tests must prove upgra
 the TEST backfill, JSON object checks, statuses, version constraints, the ACTIVE-default check,
 the partial index, and restrictive Execution deletion.
 
-AS-017C through AS-017F follow the staged plan in the SRS. AS-017G records the actual delivered
-outcome. This proposed ADR documents the design under review; it does not claim production code,
-migration, API, or tests are implemented.
+AS-017C through AS-017F delivered the staged persistence, service, REST, and PostgreSQL
+integration work in the SRS. AS-017G reconciled the delivered outcome. The request DTOs use
+constant redacted `toString()` values, with captured Spring MVC TRACE tests proving configuration
+and secret-reference canaries do not enter diagnostic logs. The decision is accepted based on the
+implemented migration, API, transaction rules, and 374-test verification suite.
 
 ## Acceptance Criteria
 

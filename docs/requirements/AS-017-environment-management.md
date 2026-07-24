@@ -2,15 +2,15 @@
 
 ## 1. Status and Purpose
 
-**Status:** AS-017A design complete; implementation is not started.
+**Status:** Implemented and verified through AS-017G.
 
 AS-017 defines Project-scoped management of target environments. A future execution will select
 an Environment containing a base URL, non-secret runtime configuration, and references to secrets
 that only the runner may resolve during a scoped execution.
 
-This document is the requirements baseline for AS-017B through AS-017G. It evolves the existing
-`environment` table, `Environment` entity, `EnvironmentStatus`, and `EnvironmentRepository`; it
-does not define a second environment aggregate.
+This document is the reconciled requirements record for AS-017A through AS-017G. It evolves the
+existing `environment` table, `Environment` entity, `EnvironmentStatus`, and
+`EnvironmentRepository`; it does not define a second environment aggregate.
 
 ## 2. Existing Baseline and Reconciliation
 
@@ -31,10 +31,10 @@ V2 also provides `uk_environment_project_name`, `idx_environment_project_id`, an
 
 The current Java `Environment` maps those fields with a lazy required Project association,
 string enum status, generated UUID, validation annotations, and Hibernate audit timestamps.
-`EnvironmentStatus` currently contains ACTIVE and INACTIVE. `EnvironmentRepository` currently
-extends `JpaRepository` without Project-scoped queries. AS-017C must evolve these types in place.
+Before AS-017, `EnvironmentStatus` contained ACTIVE and INACTIVE and `EnvironmentRepository`
+extended `JpaRepository` without Project-scoped queries. AS-017C evolved these types in place.
 
-AS-017B must add, but AS-017A does not implement:
+AS-017B added:
 
 | New column | Planned PostgreSQL contract |
 |---|---|
@@ -45,20 +45,20 @@ AS-017B must add, but AS-017A does not implement:
 | `is_default` | `BOOLEAN NOT NULL DEFAULT FALSE`. |
 | `version` | `BIGINT NOT NULL DEFAULT 0`; nonnegative. |
 
-The migration must backfill every existing Environment row to `TEST` before making `type`
+The migration backfills every existing Environment row to `TEST` before making `type`
 mandatory. The current portfolio-stage system has no authoritative persisted classification
 mapping, so this explicit compatibility value provides a deterministic, upgrade-safe result.
 Users may correct classifications through the API after AS-017 is delivered. Existing rows also
 receive empty JSON objects, false default flags, and version zero.
 
-The migration must enforce that only ACTIVE Environments may be default:
+The migration enforces that only ACTIVE Environments may be default:
 
 ```sql
 CONSTRAINT chk_environment_default_active
     CHECK (is_default = FALSE OR status = 'ACTIVE')
 ```
 
-It must also add the partial unique index:
+It also adds the partial unique index:
 
 ```sql
 CREATE UNIQUE INDEX uk_environment_project_default
@@ -319,7 +319,7 @@ concurrent requests bypass a service pre-check.
 
 ## 14. Persistence and Delete Behaviour
 
-AS-017B must use the next Flyway version after V8 and alter the existing table additively. It must
+AS-017B uses V9 after V8 and alters the existing table additively. It
 preserve all existing Environment UUIDs, Project relationships, names, base URLs, timestamps,
 Execution rows, and the `ON DELETE RESTRICT` execution foreign key. It must not edit an applied
 migration.
@@ -349,14 +349,14 @@ references where policy permits, but never resolved values.
   deletion conflict, and optimistic-lock 409 behavior are defined.
 - [x] AS-017B through AS-017G have a staged plan.
 - [x] Out-of-scope work is explicit.
-- [ ] AS-017B through AS-017F implementation and tests are delivered.
-- [ ] AS-017G reconciles these documents with the implemented contract.
+- [x] AS-017B through AS-017F implementation and tests are delivered.
+- [x] AS-017G reconciles these documents with the implemented contract.
 
 ## 16. Staged Implementation Plan
 
 ### AS-017B: Database migration and migration tests
 
-- Alter the existing `environment` table; do not create a duplicate.
+- Completed: altered the existing `environment` table without creating a duplicate.
 - Add description, type, configuration, secret references, default flag, and version.
 - Backfill every legacy type to TEST, expand the status check, add JSON/version checks, add
   `chk_environment_default_active`, and add the partial default index.
@@ -366,7 +366,7 @@ references where policy permits, but never resolved values.
 
 ### AS-017C: Entity, repository, and persistence tests
 
-- Evolve `Environment`, add `EnvironmentType`, and expand `EnvironmentStatus`.
+- Completed: evolved `Environment`, added `EnvironmentType`, and expanded `EnvironmentStatus`.
 - Add JSONB defensive-copy mappings and `@Version`.
 - Add Project-scoped queries, combined filters, uniqueness queries, default lookup, and required
   locking queries.
@@ -374,7 +374,7 @@ references where policy permits, but never resolved values.
 
 ### AS-017D: Service layer and default rules
 
-- Implement scoped CRUD, normalization, validation, lifecycle, and filters.
+- Completed: implemented scoped CRUD, normalization, validation, lifecycle, and filters.
 - Implement Project-first serialization for default changes.
 - Parse and require expected versions for every update/PATCH/delete service operation, reject
   mismatches, and retain server-controlled JPA versioning.
@@ -384,7 +384,7 @@ references where policy permits, but never resolved values.
 
 ### AS-017E: REST API, DTOs, mapper, and MVC tests
 
-- Add nested routes, request/response DTOs, status/default DTOs, and MapStruct mapping.
+- Completed: added nested routes, request/response DTOs, status/default DTOs, and MapStruct mapping.
 - Enforce URL, JSON shape/size, recursive prohibited-key screening, reference structure, and
   server-controlled field boundaries.
 - Require and parse `If-Match` on PUT, status PATCH, default PATCH, and DELETE only.
@@ -393,15 +393,18 @@ references where policy permits, but never resolved values.
 
 ### AS-017F: Full REST/PostgreSQL integration tests
 
-- Exercise HTTP through Spring, Flyway, JPA, and PostgreSQL.
-- Cover CRUD, isolation, filters, lifecycle, default replacement/clearing, conflicts, JSON, URL
-  validation, recursive prohibited keys, ACTIVE-default database enforcement, `If-Match`, JPA
-  optimistic locking, restrictive deletion, and concurrent default requests.
+- Completed: exercised HTTP through Spring, Flyway, JPA, and PostgreSQL.
+- Verified the HTTP-to-PostgreSQL contract for CRUD, isolation, filters, lifecycle/default
+  operations, expected-version conflicts, validation, JSONB round trips, and restrictive deletion.
+- AS-017B migration tests verify PostgreSQL constraints and the partial unique default index.
+  AS-017D PostgreSQL service integration tests verify deterministic concurrent default requests,
+  Project locking, flush ordering, and optimistic behavior. HTTP-level concurrency was
+  intentionally not duplicated in AS-017F.
 - Run the complete Maven suite.
 
 ### AS-017G: Documentation reconciliation and branch review
 
-- Reconcile this SRS, ADR-007, development log, and relevant domain documentation with delivery.
+- Completed: reconciled this SRS, ADR-007, and development log with delivery.
 - Review the complete branch diff and confirm migration safety and no secret exposure.
 - Run formatting checks and the complete verification suite; record actual evidence only.
 
