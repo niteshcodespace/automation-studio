@@ -17,6 +17,9 @@ public interface AutomationTestCaseRepository extends JpaRepository<AutomationTe
 
     Optional<AutomationTestCase> findByAutomationSuiteIdAndId(UUID automationSuiteId, UUID id);
 
+    List<AutomationTestCase> findByAutomationSuiteIdAndIdIn(
+            UUID automationSuiteId, List<UUID> ids);
+
     boolean existsByAutomationSuiteId(UUID automationSuiteId);
 
     Page<AutomationTestCase> findByAutomationSuiteId(UUID automationSuiteId, Pageable pageable);

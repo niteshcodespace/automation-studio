@@ -1,6 +1,11 @@
 package com.automationstudio.api.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.automationstudio.api.domain.EnvironmentType;
 import com.automationstudio.api.domain.ExecutionSelectionMode;
@@ -17,6 +22,8 @@ import com.automationstudio.api.repository.EnvironmentRepository;
 import com.automationstudio.api.repository.ExecutionRepository;
 import com.automationstudio.api.repository.ExecutionTestCaseRepository;
 import com.automationstudio.api.repository.ProjectRepository;
+import com.automationstudio.api.service.ExecutionService;
+import com.automationstudio.api.service.command.CreateExecutionCommand;
 import jakarta.persistence.EntityManager;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
@@ -26,10 +33,17 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.support.TransactionTemplate;
+import com.automationstudio.api.exception.ResourceNotFoundException;
+import com.automationstudio.api.exception.InvalidRequestException;
+import tools.jackson.databind.ObjectMapper;
 
+@AutoConfigureMockMvc
 class ExecutionManagementPersistenceIntegrationTest extends IntegrationTestBase {
 
     private static final String TEST_ACTOR = "as-018b-persistence-test";
@@ -61,6 +75,15 @@ class ExecutionManagementPersistenceIntegrationTest extends IntegrationTestBase 
 
     @Autowired
     private TransactionTemplate transactionTemplate;
+
+    @Autowired
+    private ExecutionService executionService;
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @AfterEach
     void cleanDatabase() {
@@ -237,6 +260,103 @@ class ExecutionManagementPersistenceIntegrationTest extends IntegrationTestBase 
         Execution loaded = executionRepository.findById(execution.getId()).orElseThrow();
         assertThat(loaded.getStatus()).isEqualTo(ExecutionStatus.CLAIMED);
         assertThat(loaded.getVersion()).isGreaterThan(initialVersion);
+    }
+
+    @Test
+    void applicationServiceCreatesSelectedExecutionWithImmutableSnapshots() {
+        Fixture fixture = createFixture();
+        AutomationTestCase secondCase = createTestCase(fixture.suite(), 1);
+
+        Execution created = executionService.create(
+                fixture.project().getId(),
+                TEST_ACTOR,
+                new CreateExecutionCommand(
+                        fixture.environment().getId(),
+                        fixture.suite().getId(),
+                        ExecutionSelectionMode.TEST_CASES,
+                        List.of(secondCase.getId(), fixture.testCase().getId())));
+
+        assertThat(created.getStatus()).isEqualTo(ExecutionStatus.PENDING);
+        assertThat(created.getEnvironmentSnapshot()).containsEntry("name",
+                fixture.environment().getName());
+        assertThat(created.getSuiteSnapshot()).containsEntry("name", fixture.suite().getName());
+        assertThat(created.getRequestSnapshot())
+                .containsEntry("selectionMode", "TEST_CASES")
+                .containsEntry("requestedBy", TEST_ACTOR);
+        assertThat(executionTestCaseRepository
+                .findByExecutionIdOrderBySequenceNumberAsc(created.getId()))
+                .extracting(item -> item.getAutomationTestCase().getId())
+                .containsExactly(secondCase.getId(), fixture.testCase().getId());
+    }
+
+    @Test
+    void applicationServiceScopesGetAndListsWithPaginationAndStatusFilter() {
+        Fixture fixture = createFixture();
+        Fixture otherFixture = createFixture();
+        Execution first = executionService.create(
+                fixture.project().getId(), TEST_ACTOR,
+                new CreateExecutionCommand(fixture.environment().getId(), fixture.suite().getId(),
+                        ExecutionSelectionMode.SUITE, null));
+        Execution second = executionService.create(
+                fixture.project().getId(), TEST_ACTOR,
+                new CreateExecutionCommand(fixture.environment().getId(), fixture.suite().getId(),
+                        ExecutionSelectionMode.SUITE, List.of()));
+        second.claim();
+        executionRepository.saveAndFlush(second);
+
+        assertThat(executionService.get(fixture.project().getId(), first.getId()).getId())
+                .isEqualTo(first.getId());
+        assertThatThrownBy(() -> executionService.get(
+                otherFixture.project().getId(), first.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+        assertThat(executionService.list(
+                fixture.project().getId(), null, PageRequest.of(0, 1)).getContent())
+                .hasSize(1);
+        assertThat(executionService.list(
+                fixture.project().getId(), ExecutionStatus.CLAIMED,
+                PageRequest.of(0, 10)).getContent())
+                .extracting(Execution::getId)
+                .containsExactly(second.getId());
+    }
+
+    @Test
+    void applicationServiceRejectsInconsistentSelection() {
+        Fixture fixture = createFixture();
+
+        assertThatThrownBy(() -> executionService.create(
+                fixture.project().getId(), TEST_ACTOR,
+                new CreateExecutionCommand(
+                        fixture.environment().getId(),
+                        fixture.suite().getId(),
+                        ExecutionSelectionMode.TEST_CASES,
+                        List.of())))
+                .isInstanceOf(InvalidRequestException.class);
+    }
+
+    @Test
+    void executionRestApiCreatesGetsAndListsAgainstPostgreSql() throws Exception {
+        Fixture fixture = createFixture();
+        String path = "/api/v1/projects/" + fixture.project().getId() + "/executions";
+        Map<String, Object> request = Map.of(
+                "environmentId", fixture.environment().getId(),
+                "automationSuiteId", fixture.suite().getId(),
+                "selectionMode", "SUITE");
+
+        String response = mockMvc.perform(post(path)
+                        .header("X-Requested-By", TEST_ACTOR)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andReturn().getResponse().getContentAsString();
+        String executionId = objectMapper.readTree(response).get("id").asText();
+
+        mockMvc.perform(get(path + "/" + executionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.projectId").value(fixture.project().getId().toString()));
+        mockMvc.perform(get(path).param("status", "PENDING").param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(executionId));
     }
 
     @Test
