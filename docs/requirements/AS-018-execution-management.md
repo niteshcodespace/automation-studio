@@ -2,8 +2,7 @@
 
 ## 1. Status and Purpose
 
-**Status:** AS-018A requirements and architecture defined; implementation is deferred to
-AS-018B through AS-018G.
+**Status:** Implemented through AS-018G and ready for final human review.
 
 AS-018 adds Project-scoped control-plane management for the existing `Execution` domain. It
 allows clients to create and validate execution requests, persist immutable request context,
@@ -141,7 +140,11 @@ timestamps, metrics, results, errors, or optimistic version.
 
 AS-018 public APIs expose creation, reads, listing, and cancellation only. Services and future
 runner-specific application interfaces own lifecycle transitions. There is no generic status
-PUT or PATCH endpoint.
+PUT or PATCH endpoint. `started_at` is populated only by the `CLAIMED -> RUNNING` transition.
+Completion transitions populate `finished_at`; immediate PENDING cancellation also sets
+`finished_at`, while cooperative cancellation leaves it null until a future runner completes the
+cancellation. Result counters remain nonnegative when present, and JPA optimistic locking
+advances `version` for persisted lifecycle mutations.
 
 ## 7. Cancellation
 
@@ -231,7 +234,7 @@ execution_step
 execution_artifact
 ```
 
-A future additive, forward-only Flyway migration extends `execution` with:
+The additive, forward-only V10 Flyway migration extends `execution` with:
 
 ```text
 selection_mode
@@ -288,14 +291,19 @@ GET /api/v1/projects/{projectId}/executions
 POST /api/v1/projects/{projectId}/executions/{executionId}/cancel
 ```
 
-The create request contains `environmentId`, `automationSuiteId`, `selectionMode`, optional
-`testCaseIds`, and the documented non-secret request options. The server derives the route
-Project, requester, lifecycle, snapshots, metrics, timestamps, and version. Successful creation
-returns 201 Created with a response DTO and resource location.
+The create request contains `environmentId`, `automationSuiteId`, `selectionMode`, and optional
+`testCaseIds`. The requester comes from `X-Requested-By`, with an `anonymous` fallback. The server
+derives the route Project, lifecycle, snapshots, metrics, timestamps, and version. Successful
+creation returns 201 Created with a response DTO and `Location` header. New executions start in
+`PENDING` at version zero.
 
 Get and list return response DTOs, never JPA entities. An execution outside the route Project
 returns 404. Cancellation returns 200 with the current post-command representation, including
-the server-controlled version.
+the server-controlled version. `ExecutionResponse` exposes IDs for the execution, Project,
+Environment, and Automation Suite; selection mode and lifecycle status; requester and lifecycle
+timestamps; result counters, duration, and error message; cancellation metadata; optimistic
+version; and audit timestamps. It does not expose raw Environment, suite, request, or selected-case
+snapshot structures.
 
 The public API does not define:
 
@@ -309,27 +317,18 @@ Execution identity, request intent, snapshots, and history are immutable through
 
 ## 12. Listing, Filtering, and Sorting
 
-Listing is always Project-scoped and paginated. It supports:
+Listing is always Project-scoped and paginated. The delivered API supports an optional `status`
+filter. Invalid status values return 400.
 
-- `status`
-- `environmentId`
-- `automationSuiteId`
-- `selectionMode`
-- `requestedBy`
-- inclusive requested-from and requested-to timestamps
-
-Invalid enum values, malformed UUIDs or timestamps, and a start later than the end return 400.
-Filters combine with logical AND. Foreign filter IDs must not reveal cross-Project resources.
-
-The default sort is:
+The fixed sort is:
 
 ```text
-requestedAt,DESC
+requestedAt DESC, id DESC
 ```
 
-An ID tie-breaker must provide deterministic paging. The implementation must allowlist sortable
-response properties; unsupported or persistence-internal sort properties return 400. Page size
-must be bounded and no unpaged execution-history response is provided.
+Client-supplied sorting is rejected with 400. Page size is bounded at 100, defaults to 20, and no
+unpaged execution-history response is provided. Environment, Automation Suite, selection mode,
+requester, and request-time range filters were not delivered by AS-018.
 
 ## 13. Concurrency
 
@@ -363,7 +362,7 @@ Errors use the repository's safe `ApiErrorResponse` contract:
 
 | Condition | Status |
 |---|---:|
-| Malformed input, inconsistent selection, duplicate IDs, invalid filter or sort | 400 |
+| Malformed input, inconsistent selection, duplicate IDs, invalid status or client sort | 400 |
 | Missing route Project or scoped Environment, suite, case, or Execution | 404 |
 | Cross-Project or cross-suite access | 404 |
 | Non-executable Environment, suite, or case | 409 |
@@ -390,8 +389,13 @@ same Project-scoped resource lookups and non-disclosure rules.
 
 Resolved secrets, passwords, credentials, access or refresh tokens, API keys, private keys, and
 sensitive environment values must never be persisted in execution snapshots, returned by APIs,
-included in errors, or written to logs. AS-019 may resolve authorized secret references only in
-the execution plane immediately before use.
+included in errors, or written to logs. The delivered sanitizer recursively traverses maps and
+lists and removes entries by normalized, case-insensitive key name when the key contains
+`password`, `secretvalue`, `token`, `apikey`, `privatekey`, or `credential`. It does not inspect
+or classify otherwise safe-keyed values. Reviewed secret-reference metadata is retained in the
+Environment snapshot, but raw snapshots and secret-reference maps are not exposed by the public
+execution DTO. AS-019 may resolve authorized secret references only in the execution plane
+immediately before use.
 
 ## 16. Test Expectations
 
@@ -410,7 +414,8 @@ Implementation phases must provide evidence for:
 - Complete and immutable snapshots.
 - Resolved-secret and sensitive-value exclusion from persistence, APIs, errors, and logs.
 - Scoped retrieval.
-- Bounded pagination, filters, date ranges, deterministic sorting, and rejected sort properties.
+- Bounded pagination, optional status filtering, deterministic sorting, and rejected
+  client-supplied sorting.
 - PENDING immediate cancellation.
 - CLAIMED and RUNNING cooperative cancellation.
 - Idempotent repeated cancellation.
@@ -424,26 +429,26 @@ tested with Testcontainers rather than an in-memory substitute.
 
 ## 17. Acceptance Criteria
 
-- [ ] The existing `Execution` aggregate is extended; no duplicate execution model is introduced.
-- [ ] New executions are Project-scoped, validated, persisted atomically, and start at `PENDING`.
-- [ ] ACTIVE Environment and ACTIVE Automation Suite ownership are required.
-- [ ] `SUITE` and `TEST_CASES` modes enforce all consistency, uniqueness, ownership, membership,
+- [x] The existing `Execution` aggregate is extended; no duplicate execution model is introduced.
+- [x] New executions are Project-scoped, validated, persisted atomically, and start at `PENDING`.
+- [x] ACTIVE Environment and ACTIVE Automation Suite ownership are required.
+- [x] `SUITE` and `TEST_CASES` modes enforce all consistency, uniqueness, ownership, membership,
   and executable-status rules.
-- [ ] `execution_test_case` captures request intent separately from runtime `execution_step`.
-- [ ] New requests capture immutable JSONB snapshots and never persist resolved secrets.
-- [ ] Existing execution data is preserved and backfilled to `SUITE`; historical snapshots may be null.
-- [ ] Retrieval and listing are Project-scoped, bounded, filterable, and deterministically sorted.
-- [ ] Unsupported sorts and malformed filters produce 400.
-- [ ] Cancellation follows the documented immediate/cooperative/idempotent/terminal rules.
-- [ ] Lifecycle mutations are service-controlled and optimistically locked.
-- [ ] No generic status update, execution replacement, or deletion endpoint exists.
-- [ ] Cancellation requires `If-Match`; missing, malformed, stale, and matching versions produce
+- [x] `execution_test_case` captures request intent separately from runtime `execution_step`.
+- [x] New requests capture immutable JSONB snapshots and never persist resolved secrets.
+- [x] Existing execution data is preserved and backfilled to `SUITE`; historical snapshots may be null.
+- [x] Retrieval and listing are Project-scoped, bounded, status-filterable, and deterministically sorted.
+- [x] Client-supplied sorts and malformed status filters produce 400.
+- [x] Cancellation follows the documented immediate/cooperative/idempotent/terminal rules.
+- [x] Lifecycle mutations are service-controlled and optimistically locked.
+- [x] No generic status update, execution replacement, or deletion endpoint exists.
+- [x] Cancellation requires `If-Match`; missing, malformed, stale, and matching versions produce
   the documented 428, 400, 409, and cancellation-processing behavior.
-- [ ] Standard 400, 404, 409, and 428 errors are safe and consistent.
-- [ ] Tests cover migration safety, validation, snapshots, security, API behavior, concurrency, and
+- [x] Standard 400, 404, 409, and 428 errors are safe and consistent.
+- [x] Tests cover migration safety, validation, snapshots, security, API behavior, concurrency, and
   regression.
-- [ ] AS-018 and AS-019 responsibilities remain explicitly separated.
-- [ ] Final documentation is reconciled with delivered behavior.
+- [x] AS-018 and AS-019 responsibilities remain explicitly separated.
+- [x] Final documentation is reconciled with delivered behavior.
 
 ## 18. Implementation Phases
 
@@ -464,8 +469,9 @@ Project-scoped queries/specifications, snapshot mappings, and repository tests.
 
 ### AS-018D - Creation and Query API
 
-Implement commands, validation, transactions, mapping, create/get/list endpoints, filters,
-sorting, pagination, snapshots, and unit/MVC/integration coverage.
+Implement commands, validation, transactions, mapping, create/get/list endpoints, status
+filtering, fixed deterministic sorting, bounded pagination, snapshots, and
+unit/MVC/integration coverage.
 
 ### AS-018E - Cancellation
 
@@ -485,12 +491,14 @@ verification.
 
 ## 19. Risks and Deferred Decisions
 
-- Exact snapshot schemas and size limits require implementation-phase review against current JSON
-  conventions and future runner inputs.
-- Large selected-case limits and snapshot payload limits require explicit bounded-input policy.
-- Selection-time catalog changes can race admission; AS-018D must define locking or version
-  validation that prevents internally inconsistent snapshots.
-- Physical deletion policy for test cases tightens once `execution_test_case` references them.
+- Snapshot schemas are implemented as reviewed JSONB objects, but schema versioning and payload
+  size limits remain future hardening work.
+- Selected-case request counts are not explicitly bounded beyond normal request and database
+  limits; an explicit policy remains future work.
+- Admission validates catalog state before snapshotting but does not lock or version-check all
+  catalog rows against concurrent edits; stronger admission consistency remains future work.
+- Restrictive `execution_test_case` foreign keys intentionally protect referenced test-case
+  history from physical deletion.
 - Runner ownership, leases, transition authorization, retry, abandoned-work recovery, secret
   resolution, and final cooperative-cancellation acknowledgement are AS-019 decisions.
 - Scheduling, retention, audit events, stable custom page envelopes, and UI behavior remain future work.

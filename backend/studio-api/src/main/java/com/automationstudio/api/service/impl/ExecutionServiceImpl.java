@@ -160,7 +160,7 @@ public class ExecutionServiceImpl implements ExecutionService {
             UUID executionId,
             long expectedVersion,
             String actor,
-        CancelExecutionCommand command) {
+            CancelExecutionCommand command) {
         findProject(projectId);
         Execution execution = executionRepository.findByProjectIdAndId(projectId, executionId)
                 .orElseThrow(() -> new ResourceNotFoundException(
