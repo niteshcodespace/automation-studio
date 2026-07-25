@@ -14,6 +14,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface ExecutionRepository extends JpaRepository<Execution, UUID> {
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT execution FROM Execution execution WHERE execution.id = :executionId")
+    Optional<Execution> findByIdForUpdate(@Param("executionId") UUID executionId);
+
     boolean existsByProjectIdAndEnvironmentId(UUID projectId, UUID environmentId);
 
     Optional<Execution> findByProjectIdAndId(UUID projectId, UUID id);
