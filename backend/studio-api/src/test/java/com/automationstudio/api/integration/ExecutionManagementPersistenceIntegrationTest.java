@@ -17,6 +17,7 @@ import com.automationstudio.api.repository.EnvironmentRepository;
 import com.automationstudio.api.repository.ExecutionRepository;
 import com.automationstudio.api.repository.ExecutionTestCaseRepository;
 import com.automationstudio.api.repository.ProjectRepository;
+import jakarta.persistence.EntityManager;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,6 +27,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.transaction.support.TransactionTemplate;
 
 class ExecutionManagementPersistenceIntegrationTest extends IntegrationTestBase {
 
@@ -52,6 +55,12 @@ class ExecutionManagementPersistenceIntegrationTest extends IntegrationTestBase 
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private EntityManager entityManager;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     @AfterEach
     void cleanDatabase() {
@@ -111,7 +120,11 @@ class ExecutionManagementPersistenceIntegrationTest extends IntegrationTestBase 
         execution.setRequestSnapshot(Map.of("selectionMode", "SUITE"));
         OffsetDateTime requestedAt = OffsetDateTime.parse("2026-07-25T10:00:00Z");
         OffsetDateTime cancelledAt = OffsetDateTime.parse("2026-07-25T10:01:00Z");
-        execution.setStatus(ExecutionStatus.CANCEL_REQUESTED);
+        execution.claim();
+        execution.requestCancellation(
+                OffsetDateTime.parse("2026-01-02T10:00:00Z"),
+                "operator@example.com",
+                "Requested by operator");
         execution.setCancelRequestedAt(requestedAt);
         execution.setCancelledAt(cancelledAt);
         execution.setCancelledBy("quality-engineer");
@@ -173,6 +186,57 @@ class ExecutionManagementPersistenceIntegrationTest extends IntegrationTestBase 
         assertThat(loaded).extracting(item -> item.getTestCaseSnapshot().get("name"))
                 .containsExactly("First", "Second");
         assertThat(loaded).allSatisfy(item -> assertThat(item.getCreatedAt()).isNotNull());
+        assertThat(executionTestCaseRepository.existsByExecutionId(execution.getId())).isTrue();
+        assertThat(executionTestCaseRepository.countByExecutionId(execution.getId())).isEqualTo(2);
+    }
+
+    @Test
+    void scopesLookupListingAndStatusFilteringByProject() {
+        Fixture firstFixture = createFixture();
+        Fixture secondFixture = createFixture();
+        Execution older = newExecution(firstFixture, ExecutionSelectionMode.SUITE);
+        older.setRequestedAt(OffsetDateTime.parse("2026-01-01T10:00:00Z"));
+        Execution newer = newExecution(firstFixture, ExecutionSelectionMode.SUITE);
+        newer.setRequestedAt(OffsetDateTime.parse("2026-01-02T10:00:00Z"));
+        newer.claim();
+        Execution otherProject = newExecution(secondFixture, ExecutionSelectionMode.SUITE);
+        executionRepository.saveAllAndFlush(List.of(older, newer, otherProject));
+
+        assertThat(executionRepository.findByProjectIdAndId(
+                firstFixture.project().getId(), otherProject.getId())).isEmpty();
+        assertThat(executionRepository.findByProjectIdOrderByRequestedAtDescIdDesc(
+                firstFixture.project().getId(), PageRequest.of(0, 10)).getContent())
+                .extracting(Execution::getId)
+                .containsExactly(newer.getId(), older.getId());
+        assertThat(executionRepository.findByProjectIdAndStatusOrderByRequestedAtDescIdDesc(
+                firstFixture.project().getId(),
+                ExecutionStatus.CLAIMED,
+                PageRequest.of(0, 10)).getContent())
+                .extracting(Execution::getId)
+                .containsExactly(newer.getId());
+    }
+
+    @Test
+    void lockingLookupIsProjectScopedAndLifecycleMutationIncrementsVersion() {
+        Fixture fixture = createFixture();
+        Fixture otherFixture = createFixture();
+        Execution execution = executionRepository.saveAndFlush(
+                newExecution(fixture, ExecutionSelectionMode.SUITE));
+        long initialVersion = execution.getVersion();
+
+        transactionTemplate.executeWithoutResult(status -> {
+            Execution locked = executionRepository.findByProjectIdAndIdForUpdate(
+                    fixture.project().getId(), execution.getId()).orElseThrow();
+            assertThat(locked.getId()).isEqualTo(execution.getId());
+            assertThat(executionRepository.findByProjectIdAndIdForUpdate(
+                    otherFixture.project().getId(), execution.getId())).isEmpty();
+            locked.claim();
+        });
+        entityManager.clear();
+
+        Execution loaded = executionRepository.findById(execution.getId()).orElseThrow();
+        assertThat(loaded.getStatus()).isEqualTo(ExecutionStatus.CLAIMED);
+        assertThat(loaded.getVersion()).isGreaterThan(initialVersion);
     }
 
     @Test

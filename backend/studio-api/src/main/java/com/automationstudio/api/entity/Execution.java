@@ -2,6 +2,7 @@ package com.automationstudio.api.entity;
 
 import com.automationstudio.api.domain.ExecutionSelectionMode;
 import com.automationstudio.api.domain.ExecutionStatus;
+import com.automationstudio.api.domain.InvalidExecutionTransitionException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -59,6 +60,7 @@ public class Execution {
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
+    @Setter(lombok.AccessLevel.NONE)
     private ExecutionStatus status = ExecutionStatus.PENDING;
 
     @NotNull
@@ -172,7 +174,126 @@ public class Execution {
         this.requestSnapshot = copySnapshot(requestSnapshot);
     }
 
+    public void claim() {
+        requireStatus(ExecutionStatus.PENDING, ExecutionStatus.CLAIMED);
+        status = ExecutionStatus.CLAIMED;
+    }
+
+    public void start(OffsetDateTime transitionTime) {
+        requireStatus(ExecutionStatus.CLAIMED, ExecutionStatus.RUNNING);
+        startedAt = requireTimestamp(transitionTime);
+        status = ExecutionStatus.RUNNING;
+    }
+
+    public void markPassed(OffsetDateTime transitionTime) {
+        completeFromRunning(ExecutionStatus.PASSED, transitionTime);
+    }
+
+    public void markFailed(OffsetDateTime transitionTime) {
+        completeFromRunning(ExecutionStatus.FAILED, transitionTime);
+    }
+
+    public void markError(OffsetDateTime transitionTime) {
+        if (status != ExecutionStatus.CLAIMED
+                && status != ExecutionStatus.RUNNING
+                && status != ExecutionStatus.CANCEL_REQUESTED) {
+            throw invalidTransition(ExecutionStatus.ERROR);
+        }
+        finishedAt = requireCompletionTime(transitionTime);
+        status = ExecutionStatus.ERROR;
+    }
+
+    public void requestCancellation(
+            OffsetDateTime transitionTime, String actor, String reason) {
+        if (status == ExecutionStatus.CANCEL_REQUESTED || status == ExecutionStatus.CANCELLED) {
+            return;
+        }
+        if (status != ExecutionStatus.PENDING
+                && status != ExecutionStatus.CLAIMED
+                && status != ExecutionStatus.RUNNING) {
+            throw invalidTransition(ExecutionStatus.CANCEL_REQUESTED);
+        }
+
+        OffsetDateTime requestedCancellationAt = requireTimestamp(transitionTime);
+        validateCancellationActor(actor);
+        validateCancellationReason(reason);
+        cancelRequestedAt = requestedCancellationAt;
+        cancelledBy = actor;
+        cancellationReason = reason;
+
+        if (status == ExecutionStatus.PENDING) {
+            status = ExecutionStatus.CANCELLED;
+            cancelledAt = requestedCancellationAt;
+            finishedAt = requestedCancellationAt;
+        } else {
+            status = ExecutionStatus.CANCEL_REQUESTED;
+        }
+    }
+
+    public void markCancelled(OffsetDateTime transitionTime) {
+        requireStatus(ExecutionStatus.CANCEL_REQUESTED, ExecutionStatus.CANCELLED);
+        OffsetDateTime cancellationCompletedAt = requireCompletionTime(transitionTime);
+        if (cancellationCompletedAt.isBefore(cancelRequestedAt)) {
+            throw new IllegalArgumentException(
+                    "Cancellation completion time must not precede cancellation request time");
+        }
+        cancelledAt = cancellationCompletedAt;
+        finishedAt = cancellationCompletedAt;
+        status = ExecutionStatus.CANCELLED;
+    }
+
     private static Map<String, Object> copySnapshot(Map<String, Object> snapshot) {
         return snapshot == null ? null : new LinkedHashMap<>(snapshot);
+    }
+
+    private void completeFromRunning(
+            ExecutionStatus terminalStatus, OffsetDateTime transitionTime) {
+        requireStatus(ExecutionStatus.RUNNING, terminalStatus);
+        finishedAt = requireCompletionTime(transitionTime);
+        status = terminalStatus;
+    }
+
+    private void requireStatus(ExecutionStatus requiredStatus, ExecutionStatus requestedStatus) {
+        if (status != requiredStatus) {
+            throw invalidTransition(requestedStatus);
+        }
+    }
+
+    private InvalidExecutionTransitionException invalidTransition(
+            ExecutionStatus requestedStatus) {
+        return new InvalidExecutionTransitionException(id, status, requestedStatus);
+    }
+
+    private OffsetDateTime requireCompletionTime(OffsetDateTime transitionTime) {
+        OffsetDateTime completedAt = requireTimestamp(transitionTime);
+        if (startedAt != null && completedAt.isBefore(startedAt)) {
+            throw new IllegalArgumentException(
+                    "Execution completion time must not precede start time");
+        }
+        return completedAt;
+    }
+
+    private static OffsetDateTime requireTimestamp(OffsetDateTime transitionTime) {
+        if (transitionTime == null) {
+            throw new IllegalArgumentException("Transition time must not be null");
+        }
+        return transitionTime;
+    }
+
+    private static void validateCancellationActor(String actor) {
+        if (actor == null || actor.isBlank()) {
+            throw new IllegalArgumentException("Cancellation actor must not be blank");
+        }
+        if (actor.length() > 150) {
+            throw new IllegalArgumentException(
+                    "Cancellation actor must not exceed 150 characters");
+        }
+    }
+
+    private static void validateCancellationReason(String reason) {
+        if (reason != null && reason.length() > 1000) {
+            throw new IllegalArgumentException(
+                    "Cancellation reason must not exceed 1000 characters");
+        }
     }
 }

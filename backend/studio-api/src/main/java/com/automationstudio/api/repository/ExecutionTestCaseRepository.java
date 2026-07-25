@@ -8,4 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ExecutionTestCaseRepository extends JpaRepository<ExecutionTestCase, UUID> {
 
     List<ExecutionTestCase> findByExecutionIdOrderBySequenceNumberAsc(UUID executionId);
+
+    boolean existsByExecutionId(UUID executionId);
+
+    long countByExecutionId(UUID executionId);
 }
