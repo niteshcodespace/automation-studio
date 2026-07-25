@@ -4,6 +4,7 @@ public enum ExecutionStatus {
     PENDING,
     CLAIMED,
     RUNNING,
+    CANCEL_REQUESTED,
     PASSED,
     FAILED,
     CANCELLED,

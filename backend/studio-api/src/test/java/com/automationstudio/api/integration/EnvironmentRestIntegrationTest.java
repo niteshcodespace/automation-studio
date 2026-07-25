@@ -559,8 +559,9 @@ class EnvironmentRestIntegrationTest extends IntegrationTestBase {
                 """, suiteId, projectId, "AS-017F Suite " + suiteId, "tests/" + suiteId);
         jdbcTemplate.update("""
                 INSERT INTO execution (
-                    id, project_id, environment_id, test_suite_id, status, requested_by
-                ) VALUES (?, ?, ?, ?, 'PENDING', 'as-017f-rest-test')
+                    id, project_id, environment_id, test_suite_id,
+                    selection_mode, status, requested_by
+                ) VALUES (?, ?, ?, ?, 'SUITE', 'PENDING', 'as-017f-rest-test')
                 """, UUID.randomUUID(), projectId, environmentId, suiteId);
     }
 

@@ -170,9 +170,10 @@ class TestSuiteMigrationIntegrationTest extends IntegrationTestBase {
         UUID executionId = UUID.randomUUID();
         jdbcTemplate.update("""
                 INSERT INTO execution (
-                    id, project_id, environment_id, test_suite_id, status, requested_by
+                    id, project_id, environment_id, test_suite_id,
+                    selection_mode, status, requested_by
                 )
-                VALUES (?, ?, ?, ?, 'PENDING', ?)
+                VALUES (?, ?, ?, ?, 'SUITE', 'PENDING', ?)
                 """, executionId, projectId, environmentId, suiteId, TEST_ACTOR);
 
         assertThat(jdbcTemplate.queryForObject(

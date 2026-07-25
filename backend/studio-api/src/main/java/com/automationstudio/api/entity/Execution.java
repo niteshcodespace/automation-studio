@@ -1,5 +1,6 @@
 package com.automationstudio.api.entity;
 
+import com.automationstudio.api.domain.ExecutionSelectionMode;
 import com.automationstudio.api.domain.ExecutionStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -18,12 +19,16 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "execution")
@@ -55,6 +60,29 @@ public class Execution {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private ExecutionStatus status = ExecutionStatus.PENDING;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "selection_mode", nullable = false, length = 30)
+    private ExecutionSelectionMode selectionMode = ExecutionSelectionMode.SUITE;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "environment_snapshot", columnDefinition = "jsonb")
+    @Getter(lombok.AccessLevel.NONE)
+    @Setter(lombok.AccessLevel.NONE)
+    private Map<String, Object> environmentSnapshot;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "suite_snapshot", columnDefinition = "jsonb")
+    @Getter(lombok.AccessLevel.NONE)
+    @Setter(lombok.AccessLevel.NONE)
+    private Map<String, Object> suiteSnapshot;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "request_snapshot", columnDefinition = "jsonb")
+    @Getter(lombok.AccessLevel.NONE)
+    @Setter(lombok.AccessLevel.NONE)
+    private Map<String, Object> requestSnapshot;
 
     @NotBlank
     @Size(max = 150)
@@ -94,6 +122,20 @@ public class Execution {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
+    @Column(name = "cancel_requested_at")
+    private OffsetDateTime cancelRequestedAt;
+
+    @Column(name = "cancelled_at")
+    private OffsetDateTime cancelledAt;
+
+    @Size(max = 150)
+    @Column(name = "cancelled_by", length = 150)
+    private String cancelledBy;
+
+    @Size(max = 1000)
+    @Column(name = "cancellation_reason", length = 1000)
+    private String cancellationReason;
+
     @Version
     @Column(nullable = false)
     private long version;
@@ -105,4 +147,32 @@ public class Execution {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
+    public Map<String, Object> getEnvironmentSnapshot() {
+        return copySnapshot(environmentSnapshot);
+    }
+
+    public void setEnvironmentSnapshot(Map<String, Object> environmentSnapshot) {
+        this.environmentSnapshot = copySnapshot(environmentSnapshot);
+    }
+
+    public Map<String, Object> getSuiteSnapshot() {
+        return copySnapshot(suiteSnapshot);
+    }
+
+    public void setSuiteSnapshot(Map<String, Object> suiteSnapshot) {
+        this.suiteSnapshot = copySnapshot(suiteSnapshot);
+    }
+
+    public Map<String, Object> getRequestSnapshot() {
+        return copySnapshot(requestSnapshot);
+    }
+
+    public void setRequestSnapshot(Map<String, Object> requestSnapshot) {
+        this.requestSnapshot = copySnapshot(requestSnapshot);
+    }
+
+    private static Map<String, Object> copySnapshot(Map<String, Object> snapshot) {
+        return snapshot == null ? null : new LinkedHashMap<>(snapshot);
+    }
 }
