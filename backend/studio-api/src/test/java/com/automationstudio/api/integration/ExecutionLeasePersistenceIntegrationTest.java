@@ -147,11 +147,11 @@ class ExecutionLeasePersistenceIntegrationTest extends IntegrationTestBase {
     @Test
     void leaseRelationshipIsUnidirectionalAndExecutionHasNoOwnershipFields() {
         assertThat(Arrays.stream(ExecutionLease.class.getDeclaredFields())
-                .map(Field::getType))
-                .contains(Execution.class);
+                .map(Field::getType)
+                .anyMatch(Execution.class::equals)).isTrue();
         assertThat(Arrays.stream(Execution.class.getDeclaredFields())
-                .map(Field::getType))
-                .doesNotContain(ExecutionLease.class);
+                .map(Field::getType)
+                .noneMatch(ExecutionLease.class::equals)).isTrue();
         assertThat(Arrays.stream(Execution.class.getDeclaredFields())
                 .map(Field::getName))
                 .doesNotContain(
