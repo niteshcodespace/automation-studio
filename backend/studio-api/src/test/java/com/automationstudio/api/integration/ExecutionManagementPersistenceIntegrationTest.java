@@ -33,7 +33,10 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.MediaType;
@@ -44,10 +47,15 @@ import com.automationstudio.api.exception.ResourceNotFoundException;
 import com.automationstudio.api.exception.InvalidRequestException;
 import tools.jackson.databind.ObjectMapper;
 import java.util.concurrent.Callable;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 @AutoConfigureMockMvc
+@ExtendWith(OutputCaptureExtension.class)
 class ExecutionManagementPersistenceIntegrationTest extends IntegrationTestBase {
 
     private static final String TEST_ACTOR = "as-018b-persistence-test";
@@ -364,6 +372,324 @@ class ExecutionManagementPersistenceIntegrationTest extends IntegrationTestBase 
     }
 
     @Test
+    void suiteHttpJourneyPersistsAndReturnsCompleteCancellationContract() throws Exception {
+        Fixture fixture = createFixture();
+        String collectionPath = "/api/v1/projects/" + fixture.project().getId() + "/executions";
+        String createResponse = mockMvc.perform(post(collectionPath)
+                        .header("X-Requested-By", TEST_ACTOR)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "environmentId", fixture.environment().getId(),
+                                "automationSuiteId", fixture.suite().getId(),
+                                "selectionMode", "SUITE"))))
+                .andExpect(status().isCreated())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .header().exists("Location"))
+                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andExpect(jsonPath("$.selectionMode").value("SUITE"))
+                .andExpect(jsonPath("$.version").value(0))
+                .andExpect(jsonPath("$.cancelRequestedAt").isEmpty())
+                .andExpect(jsonPath("$.cancelledAt").isEmpty())
+                .andExpect(jsonPath("$.cancelledBy").isEmpty())
+                .andExpect(jsonPath("$.cancellationReason").isEmpty())
+                .andReturn().getResponse().getContentAsString();
+        String executionId = objectMapper.readTree(createResponse).get("id").asText();
+        String itemPath = collectionPath + "/" + executionId;
+
+        mockMvc.perform(get(itemPath))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(0));
+
+        String cancellationResponse = mockMvc.perform(post(itemPath + "/cancel")
+                        .header("If-Match", "\"0\"")
+                        .header("X-Requested-By", "suite-operator")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"  release freeze  \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.cancelRequestedAt").isNotEmpty())
+                .andExpect(jsonPath("$.cancelledAt").isNotEmpty())
+                .andExpect(jsonPath("$.cancelledBy").value("suite-operator"))
+                .andExpect(jsonPath("$.cancellationReason").value("release freeze"))
+                .andExpect(jsonPath("$.version").value(1))
+                .andReturn().getResponse().getContentAsString();
+
+        String persistedResponse = mockMvc.perform(get(itemPath))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.cancelledBy").value("suite-operator"))
+                .andExpect(jsonPath("$.cancellationReason").value("release freeze"))
+                .andExpect(jsonPath("$.version").value(1))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(OffsetDateTime.parse(
+                objectMapper.readTree(persistedResponse).get("cancelRequestedAt").asText()))
+                .isCloseTo(
+                        OffsetDateTime.parse(objectMapper.readTree(cancellationResponse)
+                                .get("cancelRequestedAt").asText()),
+                        org.assertj.core.api.Assertions.within(
+                                1, java.time.temporal.ChronoUnit.MICROS));
+        assertThat(OffsetDateTime.parse(
+                objectMapper.readTree(persistedResponse).get("cancelledAt").asText()))
+                .isCloseTo(
+                        OffsetDateTime.parse(objectMapper.readTree(cancellationResponse)
+                                .get("cancelledAt").asText()),
+                        org.assertj.core.api.Assertions.within(
+                                1, java.time.temporal.ChronoUnit.MICROS));
+        Execution persisted = executionRepository.findById(UUID.fromString(executionId))
+                .orElseThrow();
+        assertThat(persisted.getCancelRequestedAt()).isEqualTo(persisted.getCancelledAt());
+        assertThat(persisted.getFinishedAt()).isEqualTo(persisted.getCancelledAt());
+    }
+
+    @Test
+    void selectedCaseHttpJourneyPreservesRequestTimeSnapshotsAndHidesInternals(
+            CapturedOutput output) throws Exception {
+        Fixture fixture = createFixture();
+        AutomationTestCase secondCase = createTestCase(fixture.suite(), 1);
+        fixture.environment().setConfiguration(Map.of(
+                "browser", "chromium",
+                "nested", Map.of("password", "resolved-environment-secret")));
+        fixture.environment().setSecretReferences(Map.of("login", "vault://qa/login"));
+        environmentRepository.saveAndFlush(fixture.environment());
+        fixture.suite().setConfiguration(Map.of(
+                "workers", 2,
+                "items", List.of(Map.of("api_key", "resolved-suite-secret"), "safe")));
+        automationSuiteRepository.saveAndFlush(fixture.suite());
+        fixture.testCase().setConfiguration(Map.of(
+                "safe", "original", "accessToken", "resolved-case-secret"));
+        automationTestCaseRepository.saveAndFlush(fixture.testCase());
+
+        String path = "/api/v1/projects/" + fixture.project().getId() + "/executions";
+        String response = mockMvc.perform(post(path)
+                        .header("X-Requested-By", TEST_ACTOR)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "environmentId", fixture.environment().getId(),
+                                "automationSuiteId", fixture.suite().getId(),
+                                "selectionMode", "TEST_CASES",
+                                "testCaseIds",
+                                List.of(secondCase.getId(), fixture.testCase().getId())))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.selectionMode").value("TEST_CASES"))
+                .andReturn().getResponse().getContentAsString();
+        UUID executionId = UUID.fromString(objectMapper.readTree(response).get("id").asText());
+
+        assertThat(response)
+                .doesNotContain("environmentSnapshot", "suiteSnapshot", "requestSnapshot",
+                        "testCaseSnapshot", "resolved-environment-secret",
+                        "resolved-suite-secret", "resolved-case-secret");
+        List<ExecutionTestCase> selections =
+                executionTestCaseRepository.findByExecutionIdOrderBySequenceNumberAsc(executionId);
+        assertThat(selections).extracting(row -> row.getAutomationTestCase().getId())
+                .containsExactly(secondCase.getId(), fixture.testCase().getId());
+        Execution persisted = executionRepository.findById(executionId).orElseThrow();
+        assertThat(persisted.getEnvironmentSnapshot().toString())
+                .contains("vault://qa/login", "chromium")
+                .doesNotContain("resolved-environment-secret");
+        assertThat(persisted.getSuiteSnapshot().toString())
+                .doesNotContain("resolved-suite-secret");
+        assertThat(selections.get(1).getTestCaseSnapshot().toString())
+                .contains("original")
+                .doesNotContain("resolved-case-secret");
+
+        Environment mutableEnvironment =
+                environmentRepository.findById(fixture.environment().getId()).orElseThrow();
+        AutomationSuite mutableSuite =
+                automationSuiteRepository.findById(fixture.suite().getId()).orElseThrow();
+        AutomationTestCase mutableCase =
+                automationTestCaseRepository.findById(fixture.testCase().getId()).orElseThrow();
+        mutableEnvironment.setName("mutated environment");
+        mutableSuite.setName("mutated suite");
+        mutableCase.setName("mutated case");
+        environmentRepository.saveAndFlush(mutableEnvironment);
+        automationSuiteRepository.saveAndFlush(mutableSuite);
+        automationTestCaseRepository.saveAndFlush(mutableCase);
+        entityManager.clear();
+
+        Execution reloaded = executionRepository.findById(executionId).orElseThrow();
+        List<ExecutionTestCase> reloadedSelections =
+                executionTestCaseRepository.findByExecutionIdOrderBySequenceNumberAsc(executionId);
+        assertThat(reloaded.getEnvironmentSnapshot().get("name"))
+                .isNotEqualTo("mutated environment");
+        assertThat(reloaded.getSuiteSnapshot().get("name")).isNotEqualTo("mutated suite");
+        assertThat(reloadedSelections.get(1).getTestCaseSnapshot().get("name"))
+                .isNotEqualTo("mutated case");
+        mockMvc.perform(get(path + "/" + executionId))
+                .andExpect(status().isOk())
+                .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                        .doesNotContain("Snapshot", "resolved-", "vault://"));
+        assertThat(output.getAll()).doesNotContain(
+                "resolved-environment-secret",
+                "resolved-suite-secret",
+                "resolved-case-secret",
+                "vault://qa/login");
+    }
+
+    @Test
+    void cancellationPreconditionsReturnSafeErrorsWithoutMutation() throws Exception {
+        Fixture fixture = createFixture();
+        Execution execution = executionService.create(
+                fixture.project().getId(), TEST_ACTOR,
+                new CreateExecutionCommand(fixture.environment().getId(), fixture.suite().getId(),
+                        ExecutionSelectionMode.SUITE, null));
+        String path = "/api/v1/projects/" + fixture.project().getId()
+                + "/executions/" + execution.getId() + "/cancel";
+
+        mockMvc.perform(post(path).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"resolved-secret\"}"))
+                .andExpect(status().isPreconditionRequired())
+                .andExpect(jsonPath("$.status").value(428))
+                .andExpect(jsonPath("$.error").value("Precondition Required"))
+                .andExpect(jsonPath("$.path").value(path))
+                .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                        .doesNotContain("resolved-secret", "stackTrace"));
+
+        for (String malformed : List.of(
+                "0", "W/\"0\"", "*", "\"0\", \"1\"", "\"\"",
+                "\"-1\"", "\"abc\"", "\"9223372036854775808\"")) {
+            mockMvc.perform(post(path).header("If-Match", malformed)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"reason\":\"resolved-secret\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.status").value(400))
+                    .andExpect(jsonPath("$.error").value("Bad Request"))
+                    .andExpect(jsonPath("$.path").value(path))
+                    .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                            .doesNotContain("resolved-secret", "stackTrace"));
+        }
+        Execution unchanged = executionRepository.findById(execution.getId()).orElseThrow();
+        assertThat(unchanged.getStatus()).isEqualTo(ExecutionStatus.PENDING);
+        assertThat(unchanged.getCancelRequestedAt()).isNull();
+        assertThat(unchanged.getVersion()).isZero();
+    }
+
+    @Test
+    void staleAndCrossProjectCancellationReturnSafeErrorsAndPreserveTarget() throws Exception {
+        Fixture owner = createFixture();
+        Fixture outsider = createFixture();
+        Execution execution = executionService.create(
+                owner.project().getId(), TEST_ACTOR,
+                new CreateExecutionCommand(owner.environment().getId(), owner.suite().getId(),
+                        ExecutionSelectionMode.SUITE, null));
+        String ownerPath = "/api/v1/projects/" + owner.project().getId()
+                + "/executions/" + execution.getId();
+        String outsiderPath = "/api/v1/projects/" + outsider.project().getId()
+                + "/executions/" + execution.getId();
+
+        mockMvc.perform(post(ownerPath + "/cancel").header("If-Match", "\"1\"")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409));
+        mockMvc.perform(get(outsiderPath))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
+        mockMvc.perform(post(outsiderPath + "/cancel").header("If-Match", "\"0\"")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
+        mockMvc.perform(get("/api/v1/projects/" + outsider.project().getId() + "/executions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isEmpty());
+
+        Execution unchanged = executionRepository.findById(execution.getId()).orElseThrow();
+        assertThat(unchanged.getStatus()).isEqualTo(ExecutionStatus.PENDING);
+        assertThat(unchanged.getCancelRequestedAt()).isNull();
+        assertThat(unchanged.getVersion()).isZero();
+    }
+
+    @Test
+    void repeatedCancellationIsIdempotentButStillRejectsOldVersions() throws Exception {
+        Fixture fixture = createFixture();
+        for (boolean cooperative : List.of(false, true)) {
+            Execution execution = executionService.create(
+                    fixture.project().getId(), TEST_ACTOR,
+                    new CreateExecutionCommand(
+                            fixture.environment().getId(), fixture.suite().getId(),
+                            ExecutionSelectionMode.SUITE, null));
+            if (cooperative) {
+                execution.claim();
+                execution = executionRepository.saveAndFlush(execution);
+            }
+            String path = "/api/v1/projects/" + fixture.project().getId()
+                    + "/executions/" + execution.getId() + "/cancel";
+            long startingVersion = execution.getVersion();
+            String first = mockMvc.perform(post(path)
+                            .header("If-Match", "\"" + startingVersion + "\"")
+                            .header("X-Requested-By", "original-actor")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"reason\":\"original reason\"}"))
+                    .andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString();
+            long currentVersion = objectMapper.readTree(first).get("version").asLong();
+            String originalStatus = cooperative ? "CANCEL_REQUESTED" : "CANCELLED";
+
+            mockMvc.perform(post(path).header("If-Match", "\"" + currentVersion + "\"")
+                            .header("X-Requested-By", "replacement-actor")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"reason\":\"replacement reason\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value(originalStatus))
+                    .andExpect(jsonPath("$.cancelledBy").value("original-actor"))
+                    .andExpect(jsonPath("$.cancellationReason").value("original reason"))
+                    .andExpect(jsonPath("$.version").value(currentVersion));
+            mockMvc.perform(post(path).header("If-Match", "\"" + startingVersion + "\"")
+                            .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                    .andExpect(status().isConflict());
+        }
+    }
+
+    @Test
+    void terminalCancellationConflictsPreserveResultsAndLifecycleData() throws Exception {
+        Fixture fixture = createFixture();
+        for (ExecutionStatus terminalStatus : List.of(
+                ExecutionStatus.PASSED, ExecutionStatus.FAILED, ExecutionStatus.ERROR)) {
+            Execution execution = executionService.create(
+                    fixture.project().getId(), TEST_ACTOR,
+                    new CreateExecutionCommand(
+                            fixture.environment().getId(), fixture.suite().getId(),
+                            ExecutionSelectionMode.SUITE, null));
+            execution.claim();
+            OffsetDateTime startedAt = OffsetDateTime.now().minusMinutes(2);
+            execution.start(startedAt);
+            execution.setTotalTests(3);
+            execution.setPassedTests(2);
+            execution.setFailedTests(1);
+            execution.setErrorMessage("safe runner result");
+            OffsetDateTime finishedAt = OffsetDateTime.now().minusMinutes(1);
+            switch (terminalStatus) {
+                case PASSED -> execution.markPassed(finishedAt);
+                case FAILED -> execution.markFailed(finishedAt);
+                case ERROR -> execution.markError(finishedAt);
+                default -> throw new IllegalStateException();
+            }
+            execution = executionRepository.saveAndFlush(execution);
+            UUID executionId = execution.getId();
+            entityManager.clear();
+            Execution terminal = executionRepository.findById(executionId).orElseThrow();
+            long version = terminal.getVersion();
+            OffsetDateTime persistedStartedAt = terminal.getStartedAt();
+            OffsetDateTime persistedFinishedAt = terminal.getFinishedAt();
+            String path = "/api/v1/projects/" + fixture.project().getId()
+                    + "/executions/" + executionId + "/cancel";
+
+            mockMvc.perform(post(path).header("If-Match", "\"" + version + "\"")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"reason\":\"must-not-persist\"}"))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.status").value(409))
+                    .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                            .doesNotContain("must-not-persist", "safe runner result"));
+            Execution unchanged = executionRepository.findById(executionId).orElseThrow();
+            assertThat(unchanged.getStatus()).isEqualTo(terminalStatus);
+            assertThat(unchanged.getStartedAt()).isEqualTo(persistedStartedAt);
+            assertThat(unchanged.getFinishedAt()).isEqualTo(persistedFinishedAt);
+            assertThat(unchanged.getTotalTests()).isEqualTo(3);
+            assertThat(unchanged.getCancelRequestedAt()).isNull();
+            assertThat(unchanged.getVersion()).isEqualTo(version);
+        }
+    }
+
+    @Test
     void cancellationEndpointImmediatelyCancelsPendingAndEnforcesIfMatch() throws Exception {
         Fixture fixture = createFixture();
         Execution execution = executionService.create(
@@ -472,6 +798,55 @@ class ExecutionManagementPersistenceIntegrationTest extends IntegrationTestBase 
     }
 
     @Test
+    void cancellationRacingWithClaimHasOneWinnerAndNoLostUpdate() throws Exception {
+        Fixture fixture = createFixture();
+        Execution execution = executionService.create(
+                fixture.project().getId(), TEST_ACTOR,
+                new CreateExecutionCommand(fixture.environment().getId(), fixture.suite().getId(),
+                        ExecutionSelectionMode.SUITE, null));
+        CyclicBarrier loaded = new CyclicBarrier(2);
+        AtomicInteger successes = new AtomicInteger();
+        AtomicInteger conflicts = new AtomicInteger();
+
+        Callable<Void> cancel = () -> {
+            raceLifecycleTransaction(execution.getId(), loaded, persisted ->
+                    persisted.requestCancellation(
+                            OffsetDateTime.parse("2026-07-25T12:00:00Z"),
+                            "race-canceller", "race cancellation"), successes, conflicts);
+            return null;
+        };
+        Callable<Void> claim = () -> {
+            raceLifecycleTransaction(
+                    execution.getId(), loaded, Execution::claim, successes, conflicts);
+            return null;
+        };
+
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var cancellation = executor.submit(cancel);
+            var lifecycle = executor.submit(claim);
+            cancellation.get();
+            lifecycle.get();
+        }
+
+        assertThat(successes.get()).isEqualTo(1);
+        assertThat(conflicts.get()).isEqualTo(1);
+        Execution persisted = executionRepository.findById(execution.getId()).orElseThrow();
+        assertThat(persisted.getVersion()).isEqualTo(1);
+        assertThat(persisted.getStatus())
+                .isIn(ExecutionStatus.CANCELLED, ExecutionStatus.CLAIMED);
+        if (persisted.getStatus() == ExecutionStatus.CANCELLED) {
+            assertThat(persisted.getCancelledBy()).isEqualTo("race-canceller");
+            assertThat(persisted.getCancellationReason()).isEqualTo("race cancellation");
+            assertThat(persisted.getCancelRequestedAt()).isEqualTo(persisted.getCancelledAt());
+        } else {
+            assertThat(persisted.getCancelRequestedAt()).isNull();
+            assertThat(persisted.getCancelledAt()).isNull();
+            assertThat(persisted.getCancelledBy()).isNull();
+            assertThat(persisted.getCancellationReason()).isNull();
+        }
+    }
+
+    @Test
     void snapshotAccessorsAreDefensiveAndNullableSnapshotsRoundTrip() {
         Fixture fixture = createFixture();
         Execution execution = newExecution(fixture, ExecutionSelectionMode.SUITE);
@@ -558,6 +933,36 @@ class ExecutionManagementPersistenceIntegrationTest extends IntegrationTestBase 
                 "name", snapshotName,
                 "caseReference", testCase.getCaseReference()));
         return selected;
+    }
+
+    private void raceLifecycleTransaction(
+            UUID executionId,
+            CyclicBarrier loaded,
+            java.util.function.Consumer<Execution> mutation,
+            AtomicInteger successes,
+            AtomicInteger conflicts) {
+        try {
+            transactionTemplate.executeWithoutResult(status -> {
+                Execution persisted = executionRepository.findById(executionId).orElseThrow();
+                await(loaded);
+                mutation.accept(persisted);
+                executionRepository.saveAndFlush(persisted);
+            });
+            successes.incrementAndGet();
+        } catch (ObjectOptimisticLockingFailureException exception) {
+            conflicts.incrementAndGet();
+        }
+    }
+
+    private static void await(CyclicBarrier barrier) {
+        try {
+            barrier.await();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Race test interrupted", exception);
+        } catch (BrokenBarrierException exception) {
+            throw new IllegalStateException("Race test barrier failed", exception);
+        }
     }
 
     private record Fixture(
