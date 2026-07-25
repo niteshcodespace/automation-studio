@@ -24,6 +24,7 @@ import com.automationstudio.api.repository.ExecutionTestCaseRepository;
 import com.automationstudio.api.repository.ProjectRepository;
 import com.automationstudio.api.service.ExecutionService;
 import com.automationstudio.api.service.command.CreateExecutionCommand;
+import com.automationstudio.api.service.command.CancelExecutionCommand;
 import jakarta.persistence.EntityManager;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
@@ -42,6 +43,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.automationstudio.api.exception.ResourceNotFoundException;
 import com.automationstudio.api.exception.InvalidRequestException;
 import tools.jackson.databind.ObjectMapper;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 
 @AutoConfigureMockMvc
 class ExecutionManagementPersistenceIntegrationTest extends IntegrationTestBase {
@@ -357,6 +361,114 @@ class ExecutionManagementPersistenceIntegrationTest extends IntegrationTestBase 
         mockMvc.perform(get(path).param("status", "PENDING").param("size", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].id").value(executionId));
+    }
+
+    @Test
+    void cancellationEndpointImmediatelyCancelsPendingAndEnforcesIfMatch() throws Exception {
+        Fixture fixture = createFixture();
+        Execution execution = executionService.create(
+                fixture.project().getId(), TEST_ACTOR,
+                new CreateExecutionCommand(fixture.environment().getId(), fixture.suite().getId(),
+                        ExecutionSelectionMode.SUITE, null));
+        String path = "/api/v1/projects/" + fixture.project().getId()
+                + "/executions/" + execution.getId() + "/cancel";
+
+        mockMvc.perform(post(path).header("If-Match", "\"0\"")
+                        .header("X-Requested-By", TEST_ACTOR)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"  operator request  \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.cancelledBy").value(TEST_ACTOR))
+                .andExpect(jsonPath("$.cancellationReason").value("operator request"))
+                .andExpect(jsonPath("$.version").value(1));
+
+        Execution cancelled = executionRepository.findById(execution.getId()).orElseThrow();
+        assertThat(cancelled.getCancelRequestedAt()).isEqualTo(cancelled.getCancelledAt());
+        assertThat(cancelled.getFinishedAt()).isEqualTo(cancelled.getCancelledAt());
+
+        mockMvc.perform(post(path).header("If-Match", "\"0\"")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isConflict());
+        mockMvc.perform(post(path).header("If-Match", "\"1\"")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(1));
+        assertThat(executionRepository.findById(execution.getId()).orElseThrow().getVersion())
+                .isEqualTo(1);
+    }
+
+    @Test
+    void cooperativeAndTerminalCancellationPersistExpectedState() {
+        Fixture fixture = createFixture();
+        Execution active = executionService.create(
+                fixture.project().getId(), TEST_ACTOR,
+                new CreateExecutionCommand(fixture.environment().getId(), fixture.suite().getId(),
+                        ExecutionSelectionMode.SUITE, null));
+        active.claim();
+        active = executionRepository.saveAndFlush(active);
+        long claimedVersion = active.getVersion();
+
+        Execution requested = executionService.cancel(
+                fixture.project().getId(), active.getId(), claimedVersion, TEST_ACTOR,
+                new CancelExecutionCommand("cooperative"));
+        assertThat(requested.getStatus()).isEqualTo(ExecutionStatus.CANCEL_REQUESTED);
+        assertThat(requested.getCancelRequestedAt()).isNotNull();
+        assertThat(requested.getCancelledAt()).isNull();
+        assertThat(requested.getFinishedAt()).isNull();
+        assertThat(requested.getVersion()).isEqualTo(claimedVersion + 1);
+
+        Execution terminal = executionService.create(
+                fixture.project().getId(), TEST_ACTOR,
+                new CreateExecutionCommand(fixture.environment().getId(), fixture.suite().getId(),
+                        ExecutionSelectionMode.SUITE, null));
+        terminal.claim();
+        terminal.start(OffsetDateTime.now().minusMinutes(2));
+        terminal.markPassed(OffsetDateTime.now().minusMinutes(1));
+        terminal = executionRepository.saveAndFlush(terminal);
+        UUID terminalId = terminal.getId();
+        long terminalVersion = terminal.getVersion();
+
+        assertThatThrownBy(() -> executionService.cancel(
+                fixture.project().getId(), terminalId, terminalVersion, TEST_ACTOR,
+                new CancelExecutionCommand(null)))
+                .isInstanceOf(com.automationstudio.api.exception.ResourceConflictException.class);
+        Execution unchanged = executionRepository.findById(terminalId).orElseThrow();
+        assertThat(unchanged.getStatus()).isEqualTo(ExecutionStatus.PASSED);
+        assertThat(unchanged.getVersion()).isEqualTo(terminalVersion);
+    }
+
+    @Test
+    void concurrentCancellationWithSameVersionAllowsOnlyOneMutation() throws Exception {
+        Fixture fixture = createFixture();
+        Execution execution = executionService.create(
+                fixture.project().getId(), TEST_ACTOR,
+                new CreateExecutionCommand(fixture.environment().getId(), fixture.suite().getId(),
+                        ExecutionSelectionMode.SUITE, null));
+        CountDownLatch start = new CountDownLatch(1);
+        Callable<Boolean> command = () -> {
+            start.await();
+            try {
+                executionService.cancel(
+                        fixture.project().getId(), execution.getId(), 0, TEST_ACTOR,
+                        new CancelExecutionCommand(null));
+                return true;
+            } catch (com.automationstudio.api.exception.ResourceConflictException exception) {
+                return false;
+            }
+        };
+
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(command);
+            var second = executor.submit(command);
+            start.countDown();
+            assertThat(List.of(first.get(), second.get()))
+                    .containsExactlyInAnyOrder(true, false);
+        }
+
+        Execution persisted = executionRepository.findById(execution.getId()).orElseThrow();
+        assertThat(persisted.getStatus()).isEqualTo(ExecutionStatus.CANCELLED);
+        assertThat(persisted.getVersion()).isEqualTo(1);
     }
 
     @Test

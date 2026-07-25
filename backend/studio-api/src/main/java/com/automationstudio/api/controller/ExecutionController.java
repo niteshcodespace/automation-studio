@@ -2,10 +2,13 @@ package com.automationstudio.api.controller;
 
 import com.automationstudio.api.domain.ExecutionStatus;
 import com.automationstudio.api.dto.execution.CreateExecutionRequest;
+import com.automationstudio.api.dto.execution.CancelExecutionRequest;
 import com.automationstudio.api.dto.execution.ExecutionResponse;
 import com.automationstudio.api.entity.Execution;
 import com.automationstudio.api.mapper.ExecutionMapper;
 import com.automationstudio.api.service.ExecutionService;
+import com.automationstudio.api.service.command.CancelExecutionCommand;
+import com.automationstudio.api.http.IfMatchHeaderParser;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.UUID;
@@ -29,10 +32,15 @@ public class ExecutionController {
 
     private final ExecutionService service;
     private final ExecutionMapper mapper;
+    private final IfMatchHeaderParser ifMatchHeaderParser;
 
-    public ExecutionController(ExecutionService service, ExecutionMapper mapper) {
+    public ExecutionController(
+            ExecutionService service,
+            ExecutionMapper mapper,
+            IfMatchHeaderParser ifMatchHeaderParser) {
         this.service = service;
         this.mapper = mapper;
+        this.ifMatchHeaderParser = ifMatchHeaderParser;
     }
 
     @PostMapping
@@ -60,5 +68,23 @@ public class ExecutionController {
             @RequestParam(required = false) ExecutionStatus status,
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(service.list(projectId, status, pageable).map(mapper::toResponse));
+    }
+
+    @PostMapping("/{executionId}/cancel")
+    public ResponseEntity<ExecutionResponse> cancel(
+            @PathVariable UUID projectId,
+            @PathVariable UUID executionId,
+            @RequestHeader(value = "If-Match", required = false) String ifMatch,
+            @RequestHeader(value = "X-Requested-By", defaultValue = "anonymous") String actor,
+            @Valid @RequestBody(required = false) CancelExecutionRequest request) {
+        long expectedVersion = ifMatchHeaderParser.parseRequired(ifMatch);
+        String reason = request == null ? null : request.reason();
+        Execution execution = service.cancel(
+                projectId,
+                executionId,
+                expectedVersion,
+                actor,
+                new CancelExecutionCommand(reason));
+        return ResponseEntity.ok(mapper.toResponse(execution));
     }
 }

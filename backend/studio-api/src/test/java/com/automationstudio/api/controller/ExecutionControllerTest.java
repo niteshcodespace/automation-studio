@@ -16,7 +16,10 @@ import com.automationstudio.api.dto.execution.CreateExecutionRequest;
 import com.automationstudio.api.dto.execution.ExecutionResponse;
 import com.automationstudio.api.entity.Execution;
 import com.automationstudio.api.exception.GlobalExceptionHandler;
+import com.automationstudio.api.exception.InvalidRequestException;
+import com.automationstudio.api.exception.PreconditionRequiredException;
 import com.automationstudio.api.mapper.ExecutionMapper;
+import com.automationstudio.api.http.IfMatchHeaderParser;
 import com.automationstudio.api.service.ExecutionService;
 import com.automationstudio.api.service.command.CreateExecutionCommand;
 import java.lang.reflect.Field;
@@ -55,6 +58,9 @@ class ExecutionControllerTest {
 
     @MockitoBean
     private ExecutionMapper mapper;
+
+    @MockitoBean
+    private IfMatchHeaderParser ifMatchHeaderParser;
 
     @Test
     void createsExecutionAndReturnsLocation() throws Exception {
@@ -100,6 +106,82 @@ class ExecutionControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void cancellationParsesVersionAndReturnsMetadata() throws Exception {
+        Execution execution = execution();
+        execution.requestCancellation(
+                OffsetDateTime.parse("2026-01-01T01:00:00Z"), "operator", "reason");
+        when(ifMatchHeaderParser.parseRequired("\"0\"")).thenReturn(0L);
+        when(service.cancel(eq(PROJECT_ID), eq(EXECUTION_ID), eq(0L), eq("operator"), any()))
+                .thenReturn(execution);
+        ExecutionResponse response = new ExecutionResponse(
+                EXECUTION_ID, PROJECT_ID, ENVIRONMENT_ID, SUITE_ID,
+                ExecutionSelectionMode.SUITE, ExecutionStatus.CANCELLED, "operator",
+                OffsetDateTime.parse("2026-01-01T00:00:00Z"), null,
+                OffsetDateTime.parse("2026-01-01T01:00:00Z"),
+                null, null, null, null, null, null,
+                OffsetDateTime.parse("2026-01-01T01:00:00Z"),
+                OffsetDateTime.parse("2026-01-01T01:00:00Z"),
+                "operator", "reason", 1, null, null);
+        when(mapper.toResponse(execution)).thenReturn(response);
+
+        mockMvc.perform(post(PATH + "/" + EXECUTION_ID + "/cancel")
+                        .header("If-Match", "\"0\"")
+                        .header("X-Requested-By", "operator")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\" reason \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cancelledBy").value("operator"))
+                .andExpect(jsonPath("$.cancellationReason").value("reason"))
+                .andExpect(jsonPath("$.version").value(1));
+
+        verify(service).cancel(
+                eq(PROJECT_ID), eq(EXECUTION_ID), eq(0L), eq("operator"),
+                org.mockito.ArgumentMatchers.argThat(command ->
+                        " reason ".equals(command.reason())));
+    }
+
+    @Test
+    void cancellationUsesAnonymousActorFallback() throws Exception {
+        Execution execution = execution();
+        when(ifMatchHeaderParser.parseRequired("\"0\"")).thenReturn(0L);
+        when(service.cancel(eq(PROJECT_ID), eq(EXECUTION_ID), eq(0L), eq("anonymous"), any()))
+                .thenReturn(execution);
+        when(mapper.toResponse(execution)).thenReturn(response());
+
+        mockMvc.perform(post(PATH + "/" + EXECUTION_ID + "/cancel")
+                        .header("If-Match", "\"0\"")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void cancellationRejectsOversizedReasonBeforeService() throws Exception {
+        mockMvc.perform(post(PATH + "/" + EXECUTION_ID + "/cancel")
+                        .header("If-Match", "\"0\"")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                java.util.Map.of("reason", "r".repeat(1001)))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void cancellationMapsMissingAndMalformedIfMatch() throws Exception {
+        when(ifMatchHeaderParser.parseRequired(null))
+                .thenThrow(new PreconditionRequiredException("If-Match header is required"));
+        when(ifMatchHeaderParser.parseRequired("3"))
+                .thenThrow(new InvalidRequestException("Malformed If-Match"));
+
+        mockMvc.perform(post(PATH + "/" + EXECUTION_ID + "/cancel")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isPreconditionRequired());
+        mockMvc.perform(post(PATH + "/" + EXECUTION_ID + "/cancel")
+                        .header("If-Match", "3")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
     private Execution execution() throws ReflectiveOperationException {
         Execution execution = new Execution();
         Field id = Execution.class.getDeclaredField("id");
@@ -113,6 +195,7 @@ class ExecutionControllerTest {
                 EXECUTION_ID, PROJECT_ID, ENVIRONMENT_ID, SUITE_ID,
                 ExecutionSelectionMode.SUITE, ExecutionStatus.PENDING, "operator",
                 OffsetDateTime.parse("2026-01-01T00:00:00Z"), null, null,
-                null, null, null, null, null, null, 0, null, null);
+                null, null, null, null, null, null,
+                null, null, null, null, 0, null, null);
     }
 }

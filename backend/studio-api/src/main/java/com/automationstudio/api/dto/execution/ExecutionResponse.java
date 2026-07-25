@@ -22,6 +22,10 @@ public record ExecutionResponse(
         Integer skippedTests,
         Long durationMs,
         String errorMessage,
+        OffsetDateTime cancelRequestedAt,
+        OffsetDateTime cancelledAt,
+        String cancelledBy,
+        String cancellationReason,
         long version,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt) {

@@ -6,6 +6,7 @@ import com.automationstudio.api.domain.EnvironmentStatus;
 import com.automationstudio.api.domain.ExecutionSelection;
 import com.automationstudio.api.domain.ExecutionSelectionMode;
 import com.automationstudio.api.domain.ExecutionStatus;
+import com.automationstudio.api.domain.InvalidExecutionTransitionException;
 import com.automationstudio.api.entity.AutomationSuite;
 import com.automationstudio.api.entity.AutomationTestCase;
 import com.automationstudio.api.entity.Environment;
@@ -24,8 +25,10 @@ import com.automationstudio.api.repository.ProjectRepository;
 import com.automationstudio.api.service.ExecutionService;
 import com.automationstudio.api.service.ExecutionSnapshotFactory;
 import com.automationstudio.api.service.command.CreateExecutionCommand;
+import com.automationstudio.api.service.command.CancelExecutionCommand;
+import jakarta.persistence.OptimisticLockException;
+import java.time.Clock;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,6 +38,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 @Service
 @Transactional
@@ -49,6 +53,7 @@ public class ExecutionServiceImpl implements ExecutionService {
     private final ExecutionRepository executionRepository;
     private final ExecutionTestCaseRepository executionTestCaseRepository;
     private final ExecutionSnapshotFactory snapshotFactory;
+    private final Clock clock;
 
     public ExecutionServiceImpl(
             ProjectRepository projectRepository,
@@ -57,7 +62,8 @@ public class ExecutionServiceImpl implements ExecutionService {
             AutomationTestCaseRepository testCaseRepository,
             ExecutionRepository executionRepository,
             ExecutionTestCaseRepository executionTestCaseRepository,
-            ExecutionSnapshotFactory snapshotFactory) {
+            ExecutionSnapshotFactory snapshotFactory,
+            Clock clock) {
         this.projectRepository = projectRepository;
         this.environmentRepository = environmentRepository;
         this.suiteRepository = suiteRepository;
@@ -65,6 +71,7 @@ public class ExecutionServiceImpl implements ExecutionService {
         this.executionRepository = executionRepository;
         this.executionTestCaseRepository = executionTestCaseRepository;
         this.snapshotFactory = snapshotFactory;
+        this.clock = clock;
     }
 
     @Override
@@ -93,7 +100,7 @@ public class ExecutionServiceImpl implements ExecutionService {
                 command.selectionMode(), command.testCaseIds());
         List<AutomationTestCase> selectedCases =
                 loadAndValidateSelectedCases(projectId, suite, selection);
-        OffsetDateTime requestedAt = OffsetDateTime.now(ZoneOffset.UTC);
+        OffsetDateTime requestedAt = OffsetDateTime.now(clock);
 
         Execution execution = new Execution();
         execution.setProject(project);
@@ -145,6 +152,37 @@ public class ExecutionServiceImpl implements ExecutionService {
         }
         return executionRepository.findByProjectIdAndStatusOrderByRequestedAtDescIdDesc(
                 projectId, status, pageable);
+    }
+
+    @Override
+    public Execution cancel(
+            UUID projectId,
+            UUID executionId,
+            long expectedVersion,
+            String actor,
+        CancelExecutionCommand command) {
+        findProject(projectId);
+        Execution execution = executionRepository.findByProjectIdAndId(projectId, executionId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Execution not found with id: " + executionId
+                                + " in project: " + projectId));
+        if (execution.getVersion() != expectedVersion) {
+            throw new ResourceConflictException(
+                    "Execution version conflict for id: " + executionId);
+        }
+        validateRequester(actor);
+        String reason = normalizeCancellationReason(command);
+        try {
+            execution.requestCancellation(OffsetDateTime.now(clock), actor, reason);
+            return executionRepository.saveAndFlush(execution);
+        } catch (InvalidExecutionTransitionException exception) {
+            throw new ResourceConflictException(
+                    "Execution cannot be cancelled from status: "
+                            + exception.getCurrentStatus());
+        } catch (OptimisticLockingFailureException | OptimisticLockException exception) {
+            throw new ResourceConflictException(
+                    "Execution version conflict for id: " + executionId);
+        }
     }
 
     private Project findProject(UUID projectId) {
@@ -231,6 +269,21 @@ public class ExecutionServiceImpl implements ExecutionService {
         if (requester.length() > 150) {
             throw new InvalidRequestException("Requester must not exceed 150 characters");
         }
+    }
+
+    private String normalizeCancellationReason(CancelExecutionCommand command) {
+        if (command == null || command.reason() == null) {
+            return null;
+        }
+        String reason = command.reason().trim();
+        if (reason.isEmpty()) {
+            return null;
+        }
+        if (reason.length() > 1000) {
+            throw new InvalidRequestException(
+                    "Cancellation reason must not exceed 1000 characters");
+        }
+        return reason;
     }
 
     private void validatePageable(Pageable pageable) {
