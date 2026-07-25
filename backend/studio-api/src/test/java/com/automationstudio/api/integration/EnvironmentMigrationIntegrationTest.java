@@ -345,8 +345,9 @@ class EnvironmentMigrationIntegrationTest extends IntegrationTestBase {
     private void insertExecution(UUID projectId, UUID environmentId, UUID suiteId) {
         jdbcTemplate.update("""
                 INSERT INTO execution (
-                    id, project_id, environment_id, test_suite_id, status, requested_by
-                ) VALUES (?, ?, ?, ?, 'PENDING', ?)
+                    id, project_id, environment_id, test_suite_id,
+                    selection_mode, status, requested_by
+                ) VALUES (?, ?, ?, ?, 'SUITE', 'PENDING', ?)
                 """, UUID.randomUUID(), projectId, environmentId, suiteId, TEST_ACTOR);
     }
 

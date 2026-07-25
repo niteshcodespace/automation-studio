@@ -255,8 +255,9 @@ class EnvironmentServiceIntegrationTest extends IntegrationTestBase {
                 "tests/" + suiteId);
         jdbcTemplate.update("""
                 INSERT INTO execution (
-                    id, project_id, environment_id, test_suite_id, status, requested_by
-                ) VALUES (?, ?, ?, ?, 'PENDING', 'as-017d-service-test')
+                    id, project_id, environment_id, test_suite_id,
+                    selection_mode, status, requested_by
+                ) VALUES (?, ?, ?, ?, 'SUITE', 'PENDING', 'as-017d-service-test')
                 """, UUID.randomUUID(), projectId, environmentId, suiteId);
     }
 

@@ -496,8 +496,9 @@ class AutomationTestCaseMigrationIntegrationTest extends IntegrationTestBase {
         UUID executionId = UUID.randomUUID();
         jdbcTemplate.update("""
                 INSERT INTO execution (
-                    id, project_id, environment_id, test_suite_id, status, requested_by
-                ) VALUES (?, ?, ?, ?, 'PENDING', ?)
+                    id, project_id, environment_id, test_suite_id,
+                    selection_mode, status, requested_by
+                ) VALUES (?, ?, ?, ?, 'SUITE', 'PENDING', ?)
                 """, executionId, projectId, environmentId, suiteId, TEST_ACTOR);
         return executionId;
     }

@@ -1,10 +1,9 @@
 package com.automationstudio.api;
 
+import com.automationstudio.api.integration.IntegrationTestBase;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
-class StudioApiApplicationTests {
+class StudioApiApplicationTests extends IntegrationTestBase {
 
 	@Test
 	void contextLoads() {

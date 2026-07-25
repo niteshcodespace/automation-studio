@@ -68,6 +68,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 request.getRequestURI());
     }
 
+    @ExceptionHandler(PreconditionRequiredException.class)
+    public ResponseEntity<Object> handlePreconditionRequiredException(
+            PreconditionRequiredException exception,
+            HttpServletRequest request) {
+        return buildErrorResponse(
+                HttpStatus.PRECONDITION_REQUIRED,
+                exception.getMessage(),
+                request.getRequestURI());
+    }
+
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException exception,
