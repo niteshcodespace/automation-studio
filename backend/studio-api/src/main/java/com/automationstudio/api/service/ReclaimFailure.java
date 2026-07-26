@@ -1,0 +1,11 @@
+package com.automationstudio.api.service;
+
+public enum ReclaimFailure {
+    LEASE_NOT_FOUND,
+    LEASE_STILL_ACTIVE,
+    EXECUTION_STATE_INELIGIBLE,
+    GENERATION_OVERFLOW,
+    CONCURRENT_RECLAIM_CONFLICT,
+    TOKEN_GENERATION_FAILED,
+    PERSISTENCE_FAILED
+}
