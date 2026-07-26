@@ -105,6 +105,7 @@ public class ExecutionClaimServiceImpl implements ExecutionClaimService {
                 lease.getRunnerId(),
                 lease.getClaimToken(),
                 lease.getLeaseGeneration(),
+                lease.getVersion(),
                 lease.getClaimedAt(),
                 lease.getLeaseExpiresAt(),
                 execution.getEnvironmentSnapshot(),

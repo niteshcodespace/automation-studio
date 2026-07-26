@@ -1,14 +1,12 @@
-package com.automationstudio.api.service.result;
+package com.automationstudio.api.dto.runner;
 
 import com.automationstudio.api.domain.ExecutionSelectionMode;
 import com.automationstudio.api.domain.ExecutionStatus;
 import java.time.OffsetDateTime;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public record ClaimedExecution(
+public record RunnerLeaseResponse(
         UUID executionId,
         UUID projectId,
         UUID environmentId,
@@ -26,15 +24,16 @@ public record ClaimedExecution(
         Map<String, Object> suiteSnapshot,
         Map<String, Object> requestSnapshot) {
 
-    public ClaimedExecution {
-        environmentSnapshot = immutableCopy(environmentSnapshot);
-        suiteSnapshot = immutableCopy(suiteSnapshot);
-        requestSnapshot = immutableCopy(requestSnapshot);
-    }
-
-    private static Map<String, Object> immutableCopy(Map<String, Object> snapshot) {
-        return snapshot == null
-                ? null
-                : Collections.unmodifiableMap(new LinkedHashMap<>(snapshot));
+    @Override
+    public String toString() {
+        return "RunnerLeaseResponse[executionId="
+                + executionId
+                + ", runnerId="
+                + runnerId
+                + ", leaseGeneration="
+                + leaseGeneration
+                + ", leaseVersion="
+                + leaseVersion
+                + "]";
     }
 }

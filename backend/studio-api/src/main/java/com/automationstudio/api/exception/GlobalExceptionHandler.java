@@ -1,6 +1,10 @@
 package com.automationstudio.api.exception;
 
 import com.automationstudio.api.dto.error.ApiErrorResponse;
+import com.automationstudio.api.service.ExecutionHeartbeatException;
+import com.automationstudio.api.service.ExecutionReclaimException;
+import com.automationstudio.api.service.HeartbeatFailure;
+import com.automationstudio.api.service.ReclaimFailure;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.Comparator;
@@ -66,6 +70,34 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 HttpStatus.BAD_REQUEST,
                 exception.getMessage(),
                 request.getRequestURI());
+    }
+
+    @ExceptionHandler(ExecutionHeartbeatException.class)
+    public ResponseEntity<Object> handleExecutionHeartbeatException(
+            ExecutionHeartbeatException exception,
+            HttpServletRequest request) {
+        HttpStatus status = exception.getFailure() == HeartbeatFailure.LEASE_NOT_FOUND
+                ? HttpStatus.NOT_FOUND
+                : HttpStatus.CONFLICT;
+        return buildErrorResponse(status, exception.getMessage(), request.getRequestURI());
+    }
+
+    @ExceptionHandler(ExecutionReclaimException.class)
+    public ResponseEntity<Object> handleExecutionReclaimException(
+            ExecutionReclaimException exception,
+            HttpServletRequest request) {
+        HttpStatus status = switch (exception.getFailure()) {
+            case LEASE_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case LEASE_STILL_ACTIVE, EXECUTION_STATE_INELIGIBLE,
+                    GENERATION_OVERFLOW, CONCURRENT_RECLAIM_CONFLICT ->
+                    HttpStatus.CONFLICT;
+            case TOKEN_GENERATION_FAILED, PERSISTENCE_FAILED ->
+                    HttpStatus.INTERNAL_SERVER_ERROR;
+        };
+        String message = status == HttpStatus.INTERNAL_SERVER_ERROR
+                ? "An unexpected error occurred"
+                : exception.getMessage();
+        return buildErrorResponse(status, message, request.getRequestURI());
     }
 
     @ExceptionHandler(PreconditionRequiredException.class)
