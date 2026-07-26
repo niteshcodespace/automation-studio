@@ -14,7 +14,7 @@ fields. Its physical suite relationship uses the transitional `execution.test_su
 AS-018 must add control-plane admission, selected-test-case requests, immutable request context,
 queries, and cancellation without splitting execution identity or implementing the runner. The
 design must preserve historical rows and applied Flyway migrations while giving AS-019 a durable,
-secure request to process.
+secure request to claim under a renewable lease.
 
 ## Decision
 
@@ -108,13 +108,17 @@ The public REST API creates, reads, lists, and explicitly cancels executions. It
 DELETE, general PUT, or generic status PATCH operations. Lifecycle and result fields remain
 server-controlled. Historical request identity and snapshots cannot be edited.
 
-### Separate AS-018 control plane from AS-019 execution plane
+### Separate AS-018 control plane from later execution-plane work
 
 AS-018 admits and persists requests, serves history, and records cancellation intent. It does not
 implement runner registration, runner claiming, claim leases, lease renewal, runner heartbeats,
 retries, abandoned-execution recovery, execution processing, artifact generation or publication,
 secret resolution, Playwright execution, Selenium execution, Karate execution, or REST Assured
-execution. These capabilities are deferred primarily to AS-019.
+execution. AS-019 owns PostgreSQL queue claiming, renewable leases, heartbeat renewal, stale-owner
+fencing, and reassignment of expired leases while an execution remains `CLAIMED`. Runner
+registration, `CLAIMED -> RUNNING`, complete runner orchestration, retries, execution attempts,
+recovery of abandoned `RUNNING` executions, secret resolution, engine execution, runtime
+step/result publication, and artifact generation or publication remain deferred beyond AS-019.
 
 ### Use optimistic locking
 
@@ -156,7 +160,8 @@ steps without explicit selected-case rows.
 ### Resolve secrets during execution creation
 
 Rejected because it expands secret exposure and stores short-lived values before a runner needs
-them. AS-018 stores reference metadata only; AS-019 resolves scoped secrets immediately before use.
+them. AS-018 stores reference metadata only; scoped secret resolution is deferred beyond AS-019
+and belongs to future execution processing immediately before use.
 
 ### Allow generic status PATCH operations
 
@@ -196,16 +201,17 @@ rewrite history. Explicit commands and runner application interfaces preserve in
 
 ## AS-019 Boundary
 
-AS-019 must consume AS-018 requests and snapshots through controlled application interfaces. It
-primarily owns runner registration, runner claiming, claim leases, lease renewal, runner
-heartbeats, retries, abandoned-execution recovery, execution processing, artifact generation and
-publication, scoped secret resolution, Playwright execution, Selenium execution, Karate
-execution, REST Assured execution, step/result publication, and cooperative cancellation
-completion.
+AS-019 owns the PostgreSQL-backed execution queue, atomic `PENDING -> CLAIMED` claiming, renewable
+`execution_lease` ownership, heartbeat renewal, claim-token fencing, and reassignment of expired
+leases while an execution remains `CLAIMED`. A `PENDING` execution initially has no lease; its
+first claim creates one, and reclaim updates that same row.
 
-AS-019 must preserve the documented lifecycle, use optimistic concurrency, and must not write
-around the `Execution` aggregate or depend on mutable catalog state where an admitted snapshot is
-authoritative.
+AS-019 does not implement runner registration, `CLAIMED -> RUNNING`, complete runner
+orchestration, retries, execution attempts, recovery of abandoned `RUNNING` executions, scoped
+secret resolution, engine execution, runtime step/result publication, artifact generation or
+publication, or cooperative cancellation completion. It must preserve the AS-018 lifecycle and
+optimistic cancellation contract and must not write around the `Execution` aggregate or depend on
+mutable catalog state where an admitted snapshot is authoritative.
 
 ## Acceptance Criteria
 
@@ -219,4 +225,5 @@ authoritative.
 - Lifecycle-sensitive mutations use optimistic locking.
 - Cancellation requires the current quoted `If-Match` version; missing, malformed, and stale
   preconditions return 428, 400, and 409 respectively.
-- AS-018 control-plane and AS-019 execution-plane responsibilities are unambiguous.
+- AS-018 control-plane, AS-019 queue-and-lease, and later execution-processing responsibilities
+  are unambiguous.

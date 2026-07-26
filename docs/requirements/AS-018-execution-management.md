@@ -64,8 +64,13 @@ AS-018 includes:
 - Generic client-controlled execution-status updates.
 - Public execution replacement or deletion.
 
-These execution-plane responsibilities are primarily reserved for AS-019. AS-018 records
-cancellation intent and prepares durable work; it does not consume or run that work.
+AS-019 owns PostgreSQL queue claiming, renewable runner leases, heartbeat renewal, stale-owner
+fencing, and reassignment of expired leases while an execution remains `CLAIMED`. Runner
+registration, `CLAIMED -> RUNNING`, complete runner orchestration, retries, execution attempts,
+recovery of abandoned `RUNNING` executions, secret resolution, engine execution, runtime
+step/result publication, artifact generation or publication, and cooperative cancellation
+completion remain deferred beyond AS-019. AS-018 records cancellation intent and prepares durable
+work; it does not consume or run that work.
 
 ## 5. Selection Model
 
@@ -83,7 +88,7 @@ public enum ExecutionSelectionMode {
 - No explicit test-case IDs are required or accepted.
 - The request represents the entire executable suite.
 - The immutable suite snapshot records the suite context at admission time.
-- Runtime discovery and expansion into steps remain AS-019 responsibilities.
+- Runtime discovery and expansion into steps remain deferred beyond AS-019.
 
 ### 5.2 TEST_CASES
 
@@ -394,8 +399,8 @@ lists and removes entries by normalized, case-insensitive key name when the key 
 `password`, `secretvalue`, `token`, `apikey`, `privatekey`, or `credential`. It does not inspect
 or classify otherwise safe-keyed values. Reviewed secret-reference metadata is retained in the
 Environment snapshot, but raw snapshots and secret-reference maps are not exposed by the public
-execution DTO. AS-019 may resolve authorized secret references only in the execution plane
-immediately before use.
+execution DTO. Secret resolution is deferred beyond AS-019 and may occur only in future authorized
+execution processing immediately before use.
 
 ## 16. Test Expectations
 
@@ -447,7 +452,8 @@ tested with Testcontainers rather than an in-memory substitute.
 - [x] Standard 400, 404, 409, and 428 errors are safe and consistent.
 - [x] Tests cover migration safety, validation, snapshots, security, API behavior, concurrency, and
   regression.
-- [x] AS-018 and AS-019 responsibilities remain explicitly separated.
+- [x] AS-018 control-plane, AS-019 queue-and-lease, and later execution-processing
+  responsibilities remain explicitly separated.
 - [x] Final documentation is reconciled with delivered behavior.
 
 ## 18. Implementation Phases
@@ -499,18 +505,22 @@ verification.
   catalog rows against concurrent edits; stronger admission consistency remains future work.
 - Restrictive `execution_test_case` foreign keys intentionally protect referenced test-case
   history from physical deletion.
-- Runner ownership, leases, transition authorization, retry, abandoned-work recovery, secret
-  resolution, and final cooperative-cancellation acknowledgement are AS-019 decisions.
+- Runner ownership, queue claiming, renewable leases, heartbeat, stale-owner fencing, and recovery
+  of expired `CLAIMED` leases are AS-019 decisions. Transition to `RUNNING`, retries, attempts,
+  abandoned-`RUNNING` recovery, secret resolution, and final cooperative-cancellation
+  acknowledgement remain deferred beyond AS-019.
 - Scheduling, retention, audit events, stable custom page envelopes, and UI behavior remain future work.
 
 ## 20. AS-019 Boundary
 
 AS-018 owns control-plane admission, immutable request persistence, queries, and cancellation
-intent. AS-019 primarily owns runner registration, runner claiming, claim leases, lease renewal,
-runner heartbeats, retries, abandoned-execution recovery, execution processing, artifact
-generation and publication, scoped secret resolution, Playwright execution, Selenium execution,
-Karate execution, REST Assured execution, runtime step/result publication, and acknowledgement of
-cooperative cancellation.
+intent. AS-019 owns the PostgreSQL-backed queue, atomic `PENDING -> CLAIMED` claiming, renewable
+`execution_lease` ownership, heartbeat renewal, claim-token fencing, and reassignment of expired
+leases while an execution remains `CLAIMED`. A `PENDING` execution initially has no lease; its
+first claim creates one, and reclaim updates that same row.
 
-AS-019 must use service-controlled transitions and optimistic concurrency. It must not bypass the
-AS-018 aggregate invariants or reinterpret mutable catalog rows instead of the admitted snapshots.
+AS-019 does not implement runner registration, `CLAIMED -> RUNNING`, complete runner
+orchestration, retries, execution attempts, recovery of abandoned `RUNNING` executions, scoped
+secret resolution, engine execution, runtime step/result publication, artifact generation or
+publication, or cooperative cancellation completion. It must preserve the AS-018 aggregate
+invariants, lifecycle, snapshots, and optimistic cancellation contract.
