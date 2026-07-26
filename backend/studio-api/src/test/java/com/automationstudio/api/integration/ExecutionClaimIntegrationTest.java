@@ -149,12 +149,14 @@ class ExecutionClaimIntegrationTest extends IntegrationTestBase {
                 .containsEntry("version", 1L);
         assertThat(execution)
                 .containsAllEntriesOf(before);
-        assertThat(jdbcTemplate.queryForMap("""
+        Map<String, Object> persistedLease = jdbcTemplate.queryForMap("""
                 SELECT runner_id, claim_token, lease_generation, version,
                        claimed_at, last_heartbeat_at, lease_expires_at
                 FROM execution_lease
                 WHERE execution_id = ?
-                """, oldestId))
+                """, oldestId);
+        assertThat(claimed.leaseVersion()).isEqualTo(persistedLease.get("version"));
+        assertThat(persistedLease)
                 .satisfies(lease -> {
                     assertThat(lease.get("runner_id")).isEqualTo(RUNNER_PREFIX + "-oldest");
                     assertThat(lease.get("claim_token")).isEqualTo(claimed.claimToken());

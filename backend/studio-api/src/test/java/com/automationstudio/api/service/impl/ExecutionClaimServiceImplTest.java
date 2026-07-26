@@ -89,7 +89,11 @@ class ExecutionClaimServiceImplTest {
         when(tokenGenerator.nextToken()).thenReturn(token);
         when(executionRepository.saveAndFlush(execution)).thenReturn(execution);
         when(leaseRepository.saveAndFlush(any(ExecutionLease.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> {
+                    ExecutionLease persisted = invocation.getArgument(0);
+                    persisted.setVersion(7);
+                    return persisted;
+                });
 
         var result = service.claimNext(
                 new ClaimExecutionCommand("  runner-1  ", Duration.ofMinutes(2)))
@@ -101,6 +105,7 @@ class ExecutionClaimServiceImplTest {
         assertThat(result.runnerId()).isEqualTo("runner-1");
         assertThat(result.claimToken()).isEqualTo(token);
         assertThat(result.leaseGeneration()).isEqualTo(1);
+        assertThat(result.leaseVersion()).isEqualTo(7);
         assertThat(result.claimedAt()).isEqualTo(databaseTime);
         assertThat(result.leaseExpiresAt()).isEqualTo(databaseTime.plusMinutes(2));
         assertThat(result.environmentSnapshot()).containsEntry("region", "eu");
