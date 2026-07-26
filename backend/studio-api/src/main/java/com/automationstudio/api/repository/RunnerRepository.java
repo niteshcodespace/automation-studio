@@ -14,6 +14,14 @@ import org.springframework.data.repository.query.Param;
 
 public interface RunnerRepository extends JpaRepository<Runner, UUID> {
 
+    @Query(value = """
+            SELECT pg_advisory_xact_lock(hashtextextended(:runnerKey, 0))::text
+            """, nativeQuery = true)
+    String lockRegistrationKey(@Param("runnerKey") String runnerKey);
+
+    @Query(value = "SELECT clock_timestamp()", nativeQuery = true)
+    java.time.Instant currentDatabaseTime();
+
     Optional<Runner> findByRunnerKey(String runnerKey);
 
     boolean existsByRunnerKey(String runnerKey);

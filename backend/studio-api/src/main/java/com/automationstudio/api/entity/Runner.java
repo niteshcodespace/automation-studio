@@ -26,9 +26,10 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Generated;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SourceType;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.generator.EventType;
 import org.hibernate.type.SqlTypes;
 
 @Entity
@@ -115,7 +116,9 @@ public class Runner {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
-    @UpdateTimestamp(source = SourceType.DB)
+    @Generated(
+            event = {EventType.INSERT, EventType.UPDATE},
+            sql = "clock_timestamp()")
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
