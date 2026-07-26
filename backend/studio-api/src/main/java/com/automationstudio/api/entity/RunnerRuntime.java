@@ -13,8 +13,9 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Generated;
 import org.hibernate.annotations.SourceType;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.generator.EventType;
 
 @Entity
 @Table(name = "runner_runtime")
@@ -42,7 +43,9 @@ public class RunnerRuntime {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
-    @UpdateTimestamp(source = SourceType.DB)
+    @Generated(
+            event = {EventType.INSERT, EventType.UPDATE},
+            sql = "clock_timestamp()")
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
@@ -54,5 +57,17 @@ public class RunnerRuntime {
     public void updateRuntimeState(OffsetDateTime lastSeenAt, long heartbeatCount) {
         this.lastSeenAt = lastSeenAt;
         this.heartbeatCount = heartbeatCount;
+    }
+
+    public void recordHeartbeat(OffsetDateTime heartbeatTime) {
+        if (heartbeatTime == null) {
+            throw new IllegalArgumentException("Heartbeat time must not be null");
+        }
+        if (heartbeatTime.isBefore(lastSeenAt)) {
+            throw new IllegalArgumentException(
+                    "Heartbeat time must not be earlier than last seen time");
+        }
+        this.lastSeenAt = heartbeatTime;
+        this.heartbeatCount = Math.incrementExact(heartbeatCount);
     }
 }
