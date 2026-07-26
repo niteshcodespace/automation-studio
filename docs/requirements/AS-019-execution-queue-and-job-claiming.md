@@ -2,8 +2,7 @@
 
 ## 1. Status and Purpose
 
-**Status:** AS-019A architecture approved; persistence implementation must not begin until the
-AS-019A documentation is reviewed and approved.
+**Status:** Implemented through AS-019F; AS-019G final reconciliation is in review.
 
 AS-019 defines the durable PostgreSQL queue and renewable lease foundation through which
 distributed runners acquire admitted executions. It extends the AS-018 execution lifecycle only
@@ -139,9 +138,11 @@ Runner ID identifies the owner. The unique, unpredictable claim token identifies
 epoch and fences stale runners. Runner ID alone is insufficient because a process may restart
 under the same identity while an older process remains active.
 
-Every ownership-sensitive operation must match execution ID, runner ID, claim token, an unexpired
-lease, and a compatible execution status. Claim tokens must be replaced on reclaim and must never
-become valid again after expiry or replacement.
+Heartbeat and future current-owner mutations must match execution ID, runner ID, claim token, lease
+generation, expected lease version, an unexpired lease, and a compatible execution status.
+Reclaim is a server-selected ownership transfer and does not accept the previous owner's
+credentials. Claim tokens must be replaced on reclaim and must never become valid again after
+expiry or replacement.
 
 `leaseGeneration` starts at one and increases by one whenever ownership is reassigned. It makes
 ownership epochs observable but does not replace claim-token validation.
@@ -159,28 +160,35 @@ One short PostgreSQL transaction:
 SELECT id
 FROM execution
 WHERE status = 'PENDING'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM execution_lease
+      WHERE execution_lease.execution_id = execution.id
+  )
 ORDER BY requested_at ASC, id ASC
-FOR UPDATE SKIP LOCKED
+FOR UPDATE OF execution SKIP LOCKED
 LIMIT 1;
 ```
 
-2. Generates a unique claim token.
-3. Conditionally changes the locked execution from `PENDING` to `CLAIMED`.
-4. Increments `Execution.version` because the public lifecycle changed.
-5. Creates `execution_lease` with generation one and database-controlled timestamps.
-6. Returns the claimed execution and current lease.
-7. Commits before any external preparation or processing.
+2. Loads the locked execution as a managed JPA entity.
+3. Applies the domain-validated `PENDING -> CLAIMED` transition and flushes it.
+4. Increments `Execution.version` through JPA optimistic versioning because the lifecycle changed.
+5. Reads PostgreSQL time and generates a unique claim token.
+6. Creates and flushes `execution_lease` with generation one and database-controlled timestamps.
+7. Returns the claimed execution and current lease.
+8. Commits before any external preparation or processing.
 
 The execution transition and lease insert must both commit or both roll back. The defensive
-lifecycle update must still require `status = 'PENDING'` and affect exactly one row.
+lifecycle transition requires the managed execution to remain `PENDING`; its optimistic versioned
+update must affect exactly one row.
 
 `SKIP LOCKED` lets competing runners select different work without blocking behind another
 claimant. An empty queue returns no claim immediately.
 
-During AS-019C, native SQL and JPA persistence-context interaction must be explicitly verified.
-Native claim updates must increment the persisted version, and no managed `Execution` may remain
-stale after the operation. The implementation must clear, refresh, or avoid the affected
-persistence context as justified by tests and the chosen repository design.
+The native SQL selects and locks only the execution ID; it does not perform the lifecycle update.
+The service loads and mutates the execution through JPA after selection, so the managed instance
+and persisted `Execution.version` remain aligned. Integration tests explicitly verify that a
+preloaded managed execution observes the transition and single version increment.
 
 ## 9. Expired Lease Reclaim
 
@@ -206,7 +214,7 @@ claim_token = new token
 lease_generation = lease_generation + 1
 claimed_at = database time
 last_heartbeat_at = database time
-lease_expires_at = database time + configured lease duration
+lease_expires_at = database time + validated requested lease duration
 version = version + 1
 updated_at = database time
 ```
@@ -229,8 +237,11 @@ Runner or application-server timestamps must not determine lease ownership. Each
 must use a consistent database timestamp, such as `CURRENT_TIMESTAMP` or
 `transaction_timestamp()`.
 
-Lease duration and heartbeat interval are server-controlled configuration. Clients cannot request
-arbitrary lease durations.
+The runner protocol supplies a requested lease duration for claim, heartbeat, and reclaim. The
+service validates that duration as positive and no greater than 24 hours. This caller-supplied
+value is provisional until authenticated runner policy can bind it to server-controlled
+configuration. The current implementation has no separate heartbeat-interval setting or default
+lease-duration setting; the validated duration determines the new expiry for each operation.
 
 ## 11. Heartbeat Renewal
 
@@ -304,15 +315,12 @@ The initial claim transaction includes candidate locking, lifecycle and version 
 creation, and required response projection. It excludes network calls, source preparation, secret
 resolution, engine work, steps, results, and artifacts.
 
-Heartbeat is one short conditional lease update and must not rewrite the `Execution` aggregate.
+Heartbeat is one short locked-read and managed lease-update transaction and must not rewrite the
+`Execution` aggregate.
 
-Reclaim locks in a consistent order:
-
-```text
-execution -> execution_lease
-```
-
-It revalidates status, token epoch, and expiry before replacing ownership.
+Reclaim selects and locks the eligible `execution` and `execution_lease` rows together in one
+PostgreSQL `FOR UPDATE OF lease, execution SKIP LOCKED` query. It then loads the locked lease as a
+managed entity and revalidates lifecycle and expiry before replacing ownership.
 
 AS-018 public cancellation retains its existing optimistic transaction and `If-Match` contract.
 
@@ -342,23 +350,29 @@ PostgreSQL integration tests because an ordinary check constraint cannot referen
 
 ## 16. Internal Runner Protocol
 
-The planned internal protocol is versioned separately from AS-018 public routes:
+The runner protocol is versioned separately from AS-018 public execution routes:
 
 ```http
-POST /internal/api/v1/execution-claims
-POST /internal/api/v1/execution-leases/{executionId}/heartbeat
+POST /api/v1/runners/claim
+POST /api/v1/runners/heartbeats
+POST /api/v1/runners/reclaim
 ```
 
-The claim operation may transparently prefer expired `CLAIMED` work or new `PENDING` work according
-to the documented service policy. The persisted record remains an `ExecutionLease`.
+Claim selects new `PENDING` work. Reclaim independently selects expired `CLAIMED` work. The
+persisted ownership record remains an `ExecutionLease`.
 
-A claim response may contain execution and Project IDs, runner ID, claim token, generation, lease
-timestamps, selection mode, and the immutable sanitized snapshots needed by a future runner.
-No available work returns 204.
+A claim or reclaim request contains runner ID and an ISO-8601 lease duration. Success returns 200
+with execution, Project, Environment, and Automation Suite identifiers; runner ID; claim token;
+generation; lease version; claim and expiry timestamps; selection mode; lifecycle/version
+metadata; and the immutable environment, suite, and request snapshots. No available work returns
+204 with no body.
 
-Heartbeat requires runner ID and claim token. Malformed input returns 400; missing scoped resources
-return 404; stale, expired, fenced, or incompatible ownership returns 409. Tokens must not appear
-in errors.
+Heartbeat requires execution ID, runner ID, claim token, generation, expected lease version, and
+an ISO-8601 lease duration. Success returns 200 with execution ID, generation, renewed lease
+version, heartbeat time, and expiry; it does not echo the runner ID or token. Malformed or invalid
+input returns 400; a genuinely missing execution or lease returns 404; stale, expired, fenced, or
+incompatible ownership returns 409; unexpected failures return a sanitized 500. Tokens must not
+appear in errors or ordinary logs.
 
 Authentication is deferred. Until runner principals exist, caller-supplied runner identity is
 provisional and must not be confused with authenticated identity.
@@ -403,7 +417,8 @@ Required evidence includes:
 - One-owner results under concurrent claiming.
 - Locked-row skipping.
 - Atomic rollback of execution and lease changes.
-- Native SQL version updates and non-stale JPA persistence contexts.
+- Managed lifecycle/version updates following native lock selection and a non-stale JPA
+  persistence context.
 - Database-time heartbeat behavior.
 - Heartbeat isolation from `Execution.version`.
 - Expired token rejection.
@@ -530,7 +545,7 @@ owners.
 
 ### AS-019F - Internal Runner Protocol
 
-**Scope:** Expose internal claim and heartbeat operations.
+**Scope:** Expose runner claim, heartbeat, and reclaim operations.
 
 **Likely files:** Internal controller, DTOs, mapper, validation, and HTTP integration tests.
 
@@ -538,34 +553,21 @@ owners.
 
 **Service:** Protocol integration only.
 
-**API:** Add internal versioned endpoints; preserve all public AS-018 routes.
+**API:** Add the versioned `/api/v1/runners/claim`, `/api/v1/runners/heartbeats`, and
+`/api/v1/runners/reclaim` endpoints; preserve all public AS-018 execution routes.
 
-**Tests:** Claim, empty queue, validation, heartbeat outcomes, scope, and token-safe responses.
+**Tests:** Claim, reclaim, empty work, validation, heartbeat outcomes, response contracts, and
+token-safe responses.
 
 **Acceptance:** Internal protocol exposes only required sanitized work and current ownership.
 
 **Review gate:** API and security review.
 
-### AS-019G - Cancellation and Concurrency Reconciliation
+### AS-019G - Final Reconciliation
 
-**Scope:** Prove AS-018 cancellation and AS-019 coordination serialize safely.
-
-**Likely files:** Focused claim/cancel/heartbeat/reclaim concurrency tests; implementation changes
-only for evidenced defects.
-
-**Migration/domain/API:** None expected.
-
-**Repository/service:** Evidence-driven corrections only.
-
-**Tests:** Cancellation-first, claim-first, stale and refreshed `If-Match`, and no lost update.
-
-**Acceptance:** AS-018 optimistic cancellation behavior remains unchanged.
-
-**Review gate:** Concurrency and regression review.
-
-### AS-019H - Documentation, Regression, and Final Review
-
-**Scope:** Reconcile delivered behavior, run complete tests, and audit branch hygiene.
+**Scope:** Reconcile delivered behavior across requirements, ADRs, migrations, persistence,
+services, runner REST contracts, exception mapping, and tests. This phase introduces no new
+orchestration capability.
 
 **Likely files:** AS-019 requirements, ADR-009, and development log.
 
@@ -581,23 +583,23 @@ secret-resolution scope leaked into AS-019.
 
 ## 22. Acceptance Criteria
 
-- [ ] `execution` remains the authoritative durable queue.
-- [ ] `execution_lease` is the current renewable ownership record.
-- [ ] A `PENDING` execution initially has no lease.
-- [ ] First claim atomically creates one lease and changes `PENDING -> CLAIMED`.
-- [ ] At most one lease row exists per execution.
-- [ ] Reclaim updates the existing row and never creates lease history.
-- [ ] Queue order is `requested_at ASC, id ASC`.
-- [ ] Ownership requires runner ID and unique claim token.
-- [ ] Reclaim replaces the token and increments lease generation.
-- [ ] PostgreSQL controls all authoritative lease time.
-- [ ] Heartbeats never change `Execution.version`.
-- [ ] Initial lifecycle claim increments `Execution.version`.
-- [ ] Reclaim preserves `CLAIMED` and does not change `Execution.version`.
-- [ ] Cancellation and claim races have no lost update or dual owner.
-- [ ] Native claim SQL cannot leave a stale managed execution.
-- [ ] Public AS-018 behavior remains unchanged.
-- [ ] No `CLAIMED -> RUNNING`, execution attempt, retry, engine, artifact, secret-resolution, or
+- [x] `execution` remains the authoritative durable queue.
+- [x] `execution_lease` is the current renewable ownership record.
+- [x] A `PENDING` execution initially has no lease.
+- [x] First claim atomically creates one lease and changes `PENDING -> CLAIMED`.
+- [x] At most one lease row exists per execution.
+- [x] Reclaim updates the existing row and never creates lease history.
+- [x] Queue order is `requested_at ASC, id ASC`.
+- [x] Ownership requires runner ID and unique claim token.
+- [x] Reclaim replaces the token and increments lease generation.
+- [x] PostgreSQL controls all authoritative lease time.
+- [x] Heartbeats never change `Execution.version`.
+- [x] Initial lifecycle claim increments `Execution.version`.
+- [x] Reclaim preserves `CLAIMED` and does not change `Execution.version`.
+- [x] Cancellation and claim races have no lost update or dual owner.
+- [x] Native claim SQL cannot leave a stale managed execution.
+- [x] Public AS-018 behavior remains unchanged.
+- [x] No `CLAIMED -> RUNNING`, execution attempt, retry, engine, artifact, secret-resolution, or
   full-orchestration behavior is implemented.
-- [ ] PostgreSQL/Testcontainers tests are deterministic and use no arbitrary sleeps.
-- [ ] AS-019A is reviewed and approved before AS-019B begins.
+- [x] PostgreSQL/Testcontainers tests are deterministic and use no arbitrary sleeps.
+- [x] AS-019A was reviewed and approved before AS-019B began.

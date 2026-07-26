@@ -2,10 +2,9 @@
 
 ## Status
 
-Proposed
+Accepted
 
-AS-019A documentation is approved in principle but must receive final review and approval before
-AS-019B persistence implementation begins.
+Implemented through AS-019F and reconciled against the merged implementation in AS-019G.
 
 ## Context
 
@@ -49,17 +48,23 @@ Claiming selects the oldest eligible row with PostgreSQL:
 SELECT id
 FROM execution
 WHERE status = 'PENDING'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM execution_lease
+      WHERE execution_lease.execution_id = execution.id
+  )
 ORDER BY requested_at ASC, id ASC
-FOR UPDATE SKIP LOCKED
+FOR UPDATE OF execution SKIP LOCKED
 LIMIT 1;
 ```
 
 Selection, lifecycle update, execution-version increment, and lease creation occur in one short
 transaction. Competing runners skip locked candidates and cannot both own the same execution.
 
-Native SQL must not leave a stale `Execution` in the JPA persistence context. AS-019C must
-explicitly verify and document whether the implementation clears, refreshes, or avoids managed
-instances around native coordination.
+The native query selects and locks only the execution ID. The service then loads the locked row
+through JPA, applies `Execution.claim()`, and flushes the managed entity before inserting the
+lease. This avoids a native lifecycle update and keeps the managed instance aligned with the
+persisted execution version.
 
 ### Require runner ID and claim token
 
@@ -77,8 +82,9 @@ application-server clocks do not decide ownership.
 
 ### Isolate heartbeat concurrency
 
-Heartbeats update the lease-local version or use an equivalent conditional token update. They do
-not modify `Execution.version`.
+Heartbeats lock the lease and execution rows, validate ownership, generation, expected lease
+version, lifecycle, and expiry, then update the managed lease. The lease-local optimistic version
+increments on flush; `Execution.version` is not modified.
 
 The initial claim increments `Execution.version` because it changes lifecycle status. Reclaim
 preserves `CLAIMED` and therefore changes only lease-local concurrency state.
@@ -99,6 +105,24 @@ AS-019 owns `PENDING -> CLAIMED`, renewable lease coordination, heartbeat, fenci
 `CLAIMED -> RUNNING`, full runner orchestration, secret resolution, engine execution, runtime
 steps/results, artifacts, retries, attempts, and recovery of abandoned `RUNNING` executions are
 deferred.
+
+### Expose a dedicated runner REST protocol
+
+Runner coordination is exposed through `POST /api/v1/runners/claim`,
+`POST /api/v1/runners/heartbeats`, and `POST /api/v1/runners/reclaim`. These routes are separate
+from the AS-018 public execution-management API and use immutable DTOs rather than persistence
+entities.
+
+Claim, heartbeat, and reclaim return 200 on success. Claim and reclaim instead return `204 No
+Content` when no eligible work exists. Invalid input returns 400; missing execution or lease
+resources return 404; ownership, generation, version, expiry, and lifecycle conflicts return 409;
+unexpected failures return a sanitized 500. Claim tokens are returned only when establishing a
+claim/reclaim ownership epoch and are never echoed by heartbeat or error responses.
+
+Runner identity and lease duration are caller supplied until authentication and runner policy
+exist. Services trim and bound runner IDs and accept only positive lease durations no greater than
+24 hours. Authentication, authorization, and binding those values to server policy remain
+deferred. There is no separate heartbeat interval or default lease duration in AS-019.
 
 ## Consequences
 
@@ -179,7 +203,8 @@ non-disclosure.
 
 ## Implementation Boundary
 
-AS-019A creates and reconciles documentation only. AS-019B must not begin until AS-019A receives
-explicit review approval. Subsequent phases are persistence, atomic claiming, heartbeat/fencing,
-reclaim, internal protocol, cancellation reconciliation, and final review as defined by the
-AS-019 requirements.
+AS-019 delivers persistence, atomic claiming, heartbeat/fencing, expired `CLAIMED` reclaim, and
+the runner REST protocol. AS-019G performs final reconciliation only. Authentication,
+authorization, runner registration, scheduling, `CLAIMED -> RUNNING`, completion, retries,
+attempts, engines, artifacts, secret resolution, and recovery of abandoned `RUNNING` executions
+remain deferred.
