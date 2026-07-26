@@ -19,6 +19,10 @@ import com.automationstudio.api.service.ExecutionHeartbeatException;
 import com.automationstudio.api.service.ExecutionHeartbeatService;
 import com.automationstudio.api.service.ExecutionReclaimService;
 import com.automationstudio.api.service.HeartbeatFailure;
+import com.automationstudio.api.service.RunnerHeartbeatService;
+import com.automationstudio.api.service.RunnerManagementService;
+import com.automationstudio.api.service.RunnerQueryService;
+import com.automationstudio.api.service.RunnerRegistrationService;
 import com.automationstudio.api.service.command.ClaimExecutionCommand;
 import com.automationstudio.api.service.command.ReclaimExecutionLeaseCommand;
 import com.automationstudio.api.service.command.RenewExecutionLeaseCommand;
@@ -59,6 +63,14 @@ class RunnerControllerTest {
     private ExecutionHeartbeatService heartbeatService;
     @MockitoBean
     private ExecutionReclaimService reclaimService;
+    @MockitoBean
+    private RunnerRegistrationService registrationService;
+    @MockitoBean
+    private RunnerHeartbeatService runnerHeartbeatService;
+    @MockitoBean
+    private RunnerQueryService queryService;
+    @MockitoBean
+    private RunnerManagementService managementService;
     @MockitoBean
     private RunnerMapper mapper;
 

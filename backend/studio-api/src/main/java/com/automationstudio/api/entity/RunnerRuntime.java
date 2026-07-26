@@ -67,7 +67,10 @@ public class RunnerRuntime {
             throw new IllegalArgumentException(
                     "Heartbeat time must not be earlier than last seen time");
         }
+
+        long nextHeartbeatCount = Math.incrementExact(heartbeatCount);
+
         this.lastSeenAt = heartbeatTime;
-        this.heartbeatCount = Math.incrementExact(heartbeatCount);
+        this.heartbeatCount = nextHeartbeatCount;
     }
 }

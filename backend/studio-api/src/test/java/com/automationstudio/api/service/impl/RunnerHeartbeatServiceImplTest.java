@@ -201,8 +201,11 @@ class RunnerHeartbeatServiceImplTest {
                 .isThrownBy(() -> runtime.recordHeartbeat(EVALUATED_AT.minusNanos(1)));
 
         ReflectionTestUtils.setField(runtime, "heartbeatCount", Long.MAX_VALUE);
+        OffsetDateTime lastSeenAtBeforeOverflow = runtime.getLastSeenAt();
         assertThatExceptionOfType(ArithmeticException.class)
-                .isThrownBy(() -> runtime.recordHeartbeat(EVALUATED_AT));
+                .isThrownBy(() -> runtime.recordHeartbeat(EVALUATED_AT.plusSeconds(1)));
+        assertThat(runtime.getLastSeenAt()).isEqualTo(lastSeenAtBeforeOverflow);
+        assertThat(runtime.getHeartbeatCount()).isEqualTo(Long.MAX_VALUE);
     }
 
     private void assertHealth(OffsetDateTime lastSeenAt, RunnerHealth expected) {
