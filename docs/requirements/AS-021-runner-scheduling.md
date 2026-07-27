@@ -159,6 +159,11 @@ runner-registration validation:
 3. Each explicitly admitted required label key/value pair must exactly match the corresponding
    entry in `runner.labels`.
 
+Optional admitted constraints use `request_snapshot.requiredCapabilities` as a JSON object and
+`request_snapshot.requiredLabels` as a string-to-string JSON object. Absence means that no
+additional capability or label constraint was admitted. A present value with the wrong shape is
+malformed and makes the execution ineligible.
+
 Engine versions advertised as capability values are descriptive in AS-021. The engine-key match
 is mandatory, but AS-021 introduces no version-range or semantic-version comparison.
 
@@ -380,8 +385,9 @@ scheduling behavior, services, or queries.
 
 ### AS-021C - PostgreSQL Candidate Selection
 
-Add PostgreSQL-compatible execution filtering, FIFO selection, and execution locking with focused
-repository tests.
+Add PostgreSQL-compatible snapshot validation, compatibility filtering, and deterministic FIFO
+candidate lookup. Candidate lookup is read-only and does not lock, assign, mutate, or create a
+lease.
 
 ### AS-021D - Runner Eligibility and Capacity
 
