@@ -2,8 +2,8 @@
 
 ## 1. Executive Summary
 
-**Status:** AS-021A documentation is in review. Implementation must not begin until these
-requirements and ADR-011 are approved.
+**Status:** Requirements and ADR-011 are approved. AS-021B scheduling requirements persistence
+is implemented and in review.
 
 AS-021 makes the existing AS-019 pull claim runner-aware. A registered runner continues to ask
 for work through `POST /api/v1/runners/claim`; the server validates that runner, enforces its
@@ -372,10 +372,11 @@ AS-021A must be reviewed and approved before AS-021B begins.
 Documentation only. Finalize this SRS, ADR-011, and the AS-021 development log. Add no Java,
 migration, API, or test changes.
 
-### AS-021B - Scheduling Contract and Compatibility Model
+### AS-021B - Scheduling Requirements Persistence
 
-Introduce internal scheduling command/result and validated snapshot/capability matching
-primitives. Preserve the public claim route and response.
+Harden the existing execution snapshots as immutable scheduling inputs and add only the
+PostgreSQL index required for compatible FIFO selection. Do not duplicate snapshot data or add
+scheduling behavior, services, or queries.
 
 ### AS-021C - PostgreSQL Candidate Selection
 
@@ -409,4 +410,4 @@ regression and repository hygiene checks.
 
 ## 22. Review Gate
 
-Stop after AS-021A. No AS-021B implementation may begin without explicit approval.
+Stop after AS-021B. No AS-021C implementation may begin without explicit approval.

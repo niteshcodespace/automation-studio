@@ -2,9 +2,10 @@
 
 ## Status
 
-Proposed
+Accepted
 
-AS-021A is documentation-only. This decision must be approved before scheduling implementation.
+Approved after AS-021A. AS-021B adds persistence hardening only; scheduling behavior remains
+subject to later phase review gates.
 
 ## Context
 
@@ -210,4 +211,4 @@ thresholds, and capability representation. No migration or API change is authori
 
 ## Review Gate
 
-ADR-011 must be explicitly approved before AS-021B begins.
+ADR-011 is approved. Each AS-021 implementation phase retains its development-log review gate.
