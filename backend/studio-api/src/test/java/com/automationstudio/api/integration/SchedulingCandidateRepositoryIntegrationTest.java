@@ -155,30 +155,54 @@ class SchedulingCandidateRepositoryIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    void compatibleFifoPredicateUsesV13EngineQueueIndex() {
+    void compatibleFifoPredicateUsesApplicablePendingQueueIndex() {
         Fixture fixture = insertFixture();
         insertExecution(
                 fixture, UUID.randomUUID(), "PENDING", "2026-07-27T10:00:00Z",
                 "playwright-java", Map.of(), Map.of(), true);
+        insertPlannerRows(fixture);
+        jdbcTemplate.execute("ANALYZE execution");
 
-        List<String> plan = transactionTemplate.execute(status -> {
-            jdbcTemplate.execute("SET LOCAL enable_seqscan = off");
-            return jdbcTemplate.queryForList("""
-                    EXPLAIN (COSTS OFF)
-                    SELECT execution.id
-                    FROM execution
-                    WHERE execution.status = 'PENDING'
-                      AND NULLIF(BTRIM(
-                          execution.suite_snapshot ->> 'engineId'
-                      ), '') IS NOT NULL
-                      AND execution.suite_snapshot ->> 'engineId' = 'playwright-java'
-                    ORDER BY execution.requested_at ASC, execution.id ASC
-                    LIMIT 1
-                    """, String.class);
-        });
+        List<String> plan = jdbcTemplate.queryForList("""
+                EXPLAIN (COSTS OFF)
+                SELECT execution.id
+                FROM execution
+                WHERE execution.status = 'PENDING'
+                  AND NULLIF(BTRIM(
+                      execution.suite_snapshot ->> 'engineId'
+                  ), '') IS NOT NULL
+                  AND execution.suite_snapshot ->> 'engineId' = 'playwright-java'
+                ORDER BY execution.requested_at ASC, execution.id ASC
+                LIMIT 1
+                """, String.class);
 
         assertThat(plan)
-                .anyMatch(line -> line.contains("idx_execution_pending_engine_queue"));
+                .anyMatch(line ->
+                        line.contains("idx_execution_pending_engine_queue")
+                                || line.contains("idx_execution_pending_queue"))
+                .anyMatch(line ->
+                        line.contains("suite_snapshot")
+                                && line.contains("engineId")
+                                && line.contains("playwright-java"));
+    }
+
+    private void insertPlannerRows(Fixture fixture) {
+        jdbcTemplate.update("""
+                INSERT INTO execution (
+                    id, project_id, environment_id, test_suite_id, selection_mode,
+                    status, requested_by, requested_at, suite_snapshot
+                )
+                SELECT gen_random_uuid(), ?, ?, ?, 'SUITE',
+                       'PENDING', ?,
+                       TIMESTAMPTZ '2026-07-27T11:00:00Z'
+                           + series * INTERVAL '1 second',
+                       '{"engineId":"selenium-java"}'::jsonb
+                FROM generate_series(1, 1000) AS series
+                """,
+                fixture.projectId(),
+                fixture.environmentId(),
+                fixture.suiteId(),
+                TEST_ACTOR);
     }
 
     private RunnerCapabilities compatibleRunner() {

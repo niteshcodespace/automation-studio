@@ -1,7 +1,10 @@
 package com.automationstudio.api.repository;
 
+import com.automationstudio.api.domain.ExecutionStatus;
 import com.automationstudio.api.entity.ExecutionLease;
 import jakarta.persistence.LockModeType;
+import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,6 +18,19 @@ public interface ExecutionLeaseRepository extends JpaRepository<ExecutionLease, 
     Optional<ExecutionLease> findByClaimToken(UUID claimToken);
 
     List<ExecutionLease> findByRunnerId(String runnerId);
+
+    @Query("""
+            SELECT COUNT(lease)
+            FROM ExecutionLease lease
+            JOIN lease.execution execution
+            WHERE lease.runnerId = :runnerId
+              AND lease.leaseExpiresAt > :evaluatedAt
+              AND execution.status IN :statuses
+            """)
+    long countCapacityConsumingLeases(
+            @Param("runnerId") String runnerId,
+            @Param("evaluatedAt") OffsetDateTime evaluatedAt,
+            @Param("statuses") Collection<ExecutionStatus> statuses);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
