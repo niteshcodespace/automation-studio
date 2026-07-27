@@ -1,0 +1,14 @@
+package com.automationstudio.api.domain;
+
+public enum RunnerEligibilityFailure {
+    RUNNER_NOT_FOUND,
+    RUNNER_NOT_ACTIVE,
+    RUNTIME_MISSING,
+    RUNTIME_IDENTITY_MISMATCH,
+    HEARTBEAT_STALE,
+    HEARTBEAT_OFFLINE,
+    INVALID_MAX_CONCURRENCY,
+    MALFORMED_CAPABILITIES,
+    MALFORMED_LABELS,
+    CAPACITY_EXHAUSTED
+}

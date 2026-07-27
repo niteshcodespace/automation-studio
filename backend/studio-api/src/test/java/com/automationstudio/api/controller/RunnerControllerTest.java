@@ -14,7 +14,6 @@ import com.automationstudio.api.dto.runner.RunnerHeartbeatResponse;
 import com.automationstudio.api.dto.runner.RunnerLeaseResponse;
 import com.automationstudio.api.exception.GlobalExceptionHandler;
 import com.automationstudio.api.mapper.RunnerMapper;
-import com.automationstudio.api.service.ExecutionClaimService;
 import com.automationstudio.api.service.ExecutionHeartbeatException;
 import com.automationstudio.api.service.ExecutionHeartbeatService;
 import com.automationstudio.api.service.ExecutionReclaimService;
@@ -23,12 +22,15 @@ import com.automationstudio.api.service.RunnerHeartbeatService;
 import com.automationstudio.api.service.RunnerManagementService;
 import com.automationstudio.api.service.RunnerQueryService;
 import com.automationstudio.api.service.RunnerRegistrationService;
-import com.automationstudio.api.service.command.ClaimExecutionCommand;
+import com.automationstudio.api.service.RunnerSchedulingService;
+import com.automationstudio.api.service.command.ScheduleExecutionCommand;
 import com.automationstudio.api.service.command.ReclaimExecutionLeaseCommand;
 import com.automationstudio.api.service.command.RenewExecutionLeaseCommand;
 import com.automationstudio.api.service.result.ClaimedExecution;
 import com.automationstudio.api.service.result.ReclaimedExecutionLease;
 import com.automationstudio.api.service.result.RenewedExecutionLease;
+import com.automationstudio.api.service.result.SchedulingResult;
+import com.automationstudio.api.domain.SchedulingOutcome;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.Map;
@@ -58,7 +60,7 @@ class RunnerControllerTest {
     @Autowired
     private MockMvc mockMvc;
     @MockitoBean
-    private ExecutionClaimService claimService;
+    private RunnerSchedulingService schedulingService;
     @MockitoBean
     private ExecutionHeartbeatService heartbeatService;
     @MockitoBean
@@ -76,11 +78,12 @@ class RunnerControllerTest {
 
     @Test
     void returnsClaimWithTokenLeaseVersionAndSanitizedSnapshots() throws Exception {
-        ClaimExecutionCommand command =
-                new ClaimExecutionCommand("runner-1", Duration.ofMinutes(2));
+        ScheduleExecutionCommand command =
+                new ScheduleExecutionCommand("runner-1", Duration.ofMinutes(2));
         ClaimedExecution result = claimed();
-        when(mapper.toClaimCommand(any())).thenReturn(command);
-        when(claimService.claimNext(command)).thenReturn(Optional.of(result));
+        when(mapper.toScheduleCommand(any())).thenReturn(command);
+        when(schedulingService.scheduleNext(command)).thenReturn(
+                new SchedulingResult(SchedulingOutcome.SCHEDULED, null, result));
         when(mapper.toResponse(result)).thenReturn(leaseResponse(1, 0));
 
         mockMvc.perform(post(BASE_PATH + "/claim")
@@ -147,8 +150,10 @@ class RunnerControllerTest {
 
     @Test
     void returnsNoContentWhenClaimOrReclaimHasNoWork() throws Exception {
-        when(mapper.toClaimCommand(any())).thenReturn(
-                new ClaimExecutionCommand("runner", Duration.ofMinutes(2)));
+        when(mapper.toScheduleCommand(any())).thenReturn(
+                new ScheduleExecutionCommand("runner", Duration.ofMinutes(2)));
+        when(schedulingService.scheduleNext(any())).thenReturn(new SchedulingResult(
+                SchedulingOutcome.NO_COMPATIBLE_EXECUTION, null, null));
         when(mapper.toReclaimCommand(any())).thenReturn(
                 new ReclaimExecutionLeaseCommand("runner", Duration.ofMinutes(2)));
 
@@ -184,7 +189,7 @@ class RunnerControllerTest {
                                 """.formatted(TOKEN)))
                 .andExpect(status().isBadRequest());
 
-        verifyNoInteractions(claimService, heartbeatService, reclaimService);
+        verifyNoInteractions(schedulingService, heartbeatService, reclaimService);
     }
 
     @Test

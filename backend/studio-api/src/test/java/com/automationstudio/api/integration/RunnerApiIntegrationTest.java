@@ -5,6 +5,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -16,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
 
 @AutoConfigureMockMvc
 class RunnerApiIntegrationTest extends IntegrationTestBase {
@@ -38,6 +44,12 @@ class RunnerApiIntegrationTest extends IntegrationTestBase {
                 "DELETE FROM execution_lease WHERE runner_id LIKE ?", RUNNER_PREFIX + "%");
         jdbcTemplate.update("DELETE FROM execution WHERE requested_by = ?", ACTOR);
         jdbcTemplate.update("""
+                DELETE FROM runner_runtime WHERE runner_id IN (
+                  SELECT id FROM runner WHERE runner_key LIKE ?)
+                """, RUNNER_PREFIX + "%");
+        jdbcTemplate.update(
+                "DELETE FROM runner WHERE runner_key LIKE ?", RUNNER_PREFIX + "%");
+        jdbcTemplate.update("""
                 DELETE FROM environment WHERE project_id IN (
                   SELECT project.id FROM project JOIN workspace
                     ON workspace.id = project.workspace_id
@@ -59,6 +71,8 @@ class RunnerApiIntegrationTest extends IntegrationTestBase {
 
     @Test
     void claimHeartbeatAndReclaimRoundTripPersistsFencedLeaseState() throws Exception {
+        insertRunner(RUNNER_PREFIX + "empty");
+        insertRunner(RUNNER_PREFIX + "owner");
         mockMvc.perform(post(BASE_PATH + "/claim")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(leaseRequest(RUNNER_PREFIX + "empty")))
@@ -188,6 +202,7 @@ class RunnerApiIntegrationTest extends IntegrationTestBase {
         UUID environmentId = UUID.randomUUID();
         UUID suiteId = UUID.randomUUID();
         UUID executionId = UUID.randomUUID();
+        OffsetDateTime requestedAt = OffsetDateTime.now().truncatedTo(ChronoUnit.MICROS);
         String suffix = workspaceId.toString();
         jdbcTemplate.update("""
                 INSERT INTO workspace (id, name, slug, status)
@@ -205,21 +220,75 @@ class RunnerApiIntegrationTest extends IntegrationTestBase {
                 """, environmentId, projectId, "AS-019F Environment " + suffix);
         jdbcTemplate.update("""
                 INSERT INTO test_suite (
-                    id, project_id, name, engine_type, suite_reference, status
-                ) VALUES (?, ?, ?, 'PLAYWRIGHT', ?, 'ACTIVE')
+                    id, project_id, name, engine_type, engine_id, suite_reference, status
+                ) VALUES (?, ?, ?, 'PLAYWRIGHT', 'playwright-java', ?, 'ACTIVE')
                 """, suiteId, projectId, "AS-019F Suite " + suffix, "tests/" + suffix);
+        Map<String, Object> environmentSnapshot = new LinkedHashMap<>();
+        environmentSnapshot.put("id", environmentId.toString());
+        environmentSnapshot.put("name", "AS-019F Environment " + suffix);
+        environmentSnapshot.put("type", "TEST");
+        environmentSnapshot.put("baseUrl", "https://example.test");
+        environmentSnapshot.put("configuration", Map.of());
+        environmentSnapshot.put("secretReferences", Map.of());
+        environmentSnapshot.put("region", "eu");
+        Map<String, Object> suiteSnapshot = new LinkedHashMap<>();
+        suiteSnapshot.put("id", suiteId.toString());
+        suiteSnapshot.put("name", "AS-019F Suite " + suffix);
+        suiteSnapshot.put("engineType", "PLAYWRIGHT");
+        suiteSnapshot.put("engineId", "playwright-java");
+        suiteSnapshot.put("suiteType", null);
+        suiteSnapshot.put("suiteReference", "tests/" + suffix);
+        suiteSnapshot.put("configuration", Map.of());
+        suiteSnapshot.put("engine", "PLAYWRIGHT");
+        Map<String, Object> requestSnapshot = Map.of(
+                "selectionMode", "SUITE",
+                "testCaseIds", List.of(),
+                "requestedBy", ACTOR,
+                "requestedAt", requestedAt.toString());
         jdbcTemplate.update("""
                 INSERT INTO execution (
                     id, project_id, environment_id, test_suite_id, selection_mode,
                     status, requested_by, requested_at,
                     environment_snapshot, suite_snapshot, request_snapshot
-                ) VALUES (?, ?, ?, ?, 'SUITE', 'PENDING', ?, CURRENT_TIMESTAMP,
+                ) VALUES (?, ?, ?, ?, 'SUITE', 'PENDING', ?, ?,
                           CAST(? AS jsonb), CAST(? AS jsonb), CAST(? AS jsonb))
-                """, executionId, projectId, environmentId, suiteId, ACTOR,
-                "{\"region\":\"eu\"}",
-                "{\"engine\":\"PLAYWRIGHT\"}",
-                "{\"selectionMode\":\"SUITE\"}");
+                """, executionId, projectId, environmentId, suiteId, ACTOR, requestedAt,
+                json(environmentSnapshot), json(suiteSnapshot), json(requestSnapshot));
         return executionId;
+    }
+
+    private void insertRunner(String runnerKey) {
+        UUID runnerId = UUID.randomUUID();
+        jdbcTemplate.update("""
+                INSERT INTO runner (
+                    id, runner_key, name, agent_version, hostname,
+                    operating_system, architecture, max_concurrency,
+                    capabilities, labels, status, registered_at,
+                    last_registered_at, version, created_at, updated_at
+                ) VALUES (
+                    ?, ?, 'AS-019F', '1.0', 'runner.test',
+                    'linux', 'amd64', 1,
+                    '{"engines":{"playwright-java":"1.0"}}'::jsonb,
+                    '{}'::jsonb, 'ACTIVE', clock_timestamp(),
+                    clock_timestamp(), 0, clock_timestamp(), clock_timestamp()
+                )
+                """, runnerId, runnerKey);
+        jdbcTemplate.update("""
+                INSERT INTO runner_runtime (
+                    runner_id, last_seen_at, heartbeat_count, version,
+                    created_at, updated_at
+                ) VALUES (
+                    ?, clock_timestamp(), 1, 0, clock_timestamp(), clock_timestamp()
+                )
+                """, runnerId);
+    }
+
+    private String json(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JacksonException exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 
     private static String leaseRequest(String runnerId) {

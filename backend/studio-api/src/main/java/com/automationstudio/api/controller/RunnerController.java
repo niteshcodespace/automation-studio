@@ -13,14 +13,17 @@ import com.automationstudio.api.dto.runner.RunnerStatusRequest;
 import com.automationstudio.api.entity.Runner;
 import com.automationstudio.api.exception.PreconditionRequiredException;
 import com.automationstudio.api.mapper.RunnerMapper;
-import com.automationstudio.api.service.ExecutionClaimService;
 import com.automationstudio.api.service.ExecutionHeartbeatService;
 import com.automationstudio.api.service.ExecutionReclaimService;
 import com.automationstudio.api.service.RunnerHeartbeatService;
 import com.automationstudio.api.service.RunnerManagementService;
 import com.automationstudio.api.service.RunnerQueryService;
 import com.automationstudio.api.service.RunnerRegistrationService;
+import com.automationstudio.api.service.RunnerSchedulingService;
 import com.automationstudio.api.service.command.RecordRunnerHeartbeatCommand;
+import com.automationstudio.api.service.result.SchedulingResult;
+import com.automationstudio.api.exception.ResourceConflictException;
+import com.automationstudio.api.exception.ResourceNotFoundException;
 import com.automationstudio.api.service.query.RunnerQueryFilter;
 import jakarta.validation.Valid;
 import java.net.URI;
@@ -45,7 +48,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 @RequestMapping("/api/v1/runners")
 public class RunnerController {
 
-    private final ExecutionClaimService claimService;
+    private final RunnerSchedulingService schedulingService;
     private final ExecutionHeartbeatService heartbeatService;
     private final ExecutionReclaimService reclaimService;
     private final RunnerRegistrationService registrationService;
@@ -55,7 +58,7 @@ public class RunnerController {
     private final RunnerMapper mapper;
 
     public RunnerController(
-            ExecutionClaimService claimService,
+            RunnerSchedulingService schedulingService,
             ExecutionHeartbeatService heartbeatService,
             ExecutionReclaimService reclaimService,
             RunnerRegistrationService registrationService,
@@ -63,7 +66,7 @@ public class RunnerController {
             RunnerQueryService queryService,
             RunnerManagementService managementService,
             RunnerMapper mapper) {
-        this.claimService = claimService;
+        this.schedulingService = schedulingService;
         this.heartbeatService = heartbeatService;
         this.reclaimService = reclaimService;
         this.registrationService = registrationService;
@@ -138,10 +141,19 @@ public class RunnerController {
     @PostMapping("/claim")
     public ResponseEntity<RunnerLeaseResponse> claim(
             @Valid @RequestBody RunnerLeaseRequest request) {
-        return claimService.claimNext(mapper.toClaimCommand(request))
-                .map(mapper::toResponse)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.noContent().build());
+        SchedulingResult result =
+                schedulingService.scheduleNext(mapper.toScheduleCommand(request));
+        return switch (result.outcome()) {
+            case SCHEDULED -> ResponseEntity.ok(
+                    mapper.toResponse(result.scheduledExecution().orElseThrow()));
+            case NO_COMPATIBLE_EXECUTION -> ResponseEntity.noContent().build();
+            case RUNNER_NOT_FOUND -> throw new ResourceNotFoundException(
+                    "Runner was not found");
+            case RUNNER_INELIGIBLE -> throw new ResourceConflictException(
+                    "Runner is not eligible to schedule work");
+            case CAPACITY_EXHAUSTED -> throw new ResourceConflictException(
+                    "Runner scheduling capacity is exhausted");
+        };
     }
 
     @PostMapping("/heartbeats")
