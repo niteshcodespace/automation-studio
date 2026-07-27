@@ -110,6 +110,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 request.getRequestURI());
     }
 
+    @ExceptionHandler(SchedulingOperationException.class)
+    public ResponseEntity<Object> handleSchedulingOperationException(
+            SchedulingOperationException exception,
+            HttpServletRequest request) {
+        LOGGER.error("Scheduling operation failed for request {}", request.getRequestURI(), exception);
+        return buildErrorResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "An unexpected error occurred",
+                request.getRequestURI());
+    }
+
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException exception,

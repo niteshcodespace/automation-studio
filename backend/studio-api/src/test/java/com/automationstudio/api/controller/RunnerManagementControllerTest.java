@@ -17,13 +17,13 @@ import com.automationstudio.api.dto.runner.RunnerResponse;
 import com.automationstudio.api.entity.Runner;
 import com.automationstudio.api.exception.GlobalExceptionHandler;
 import com.automationstudio.api.mapper.RunnerMapper;
-import com.automationstudio.api.service.ExecutionClaimService;
 import com.automationstudio.api.service.ExecutionHeartbeatService;
 import com.automationstudio.api.service.ExecutionReclaimService;
 import com.automationstudio.api.service.RunnerHeartbeatService;
 import com.automationstudio.api.service.RunnerManagementService;
 import com.automationstudio.api.service.RunnerQueryService;
 import com.automationstudio.api.service.RunnerRegistrationService;
+import com.automationstudio.api.service.RunnerSchedulingService;
 import com.automationstudio.api.service.command.RegisterRunnerCommand;
 import com.automationstudio.api.service.command.RecordRunnerHeartbeatCommand;
 import com.automationstudio.api.service.query.RunnerQueryFilter;
@@ -53,7 +53,7 @@ class RunnerManagementControllerTest {
     @Autowired
     private MockMvc mockMvc;
     @MockitoBean
-    private ExecutionClaimService claimService;
+    private RunnerSchedulingService schedulingService;
     @MockitoBean
     private ExecutionHeartbeatService executionHeartbeatService;
     @MockitoBean

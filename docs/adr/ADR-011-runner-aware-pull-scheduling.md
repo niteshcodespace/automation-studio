@@ -107,8 +107,15 @@ timestamp for these decisions.
 
 The existing claim request continues to identify the logical runner by its registered
 `runnerKey` and supply the lease duration. The existing successful lease response is retained.
-No compatible work or no available capacity returns 204. Unknown identity returns 404; an
-existing but lifecycle/health-ineligible runner returns 409; malformed input returns 400.
+`NO_COMPATIBLE_EXECUTION` returns 204 because no suitable execution is currently available.
+`CAPACITY_EXHAUSTED` returns 409 because the valid request targets an existing runner whose
+current persisted state has no available concurrency slot. This distinction is intentional:
+capacity exhaustion is a state conflict that may clear after lease expiry or execution
+completion, rather than an empty compatible-work result.
+
+The scheduling service remains transport-neutral and returns `SchedulingOutcome` values. The
+REST adapter owns their HTTP mapping. Unknown identity returns 404; an existing but
+lifecycle/health-ineligible runner returns 409; malformed input returns 400.
 
 Request-ID-based idempotency is deferred. The claim token cannot serve as a request id because it
 is generated only after ownership is acquired and is itself a sensitive bearer credential.

@@ -88,9 +88,11 @@ runner registers and reports liveness
     -> runner renews that lease through the existing lease-heartbeat endpoint
 ```
 
-No compatible work, no available slot, or no queued work produces an empty claim response. A
-successful claim consumes one capacity slot when the ownership-bearing lease is committed.
-Subsequent execution processing remains outside AS-021.
+No compatible work or no queued work produces an empty claim response and maps to 204 No
+Content. A runner with no available slot produces `CAPACITY_EXHAUSTED` and maps to 409 Conflict
+because its current persisted state prevents another claim. A successful claim consumes one
+capacity slot when the ownership-bearing lease is committed. Subsequent execution processing
+remains outside AS-021.
 
 ## 7. Scheduler-Assisted Pull Model
 
@@ -278,12 +280,12 @@ data.
 Responses:
 
 - `200 OK`: one compatible execution was atomically claimed.
-- `204 No Content`: no compatible queued work exists or the eligible runner has no available
-  capacity.
+- `204 No Content`: no compatible queued work exists.
 - `400 Bad Request`: malformed or invalid request data.
 - `404 Not Found`: the runner key is not registered.
-- `409 Conflict`: the runner exists but its lifecycle or health makes it ineligible, or a
-  concurrency/ownership conflict prevents the requested claim.
+- `409 Conflict`: the runner exists but its lifecycle or health makes it ineligible, its
+  scheduling capacity is exhausted, or a concurrency/ownership conflict prevents the requested
+  claim.
 - `500 Internal Server Error`: a sanitized invariant or unexpected failure.
 
 The route does not accept an execution ID, runner UUID, capabilities, labels, client timestamp,
@@ -294,8 +296,8 @@ or request ID. Existing execution-lease heartbeat and reclaim routes remain unch
 - Unknown runner identity returns 404 without queue mutation.
 - `DISABLED`, `DEREGISTERED`, `STALE`, or `OFFLINE` runner state returns 409 without queue
   mutation.
-- Capacity exhaustion and absence of compatible work both return 204 to preserve the polling
-  contract and avoid exposing queue composition.
+- Capacity exhaustion returns 409. Absence of compatible work returns 204 and does not expose
+  queue composition.
 - Malformed snapshot data makes that execution ineligible; it does not fail the entire queue
   request.
 - A locked compatible execution may be skipped and reconsidered by a later request.
