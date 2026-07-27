@@ -7,4 +7,6 @@ import java.util.Optional;
 public interface SchedulingCandidateRepository {
 
     Optional<SchedulingCandidate> findNextCompatible(RunnerCapabilities runner);
+
+    Optional<SchedulingCandidate> lockNextCompatible(RunnerCapabilities runner);
 }

@@ -25,7 +25,7 @@ public class PostgreSqlSchedulingCandidateRepository
     private static final TypeReference<Map<String, Object>> JSON_OBJECT =
             new TypeReference<>() {};
 
-    private static final String FIND_NEXT_COMPATIBLE = """
+    private static final String COMPATIBLE_CANDIDATE = """
             SELECT execution.id,
                    execution.environment_id,
                    execution.test_suite_id,
@@ -139,8 +139,11 @@ public class PostgreSqlSchedulingCandidateRepository
                       '{}'::jsonb
                   )
             ORDER BY execution.requested_at ASC, execution.id ASC
-            LIMIT 1
             """;
+    private static final String FIND_NEXT_COMPATIBLE =
+            COMPATIBLE_CANDIDATE + "LIMIT 1";
+    private static final String LOCK_NEXT_COMPATIBLE =
+            COMPATIBLE_CANDIDATE + "FOR UPDATE OF execution SKIP LOCKED\nLIMIT 1";
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
@@ -155,12 +158,22 @@ public class PostgreSqlSchedulingCandidateRepository
 
     @Override
     public Optional<SchedulingCandidate> findNextCompatible(RunnerCapabilities runner) {
+        return query(FIND_NEXT_COMPATIBLE, runner);
+    }
+
+    @Override
+    public Optional<SchedulingCandidate> lockNextCompatible(RunnerCapabilities runner) {
+        return query(LOCK_NEXT_COMPATIBLE, runner);
+    }
+
+    private Optional<SchedulingCandidate> query(
+            String sql, RunnerCapabilities runner) {
         MapSqlParameterSource parameters = new MapSqlParameterSource()
                 .addValue("runnerCapabilities", writeJson(runner.capabilities()))
                 .addValue("runnerLabels", writeJson(runner.labels()))
                 .addValue("runnerEngineIds", runner.engines().keySet());
         return jdbcTemplate.query(
-                        FIND_NEXT_COMPATIBLE,
+                        sql,
                         parameters,
                         (resultSet, rowNumber) -> candidate(resultSet))
                 .stream()
