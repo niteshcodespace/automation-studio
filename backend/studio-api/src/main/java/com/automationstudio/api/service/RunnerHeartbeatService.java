@@ -10,6 +10,9 @@ public interface RunnerHeartbeatService {
 
     RunnerHeartbeatResult recordHeartbeat(RecordRunnerHeartbeatCommand command);
 
+    RunnerHeartbeatResult recordHeartbeat(
+            UUID runnerId, RecordRunnerHeartbeatCommand command);
+
     RunnerHealthResult evaluateHealth(UUID runnerId);
 
     RunnerHealthResult evaluateHealth(String runnerKey);

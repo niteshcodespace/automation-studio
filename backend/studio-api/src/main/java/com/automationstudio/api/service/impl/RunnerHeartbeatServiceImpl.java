@@ -50,6 +50,27 @@ public class RunnerHeartbeatServiceImpl implements RunnerHeartbeatService {
         String runnerKey = validate(command);
         Runner runner = runnerRepository.findByRunnerKeyForUpdate(runnerKey)
                 .orElseThrow(() -> runnerNotFound(runnerKey));
+        return recordHeartbeat(runner);
+    }
+
+    @Override
+    @Transactional
+    public RunnerHeartbeatResult recordHeartbeat(
+            UUID runnerId, RecordRunnerHeartbeatCommand command) {
+        if (runnerId == null) {
+            throw new InvalidRequestException("Runner ID must not be null");
+        }
+        String runnerKey = validate(command);
+        Runner runner = runnerRepository.findByIdForUpdate(runnerId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Runner not found: " + runnerId));
+        if (!runner.getRunnerKey().equals(runnerKey)) {
+            throw new ResourceConflictException("Runner identity does not match");
+        }
+        return recordHeartbeat(runner);
+    }
+
+    private RunnerHeartbeatResult recordHeartbeat(Runner runner) {
         if (runner.getStatus() == RunnerStatus.DEREGISTERED) {
             throw new ResourceConflictException(
                     "Deregistered runner cannot record a heartbeat");

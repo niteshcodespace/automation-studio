@@ -1,22 +1,27 @@
 package com.automationstudio.api.service.impl;
 
+import com.automationstudio.api.config.RunnerHealthProperties;
 import com.automationstudio.api.domain.RunnerHealth;
 import com.automationstudio.api.domain.RunnerStatus;
 import com.automationstudio.api.entity.Runner;
 import com.automationstudio.api.entity.RunnerRuntime;
 import com.automationstudio.api.exception.InvalidRequestException;
 import com.automationstudio.api.exception.ResourceNotFoundException;
+import com.automationstudio.api.repository.RunnerDiscoveryRepository;
 import com.automationstudio.api.repository.RunnerRepository;
 import com.automationstudio.api.repository.RunnerRuntimeRepository;
 import com.automationstudio.api.service.RunnerHeartbeatService;
 import com.automationstudio.api.service.RunnerQueryService;
+import com.automationstudio.api.service.query.RunnerQueryFilter;
 import com.automationstudio.api.service.result.RunnerDetailsResult;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,19 +29,26 @@ import org.springframework.transaction.annotation.Transactional;
 public class RunnerQueryServiceImpl implements RunnerQueryService {
 
     private static final Set<String> SUPPORTED_SORTS = Set.of(
-            "name", "runnerKey", "status", "registeredAt", "lastRegisteredAt", "id");
+            "name", "runnerKey", "registeredAt", "lastRegisteredAt", "lastSeenAt",
+            "heartbeatCount", "status", "health", "id");
 
     private final RunnerRepository runnerRepository;
     private final RunnerRuntimeRepository runtimeRepository;
+    private final RunnerDiscoveryRepository discoveryRepository;
     private final RunnerHeartbeatService heartbeatService;
+    private final RunnerHealthProperties healthProperties;
 
     public RunnerQueryServiceImpl(
             RunnerRepository runnerRepository,
             RunnerRuntimeRepository runtimeRepository,
-            RunnerHeartbeatService heartbeatService) {
+            RunnerDiscoveryRepository discoveryRepository,
+            RunnerHeartbeatService heartbeatService,
+            RunnerHealthProperties healthProperties) {
         this.runnerRepository = runnerRepository;
         this.runtimeRepository = runtimeRepository;
+        this.discoveryRepository = discoveryRepository;
         this.heartbeatService = heartbeatService;
+        this.healthProperties = healthProperties;
     }
 
     @Override
@@ -52,13 +64,40 @@ public class RunnerQueryServiceImpl implements RunnerQueryService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<RunnerDetailsResult> list(RunnerStatus status, Pageable pageable) {
-        validatePageable(pageable);
+    public Page<RunnerDetailsResult> list(
+            RunnerQueryFilter filter,
+            Pageable pageable) {
+        return list(filter, pageable, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<RunnerDetailsResult> list(
+            RunnerQueryFilter filter,
+            Pageable pageable,
+            String direction) {
+        return list(filter, pageable, direction, null, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<RunnerDetailsResult> list(
+            RunnerQueryFilter filter,
+            Pageable pageable,
+            String direction,
+            Integer requestedPage,
+            Integer requestedSize) {
+        RunnerQueryFilter validatedFilter = validateFilter(filter);
+        Pageable validatedPageable = validatePageable(
+                pageable, direction, requestedPage, requestedSize);
         OffsetDateTime evaluatedAt = databaseTime();
-        Page<Runner> runners = status == null
-                ? runnerRepository.findAll(pageable)
-                : runnerRepository.findByStatus(status, pageable);
-        return runners.map(runner -> details(runner, evaluatedAt));
+        return discoveryRepository.findRunnerIds(
+                        validatedFilter,
+                        evaluatedAt,
+                        healthProperties.onlineThreshold(),
+                        healthProperties.offlineThreshold(),
+                        validatedPageable)
+                .map(runnerId -> details(findRunner(runnerId), evaluatedAt));
     }
 
     private RunnerDetailsResult details(Runner runner, OffsetDateTime evaluatedAt) {
@@ -105,7 +144,17 @@ public class RunnerQueryServiceImpl implements RunnerQueryService {
         return runnerRepository.currentDatabaseTime().atOffset(ZoneOffset.UTC);
     }
 
-    private void validatePageable(Pageable pageable) {
+    private Pageable validatePageable(
+            Pageable pageable,
+            String direction,
+            Integer requestedPage,
+            Integer requestedSize) {
+        if (requestedPage != null && requestedPage < 0) {
+            throw new InvalidRequestException("Runner page index must not be negative");
+        }
+        if (requestedSize != null && (requestedSize < 1 || requestedSize > 100)) {
+            throw new InvalidRequestException("Runner page size must be between 1 and 100");
+        }
         if (pageable == null || pageable.getPageSize() < 1 || pageable.getPageSize() > 100) {
             throw new InvalidRequestException("Runner page size must be between 1 and 100");
         }
@@ -115,5 +164,49 @@ public class RunnerQueryServiceImpl implements RunnerQueryService {
                         "Unsupported runner sort field: " + order.getProperty());
             }
         });
+        if (direction == null) {
+            return pageable;
+        }
+        Sort.Direction parsedDirection;
+        try {
+            parsedDirection = Sort.Direction.fromString(direction);
+        } catch (IllegalArgumentException exception) {
+            throw new InvalidRequestException(
+                    "Runner sort direction must be asc or desc");
+        }
+        Sort overriddenSort = Sort.by(pageable.getSort().stream()
+                .map(order -> new Sort.Order(parsedDirection, order.getProperty()))
+                .toList());
+        return PageRequest.of(
+                pageable.getPageNumber(), pageable.getPageSize(), overriddenSort);
+    }
+
+    private RunnerQueryFilter validateFilter(RunnerQueryFilter filter) {
+        if (filter == null) {
+            return new RunnerQueryFilter(null, null, null, null, null);
+        }
+        String capability = optional(filter.capability(), "Capability", 150);
+        String label = optional(filter.label(), "Label", 250);
+        return new RunnerQueryFilter(
+                filter.status(),
+                filter.health(),
+                filter.available(),
+                capability,
+                label);
+    }
+
+    private String optional(String value, String field, int maximumLength) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        if (normalized.isEmpty()) {
+            throw new InvalidRequestException(field + " must not be blank");
+        }
+        if (normalized.length() > maximumLength) {
+            throw new InvalidRequestException(
+                    field + " must not exceed " + maximumLength + " characters");
+        }
+        return normalized;
     }
 }

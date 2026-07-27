@@ -407,17 +407,20 @@ Optional filters:
 
 - `status`
 - `health`
-- `engineId`
-- `labelKey`
-- `labelValue` (valid only with `labelKey`)
 - `available`
+- `capability` (an exact key beneath `capabilities.engines`)
+- `label` (an exact string value in the labels object)
 
-The response is Spring Data `Page<RunnerResponse>`. Standard `page`, `size`, and repeated `sort`
-parameters follow repository conventions. Page size must be between 1 and 100. The default size
-is 20, and the default ordering is `name` ascending followed by `id` ascending.
+The response is Spring Data `Page<RunnerResponse>`. `page`, `size`, and `sort` follow Spring Data
+conventions, and optional `direction=asc|desc` overrides the direction of the requested sort
+fields. Page size must be between 1 and 100. The default size is 20, and the default ordering is
+`name` ascending followed by `id` ascending.
 Supported sort fields are `name`, `runnerKey`, `status`, `registeredAt`, `lastRegisteredAt`,
-`lastSeenAt`, and `id`; unsupported fields return 400. Health and availability use one
-database-time value per request.
+`lastSeenAt`, `heartbeatCount`, `health`, and `id`; unsupported fields return 400. Blank or
+oversized capability/label values, malformed page/size values, invalid enum/boolean values, and
+invalid sort directions return 400. Filtering, sorting, counting, limit, and offset execute in
+PostgreSQL. Health filtering, health sorting, response health, and availability use one
+PostgreSQL time value and identical configured thresholds per request.
 
 ### Get runner
 

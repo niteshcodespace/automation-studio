@@ -26,6 +26,7 @@ import com.automationstudio.api.service.RunnerQueryService;
 import com.automationstudio.api.service.RunnerRegistrationService;
 import com.automationstudio.api.service.command.RegisterRunnerCommand;
 import com.automationstudio.api.service.command.RecordRunnerHeartbeatCommand;
+import com.automationstudio.api.service.query.RunnerQueryFilter;
 import com.automationstudio.api.service.result.RunnerDetailsResult;
 import java.time.OffsetDateTime;
 import java.util.Map;
@@ -96,10 +97,8 @@ class RunnerManagementControllerTest {
     }
 
     @Test
-    void recordsUuidAndKeyMatchedHeartbeatAndRejectsMismatch() throws Exception {
-        Runner runner = runner(0, TIME);
+    void delegatesUuidAndKeyHeartbeatIdentityToService() throws Exception {
         RunnerDetailsResult details = details(RunnerStatus.ACTIVE, 1);
-        when(registrationService.getRunner(RUNNER_ID)).thenReturn(runner);
         when(queryService.get(RUNNER_ID)).thenReturn(details);
         when(mapper.toResponse(details)).thenReturn(response(RunnerStatus.ACTIVE, 1));
 
@@ -109,20 +108,15 @@ class RunnerManagementControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.heartbeatCount").value(1));
         verify(runnerHeartbeatService).recordHeartbeat(
-                new RecordRunnerHeartbeatCommand("RUNNER-01"));
-
-        mockMvc.perform(post(BASE_PATH + "/" + RUNNER_ID + "/heartbeats")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"runnerKey\":\"other\"}"))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value("Runner identity does not match"));
+                RUNNER_ID, new RecordRunnerHeartbeatCommand("RUNNER-01"));
     }
 
     @Test
     void getsListsAndChangesStatusUsingDocumentedResourceRoutes() throws Exception {
         RunnerDetailsResult details = details(RunnerStatus.DISABLED, 4);
         when(queryService.get(RUNNER_ID)).thenReturn(details);
-        when(queryService.list(any(), any())).thenReturn(new PageImpl<>(java.util.List.of(details)));
+        when(queryService.list(any(), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(java.util.List.of(details)));
         when(mapper.toResponse(details)).thenReturn(response(RunnerStatus.DISABLED, 4));
 
         mockMvc.perform(get(BASE_PATH + "/" + RUNNER_ID))
@@ -137,6 +131,43 @@ class RunnerManagementControllerTest {
                         .content("{\"status\":\"DISABLED\"}"))
                 .andExpect(status().isOk());
         verify(managementService).changeStatus(RUNNER_ID, 3, RunnerStatus.DISABLED);
+    }
+
+    @Test
+    void delegatesCombinedDiscoveryFiltersAndRejectsMalformedTypedFilters()
+            throws Exception {
+        when(queryService.list(any(), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(java.util.List.of()));
+
+        mockMvc.perform(get(BASE_PATH)
+                        .param("status", "ACTIVE")
+                        .param("health", "ONLINE")
+                        .param("available", "true")
+                        .param("capability", "playwright-java")
+                        .param("label", "linux")
+                        .param("sort", "lastSeenAt")
+                        .param("direction", "desc"))
+                .andExpect(status().isOk());
+        verify(queryService).list(
+                org.mockito.ArgumentMatchers.eq(new RunnerQueryFilter(
+                        RunnerStatus.ACTIVE,
+                        RunnerHealth.ONLINE,
+                        true,
+                        "playwright-java",
+                        "linux")),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.eq("desc"),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.isNull());
+
+        mockMvc.perform(get(BASE_PATH).param("health", "UNKNOWN"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get(BASE_PATH).param("available", "not-boolean"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get(BASE_PATH).param("page", "not-a-number"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get(BASE_PATH).param("size", "not-a-number"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

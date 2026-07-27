@@ -96,12 +96,44 @@ class RunnerHeartbeatServiceImplTest {
     }
 
     @Test
-    void deregisteredHeartbeatIsRejectedBeforeRuntimeLock() {
-        when(runnerRepository.findByRunnerKeyForUpdate("runner-01"))
+    void uuidAndRunnerKeyMismatchIsRejectedWhileRunnerLockIsHeld() {
+        when(runnerRepository.findByIdForUpdate(RUNNER_ID))
+                .thenReturn(Optional.of(runner(RunnerStatus.ACTIVE)));
+
+        assertThatExceptionOfType(ResourceConflictException.class)
+                .isThrownBy(() -> service.recordHeartbeat(
+                        RUNNER_ID,
+                        new RecordRunnerHeartbeatCommand("other")))
+                .withMessage("Runner identity does not match");
+
+        verify(runnerRepository).findByIdForUpdate(RUNNER_ID);
+        verify(runnerRepository, never()).findByRunnerKeyForUpdate(any());
+        verifyNoInteractions(runtimeRepository);
+        verify(runnerRepository, never()).currentDatabaseTime();
+    }
+
+    @Test
+    void unknownUuidIsNotFoundWithoutPayloadKeyLookup() {
+        when(runnerRepository.findByIdForUpdate(RUNNER_ID)).thenReturn(Optional.empty());
+
+        assertThatExceptionOfType(ResourceNotFoundException.class)
+                .isThrownBy(() -> service.recordHeartbeat(
+                        RUNNER_ID,
+                        new RecordRunnerHeartbeatCommand("runner-01")))
+                .withMessage("Runner not found: " + RUNNER_ID);
+
+        verify(runnerRepository, never()).findByRunnerKeyForUpdate(any());
+        verifyNoInteractions(runtimeRepository);
+    }
+
+    @Test
+    void deregisteredUuidHeartbeatIsRejectedBeforeRuntimeLock() {
+        when(runnerRepository.findByIdForUpdate(RUNNER_ID))
                 .thenReturn(Optional.of(runner(RunnerStatus.DEREGISTERED)));
 
         assertThatExceptionOfType(ResourceConflictException.class)
                 .isThrownBy(() -> service.recordHeartbeat(
+                        RUNNER_ID,
                         new RecordRunnerHeartbeatCommand("runner-01")));
 
         verifyNoInteractions(runtimeRepository);

@@ -1,5 +1,7 @@
 package com.automationstudio.api.controller;
 
+import com.automationstudio.api.domain.RunnerHealth;
+import com.automationstudio.api.domain.RunnerStatus;
 import com.automationstudio.api.dto.runner.RegisterRunnerRequest;
 import com.automationstudio.api.dto.runner.RunnerHeartbeatRequest;
 import com.automationstudio.api.dto.runner.RunnerHeartbeatResponse;
@@ -10,7 +12,6 @@ import com.automationstudio.api.dto.runner.RunnerRuntimeHeartbeatRequest;
 import com.automationstudio.api.dto.runner.RunnerStatusRequest;
 import com.automationstudio.api.entity.Runner;
 import com.automationstudio.api.exception.PreconditionRequiredException;
-import com.automationstudio.api.exception.ResourceConflictException;
 import com.automationstudio.api.mapper.RunnerMapper;
 import com.automationstudio.api.service.ExecutionClaimService;
 import com.automationstudio.api.service.ExecutionHeartbeatService;
@@ -20,9 +21,9 @@ import com.automationstudio.api.service.RunnerManagementService;
 import com.automationstudio.api.service.RunnerQueryService;
 import com.automationstudio.api.service.RunnerRegistrationService;
 import com.automationstudio.api.service.command.RecordRunnerHeartbeatCommand;
+import com.automationstudio.api.service.query.RunnerQueryFilter;
 import jakarta.validation.Valid;
 import java.net.URI;
-import java.util.Locale;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -38,7 +39,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
-import com.automationstudio.api.domain.RunnerStatus;
 
 // TODO(AS-019): Require an authenticated runner principal and bind runnerId to it.
 @RestController
@@ -93,8 +93,19 @@ public class RunnerController {
     @GetMapping
     public ResponseEntity<Page<RunnerResponse>> list(
             @RequestParam(required = false) RunnerStatus status,
-            @PageableDefault(size = 20, sort = {"name", "id"}) Pageable pageable) {
-        return ResponseEntity.ok(queryService.list(status, pageable).map(mapper::toResponse));
+            @RequestParam(required = false) RunnerHealth health,
+            @RequestParam(required = false) Boolean available,
+            @RequestParam(required = false) String capability,
+            @RequestParam(required = false) String label,
+            @RequestParam(required = false) String direction,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @PageableDefault(size = 20, sort = "name") Pageable pageable) {
+        RunnerQueryFilter filter = new RunnerQueryFilter(
+                status, health, available, capability, label);
+        return ResponseEntity.ok(
+                queryService.list(filter, pageable, direction, page, size)
+                        .map(mapper::toResponse));
     }
 
     @GetMapping("/{runnerId}")
@@ -106,13 +117,8 @@ public class RunnerController {
     public ResponseEntity<RunnerResponse> recordRunnerHeartbeat(
             @PathVariable UUID runnerId,
             @Valid @RequestBody RunnerRuntimeHeartbeatRequest request) {
-        Runner runner = registrationService.getRunner(runnerId);
-        String canonicalRequestKey = request.runnerKey().trim().toLowerCase(Locale.ROOT);
-        if (!runner.getRunnerKey().equals(canonicalRequestKey)) {
-            throw new ResourceConflictException("Runner identity does not match");
-        }
         runnerHeartbeatService.recordHeartbeat(
-                new RecordRunnerHeartbeatCommand(request.runnerKey()));
+                runnerId, new RecordRunnerHeartbeatCommand(request.runnerKey()));
         return ResponseEntity.ok(mapper.toResponse(queryService.get(runnerId)));
     }
 
