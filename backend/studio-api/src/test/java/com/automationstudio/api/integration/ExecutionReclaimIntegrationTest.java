@@ -124,7 +124,7 @@ class ExecutionReclaimIntegrationTest extends IntegrationTestBase {
         assertThat(reclaim("boundary")).get().extracting("executionId")
                 .isEqualTo(equality.executionId());
 
-        LeaseFixture active = insertLease("CLAIMED", "1 second", 1);
+        LeaseFixture active = insertLease("CLAIMED", "1 hour", 1);
         Map<String, Object> activeBefore = leaseRow(active.executionId());
         assertThat(reclaim("active")).isEmpty();
         assertThat(leaseRow(active.executionId())).isEqualTo(activeBefore);
@@ -137,6 +137,7 @@ class ExecutionReclaimIntegrationTest extends IntegrationTestBase {
             assertThat(reclaim("excluded-" + status)).isEmpty();
             assertThat(leaseRow(fixture.executionId())).isEqualTo(before);
         }
+        assertThat(leaseRow(active.executionId())).isEqualTo(activeBefore);
     }
 
     @Test
