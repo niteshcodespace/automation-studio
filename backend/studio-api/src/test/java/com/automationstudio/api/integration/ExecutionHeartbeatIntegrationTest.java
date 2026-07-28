@@ -147,9 +147,9 @@ class ExecutionHeartbeatIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    void permitsOnlyClaimedLifecycleState() {
+    void permitsClaimedStartupAndRunningLifecycleStates() {
         for (String status : List.of(
-                "PENDING", "RUNNING", "CANCEL_REQUESTED", "PASSED",
+                "PENDING", "CANCEL_REQUESTED", "PASSED",
                 "FAILED", "CANCELLED", "ERROR")) {
             LeaseFixture fixture = insertLease(status, "2 minutes");
             Map<String, Object> before = leaseRow(fixture.executionId());
@@ -161,6 +161,8 @@ class ExecutionHeartbeatIntegrationTest extends IntegrationTestBase {
         }
         LeaseFixture claimed = insertLease("CLAIMED", "2 minutes");
         assertThat(heartbeatService.renew(command(claimed, 0)).leaseVersion()).isEqualTo(1);
+        LeaseFixture running = insertLease("RUNNING", "2 minutes");
+        assertThat(heartbeatService.renew(command(running, 0)).leaseVersion()).isEqualTo(1);
     }
 
     @Test

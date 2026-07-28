@@ -63,7 +63,8 @@ public class ExecutionHeartbeatServiceImpl implements ExecutionHeartbeatService 
                     HeartbeatFailure.OPTIMISTIC_LOCK_CONFLICT,
                     "Execution lease version does not match");
         }
-        if (lease.getExecution().getStatus() != ExecutionStatus.CLAIMED) {
+        if (lease.getExecution().getStatus() != ExecutionStatus.CLAIMED
+                && lease.getExecution().getStatus() != ExecutionStatus.RUNNING) {
             throw failure(
                     HeartbeatFailure.EXECUTION_STATE_INELIGIBLE,
                     "Execution state is not eligible for heartbeat renewal");
