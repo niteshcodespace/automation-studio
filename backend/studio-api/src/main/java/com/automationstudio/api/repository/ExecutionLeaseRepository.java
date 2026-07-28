@@ -36,7 +36,6 @@ public interface ExecutionLeaseRepository extends JpaRepository<ExecutionLease, 
     @Query("""
             SELECT lease
             FROM ExecutionLease lease
-            JOIN FETCH lease.execution
             WHERE lease.executionId = :executionId
             """)
     Optional<ExecutionLease> findByExecutionIdForUpdate(
