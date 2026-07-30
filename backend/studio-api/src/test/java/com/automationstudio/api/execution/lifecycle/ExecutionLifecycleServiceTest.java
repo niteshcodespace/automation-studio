@@ -14,6 +14,10 @@ import com.automationstudio.api.execution.engine.ExecutionEngine;
 import com.automationstudio.api.execution.engine.ExecutionEngineDescriptor;
 import com.automationstudio.api.execution.engine.ExecutionEngineRegistry;
 import com.automationstudio.api.execution.engine.ExecutionEngineSupport;
+import com.automationstudio.api.execution.evidence.ExecutionEvidenceCollectorImpl;
+import com.automationstudio.api.execution.evidence.ExecutionEvidenceValidator;
+import com.automationstudio.api.execution.evidence.ExecutionEvidence;
+import com.automationstudio.api.execution.evidence.ExecutionEvidenceSummary;
 import com.automationstudio.api.execution.orchestration.ExecutionOwnershipException;
 import com.automationstudio.api.execution.orchestration.ExecutionStartResult;
 import com.automationstudio.api.execution.orchestration.RunnerExecutionRequest;
@@ -24,6 +28,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,6 +61,7 @@ class ExecutionLifecycleServiceTest {
                 registry,
                 new ExecutionEngineInvoker(),
                 new ExecutionLifecycleValidator(),
+                new ExecutionEvidenceCollectorImpl(new ExecutionEvidenceValidator()),
                 Clock.fixed(Instant.parse("2026-07-30T10:00:03Z"), ZoneOffset.UTC));
         when(context.executionId()).thenReturn(executionId);
         when(context.runner()).thenReturn(runner);
@@ -75,7 +81,7 @@ class ExecutionLifecycleServiceTest {
 
         ExecutionResult result = service.execute(request);
 
-        assertThat(result).isSameAs(engineResult);
+        assertThat(result).isEqualTo(engineResult);
         verify(runnerService).complete(
                 eq(completionRequest()),
                 eq(com.automationstudio.api.domain.ExecutionStatus.PASSED));
@@ -107,6 +113,34 @@ class ExecutionLifecycleServiceTest {
     }
 
     @Test
+    void normalizesInvalidEvidenceAsInvalidEngineResult() {
+        ExecutionEvidence invalidEvidence = new ExecutionEvidence(
+                executionId,
+                runnerUuid,
+                FINISHED_AT,
+                List.of(),
+                Map.of(),
+                new ExecutionEvidenceSummary(0, 0, 0, Duration.ofSeconds(2)));
+        when(engine.execute(context)).thenReturn(new ExecutionResult(
+                executionId,
+                runnerUuid,
+                ExecutionStatus.SUCCEEDED,
+                STARTED_AT,
+                FINISHED_AT,
+                Duration.ofSeconds(3),
+                ExecutionTerminationReason.COMPLETED,
+                ExecutionFailureReason.NONE,
+                Map.of(),
+                invalidEvidence));
+
+        ExecutionResult result = service.execute(request);
+
+        assertThat(result.status()).isEqualTo(ExecutionStatus.FAILED);
+        assertThat(result.failureReason())
+                .isEqualTo(ExecutionFailureReason.INVALID_ENGINE_RESULT);
+    }
+
+    @Test
     void preservesProviderNeutralReportedFailure() {
         ExecutionResult failed = new ExecutionResult(
                 executionId, runnerUuid, ExecutionStatus.FAILED,
@@ -118,7 +152,7 @@ class ExecutionLifecycleServiceTest {
 
         ExecutionResult result = service.execute(request);
 
-        assertThat(result).isSameAs(failed);
+        assertThat(result).isEqualTo(failed);
         verify(runnerService).complete(
                 eq(completionRequest()),
                 eq(com.automationstudio.api.domain.ExecutionStatus.FAILED));

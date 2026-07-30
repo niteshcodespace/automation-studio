@@ -7,6 +7,11 @@ import com.automationstudio.api.domain.ExecutionStatus;
 import com.automationstudio.api.execution.ExecutionContext;
 import com.automationstudio.api.execution.engine.ExecutionEngine;
 import com.automationstudio.api.execution.engine.ExecutionEngineDescriptor;
+import com.automationstudio.api.execution.evidence.ExecutionArtifact;
+import com.automationstudio.api.execution.evidence.ExecutionArtifactReference;
+import com.automationstudio.api.execution.evidence.ExecutionArtifactType;
+import com.automationstudio.api.execution.evidence.ExecutionEvidence;
+import com.automationstudio.api.execution.evidence.ExecutionEvidenceSummary;
 import com.automationstudio.api.execution.lifecycle.ExecutionFailureReason;
 import com.automationstudio.api.execution.lifecycle.ExecutionLifecycleService;
 import com.automationstudio.api.execution.lifecycle.ExecutionResult;
@@ -16,6 +21,7 @@ import com.automationstudio.api.execution.orchestration.RunnerExecutionException
 import com.automationstudio.api.execution.orchestration.RunnerExecutionRequest;
 import com.automationstudio.api.execution.orchestration.RunnerExecutionService;
 import java.sql.Timestamp;
+import java.net.URI;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -107,6 +113,8 @@ class RunnerExecutionIntegrationTest extends IntegrationTestBase {
         assertThat(result.status())
                 .isEqualTo(com.automationstudio.api.execution.lifecycle.ExecutionStatus.SUCCEEDED);
         assertThat(result.executionId()).isEqualTo(fixture.executionId());
+        assertThat(result.evidence().artifacts()).hasSize(1);
+        assertThat(result.evidence().summary().artifactCount()).isOne();
         assertThat(status(fixture.executionId())).isEqualTo("PASSED");
         assertThat(artifactCount(fixture.executionId())).isZero();
     }
@@ -325,7 +333,34 @@ class RunnerExecutionIntegrationTest extends IntegrationTestBase {
                             Duration.between(startedAt, finishedAt),
                             ExecutionTerminationReason.COMPLETED,
                             ExecutionFailureReason.NONE,
-                            Map.of("engine", "test-engine"));
+                            Map.of("engine", "test-engine"),
+                            evidence(context, finishedAt, Duration.between(
+                                    startedAt, finishedAt)));
+                }
+
+                private ExecutionEvidence evidence(
+                        ExecutionContext context,
+                        OffsetDateTime capturedAt,
+                        Duration duration) {
+                    ExecutionArtifact artifact = new ExecutionArtifact(
+                            UUID.randomUUID(),
+                            ExecutionArtifactType.REPORT,
+                            "test-report.xml",
+                            "application/xml",
+                            128,
+                            new ExecutionArtifactReference(
+                                    URI.create("artifact://test-runner/test-report.xml"),
+                                    "test-runner",
+                                    "sha256:test",
+                                    null),
+                            Map.of("provider", "fake"));
+                    return new ExecutionEvidence(
+                            context.executionId(),
+                            context.runner().runnerId(),
+                            capturedAt,
+                            List.of(artifact),
+                            Map.of("source", "fake-engine"),
+                            new ExecutionEvidenceSummary(1, 0, 0, duration));
                 }
             };
         }

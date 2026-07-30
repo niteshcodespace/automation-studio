@@ -3,6 +3,8 @@ package com.automationstudio.api.execution.lifecycle;
 import com.automationstudio.api.execution.ExecutionContext;
 import com.automationstudio.api.execution.engine.ExecutionEngine;
 import com.automationstudio.api.execution.engine.ExecutionEngineRegistry;
+import com.automationstudio.api.execution.evidence.ExecutionEvidenceCollector;
+import com.automationstudio.api.execution.evidence.ExecutionEvidenceException;
 import com.automationstudio.api.execution.orchestration.ExecutionStartResult;
 import com.automationstudio.api.execution.orchestration.RunnerExecutionRequest;
 import com.automationstudio.api.execution.orchestration.RunnerExecutionService;
@@ -19,6 +21,7 @@ public class ExecutionLifecycleServiceImpl implements ExecutionLifecycleService 
     private final ExecutionEngineRegistry engineRegistry;
     private final ExecutionEngineInvoker engineInvoker;
     private final ExecutionLifecycleValidator lifecycleValidator;
+    private final ExecutionEvidenceCollector evidenceCollector;
     private final Clock clock;
 
     public ExecutionLifecycleServiceImpl(
@@ -26,11 +29,13 @@ public class ExecutionLifecycleServiceImpl implements ExecutionLifecycleService 
             ExecutionEngineRegistry engineRegistry,
             ExecutionEngineInvoker engineInvoker,
             ExecutionLifecycleValidator lifecycleValidator,
+            ExecutionEvidenceCollector evidenceCollector,
             Clock clock) {
         this.runnerExecutionService = runnerExecutionService;
         this.engineRegistry = engineRegistry;
         this.engineInvoker = engineInvoker;
         this.lifecycleValidator = lifecycleValidator;
+        this.evidenceCollector = evidenceCollector;
         this.clock = clock;
     }
 
@@ -48,6 +53,7 @@ public class ExecutionLifecycleServiceImpl implements ExecutionLifecycleService 
         try {
             result = engineInvoker.invoke(engine, context);
             lifecycleValidator.validateEngineResult(context, result);
+            result = result.withEvidence(evidenceCollector.collect(context, result));
         } catch (RuntimeException exception) {
             result = failedResult(context, start.startedAt(), exception);
         }
@@ -76,6 +82,7 @@ public class ExecutionLifecycleServiceImpl implements ExecutionLifecycleService 
             finishedAt = startedAt;
         }
         ExecutionFailureReason reason = exception instanceof ExecutionLifecycleException
+                        || exception instanceof ExecutionEvidenceException
                 ? ExecutionFailureReason.INVALID_ENGINE_RESULT
                 : ExecutionFailureReason.ENGINE_EXCEPTION;
         return new ExecutionResult(

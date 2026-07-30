@@ -1,5 +1,6 @@
 package com.automationstudio.api.execution.lifecycle;
 
+import com.automationstudio.api.execution.evidence.ExecutionEvidence;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.Map;
@@ -15,7 +16,31 @@ public record ExecutionResult(
         Duration duration,
         ExecutionTerminationReason terminationReason,
         ExecutionFailureReason failureReason,
-        Map<String, String> metadata) {
+        Map<String, String> metadata,
+        ExecutionEvidence evidence) {
+
+    public ExecutionResult(
+            UUID executionId,
+            UUID runnerId,
+            ExecutionStatus status,
+            OffsetDateTime startedAt,
+            OffsetDateTime finishedAt,
+            Duration duration,
+            ExecutionTerminationReason terminationReason,
+            ExecutionFailureReason failureReason,
+            Map<String, String> metadata) {
+        this(
+                executionId,
+                runnerId,
+                status,
+                startedAt,
+                finishedAt,
+                duration,
+                terminationReason,
+                failureReason,
+                metadata,
+                ExecutionEvidence.empty(executionId, runnerId, finishedAt, duration));
+    }
 
     public ExecutionResult {
         executionId = Objects.requireNonNull(executionId, "Execution ID must not be null");
@@ -30,6 +55,7 @@ public record ExecutionResult(
                 failureReason, "Execution failure reason must not be null");
         metadata = Map.copyOf(Objects.requireNonNull(
                 metadata, "Execution metadata must not be null"));
+        evidence = Objects.requireNonNull(evidence, "Execution evidence must not be null");
         if (finishedAt.isBefore(startedAt)) {
             throw new IllegalArgumentException(
                     "Execution finish time must not precede start time");
@@ -48,5 +74,19 @@ public record ExecutionResult(
             throw new IllegalArgumentException(
                     "Failed execution must have a failure reason");
         }
+    }
+
+    public ExecutionResult withEvidence(ExecutionEvidence normalizedEvidence) {
+        return new ExecutionResult(
+                executionId,
+                runnerId,
+                status,
+                startedAt,
+                finishedAt,
+                duration,
+                terminationReason,
+                failureReason,
+                metadata,
+                normalizedEvidence);
     }
 }
