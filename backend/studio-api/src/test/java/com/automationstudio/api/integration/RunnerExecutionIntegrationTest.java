@@ -232,6 +232,73 @@ class RunnerExecutionIntegrationTest extends IntegrationTestBase {
         assertThat(status(fixture.executionId())).isEqualTo("RUNNING");
     }
 
+    @Test
+    void rejectsDuplicateCompletionWithoutOverwritingTerminalState() {
+        Fixture fixture = insertFixture("5 minutes");
+        var started = executionService.start(request(fixture));
+        RunnerExecutionRequest completionRequest =
+                completionRequest(fixture, started.executionVersion());
+
+        executionService.complete(completionRequest, ExecutionStatus.PASSED);
+        Throwable duplicate = catchThrowable(() ->
+                executionService.complete(completionRequest, ExecutionStatus.FAILED));
+
+        assertThat(duplicate).isInstanceOf(ExecutionOwnershipException.class);
+        assertThat(status(fixture.executionId())).isEqualTo("PASSED");
+    }
+
+    @Test
+    void concurrentCompletionsHaveExactlyOneWinner() throws Exception {
+        Fixture fixture = insertFixture("5 minutes");
+        var started = executionService.start(request(fixture));
+        RunnerExecutionRequest completionRequest =
+                completionRequest(fixture, started.executionVersion());
+        CountDownLatch start = new CountDownLatch(1);
+
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> {
+                start.await();
+                return catchThrowable(() -> executionService.complete(
+                        completionRequest, ExecutionStatus.PASSED));
+            });
+            var second = executor.submit(() -> {
+                start.await();
+                return catchThrowable(() -> executionService.complete(
+                        completionRequest, ExecutionStatus.FAILED));
+            });
+            start.countDown();
+            List<Throwable> results = java.util.Arrays.asList(first.get(), second.get());
+
+            assertThat(results).filteredOn(result -> result == null).hasSize(1);
+            assertThat(results)
+                    .filteredOn(result -> result instanceof ExecutionOwnershipException
+                            || result instanceof RunnerExecutionException)
+                    .hasSize(1);
+        }
+        assertThat(status(fixture.executionId())).isIn("PASSED", "FAILED");
+    }
+
+    @Test
+    void rejectsCompletionWhenLeaseExpiresAfterStart() {
+        Fixture fixture = insertFixture("5 minutes");
+        var started = executionService.start(request(fixture));
+        jdbcTemplate.update("""
+                UPDATE execution_lease
+                SET claimed_at = clock_timestamp() - INTERVAL '2 minutes',
+                    last_heartbeat_at = clock_timestamp() - INTERVAL '2 minutes',
+                    lease_expires_at = clock_timestamp() - INTERVAL '1 minute'
+                WHERE execution_id = ?
+                """, fixture.executionId());
+
+        Throwable failure = catchThrowable(() -> executionService.complete(
+                completionRequest(fixture, started.executionVersion()),
+                ExecutionStatus.PASSED));
+
+        assertThat(failure).isInstanceOf(ExecutionOwnershipException.class);
+        assertThat(status(fixture.executionId())).isEqualTo("RUNNING");
+        assertThat(finishedAt(fixture.executionId())).isNull();
+    }
+
     private Fixture insertFixture(String expiryInterval) {
         return insertFixture(
                 expiryInterval,
@@ -362,6 +429,17 @@ class RunnerExecutionIntegrationTest extends IntegrationTestBase {
                 1,
                 fixture.leaseVersion(),
                 fixture.executionVersion());
+    }
+
+    private RunnerExecutionRequest completionRequest(
+            Fixture fixture, long executionVersion) {
+        return new RunnerExecutionRequest(
+                fixture.executionId(),
+                fixture.runnerKey(),
+                fixture.claimToken(),
+                1,
+                fixture.leaseVersion(),
+                executionVersion);
     }
 
     private String status(UUID executionId) {
