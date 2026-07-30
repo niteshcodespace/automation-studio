@@ -195,6 +195,28 @@ class LocalWorkspaceProviderTest {
                 .hasMessageContaining("real directory");
     }
 
+    @Test
+    void resolvesOnlyCanonicalPreparedWorkspaceChildren() throws Exception {
+        Path root = temporaryDirectory.resolve("location-resolution");
+        LocalWorkspaceProvider provider = provider(root);
+        WorkspacePreparationRequest preparation = preparationRequest();
+        provider.prepare(preparation);
+
+        LocalWorkspaceLocation location =
+                provider.resolve(preparation.workspace().workspaceId());
+        assertThat(location.workspaceDirectory())
+                .isEqualTo(workspace(root, preparation).toRealPath());
+        assertThat(location.sourceDirectory().getParent())
+                .isEqualTo(location.workspaceDirectory());
+        assertThat(location.sourceDirectory()).isDirectory();
+
+        Files.delete(location.sourceDirectory());
+        assertThatThrownBy(() -> provider.resolve(
+                preparation.workspace().workspaceId()))
+                .isInstanceOf(LocalWorkspaceException.class)
+                .hasMessageContaining("child directory");
+    }
+
     private LocalWorkspaceProvider provider(Path root) {
         return new LocalWorkspaceProvider(
                 new WorkspaceRootProperties(root.toString()), CLOCK);

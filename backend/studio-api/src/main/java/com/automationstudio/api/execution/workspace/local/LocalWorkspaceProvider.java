@@ -23,7 +23,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.locks.ReentrantLock;
 
-public final class LocalWorkspaceProvider implements WorkspaceProvider {
+public final class LocalWorkspaceProvider
+        implements WorkspaceProvider, WorkspaceLocationResolver {
 
     public static final WorkspaceProviderId PROVIDER_ID =
             new WorkspaceProviderId("local-filesystem");
@@ -99,6 +100,31 @@ public final class LocalWorkspaceProvider implements WorkspaceProvider {
             WorkspaceDescriptor released =
                     request.workspace().transitionTo(WorkspaceState.RELEASED, null);
             return new WorkspaceReleaseResult(request, released);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public LocalWorkspaceLocation resolve(WorkspaceId workspaceId) {
+        Objects.requireNonNull(workspaceId, "Workspace ID must not be null");
+        ReentrantLock lock = lockFor(workspaceId);
+        lock.lock();
+        try {
+            Path root = ensureCanonicalRoot();
+            Path workspace = resolveWorkspace(root, workspaceId);
+            try {
+                requireCanonicalWorkspace(root, workspace);
+                return new LocalWorkspaceLocation(
+                        workspace,
+                        requireCanonicalChild(workspace, "source"),
+                        requireCanonicalChild(workspace, "metadata"),
+                        requireCanonicalChild(workspace, "artifacts"),
+                        requireCanonicalChild(workspace, "temp"));
+            } catch (IOException exception) {
+                throw new LocalWorkspaceException(
+                        "Workspace location validation failed", exception);
+            }
         } finally {
             lock.unlock();
         }
@@ -194,6 +220,24 @@ public final class LocalWorkspaceProvider implements WorkspaceProvider {
             throw new LocalWorkspaceException(
                     "Workspace canonical location is invalid");
         }
+    }
+
+    private Path requireCanonicalChild(Path workspace, String name) throws IOException {
+        Path child = workspace.resolve(name).normalize();
+        if (!Objects.equals(child.getParent(), workspace)
+                || Files.isSymbolicLink(child)
+                || !Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS)) {
+            throw new LocalWorkspaceException(
+                    "Workspace child directory is invalid");
+        }
+        Path realChild = child.toRealPath();
+        if (!realChild.equals(child)
+                || !realChild.startsWith(workspace)
+                || !Objects.equals(realChild.getParent(), workspace)) {
+            throw new LocalWorkspaceException(
+                    "Workspace child canonical location is invalid");
+        }
+        return realChild;
     }
 
     private void validateTree(Path root, Path workspace) {

@@ -125,6 +125,16 @@ exactly when entering `READY` and is retained unchanged afterward. Provider resu
 to their requests and fail closed if workspace identity, execution ownership, provider identity,
 source identity, or prepared metadata differs.
 
+AS-023E adds the separate provider-neutral `SourceMaterializer` port with immutable
+`SourceMaterializationRequest` and `SourceMaterializationResult` values. Local paths remain behind
+the infrastructure-only `WorkspaceLocationResolver` implemented by `LocalWorkspaceProvider`;
+AS-023C workspace contracts remain unchanged.
+
+The initial Git adapter uses structured process arguments and an exact-SHA detached checkout.
+It isolates Git from system/user configuration, credentials, hooks, aliases, LFS smudge filters,
+and interactive prompts. Each command has finite time and output bounds. A result is successful
+only after independent full-HEAD equality and detached-state verification.
+
 ## Transaction Boundary
 
 The approved sequence is:
@@ -177,6 +187,12 @@ an execution.
 - Materialized repository content is untrusted and no Git hook or source-provided command runs.
 - Concurrent create, cleanup, and reconciliation operations cannot cross workspace identity.
 - Resource limits prevent unbounded disk, memory, output, path, and time consumption.
+
+For source materialization, the local resolver revalidates the workspace and fixed child
+directories immediately before returning infrastructure paths. The source directory must be
+empty. Normal in-directory `.git` metadata is required; redirects, linked worktrees, alternates,
+links, special entries, and canonical escape are unsupported. Failure cleanup uses no-follow
+source-contained deletion and cannot remove metadata, artifacts, temp siblings, or the workspace.
 
 ## Persistence Decision
 

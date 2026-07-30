@@ -489,9 +489,43 @@ outside the canonical workspace. Local paths remain private to the adapter.
 
 ### AS-023E - Initial Source Resolver
 
-Implement Git HTTPS materialization, exact-commit checkout and verification, bounded
-timeout/output, sanitized errors, and deterministic local Git repository tests without public
-network dependency.
+Implement provider-neutral `SourceMaterializer` request/result contracts and the initial
+`GitSourceMaterializer`. The contracts contain workspace identity, admitted source identity,
+resolved revision, success state, and materialization time, but no local path, credential,
+process output, or Git object.
+
+`LocalWorkspaceProvider` also implements the infrastructure-only `WorkspaceLocationResolver`.
+It revalidates the canonical workspace and all four fixed child directories before returning an
+immutable `LocalWorkspaceLocation` to local infrastructure. This type is not part of REST,
+persistence, snapshots, `WorkspaceManager`, or engine contracts.
+
+Production accepts only credential-free HTTPS repositories and exact lowercase 40-hex SHA-1
+revisions through the AS-023B validator. A disabled-by-default
+`automation.runner.source.git.allow-local-repositories` flag permits `file:` repositories only
+for deterministic local tests. It must not be enabled in production.
+
+The deterministic command sequence is:
+
+```text
+git init with an empty isolated template
+git remote add origin <validated repository>
+git fetch --no-tags --force --depth=1 origin <exact SHA>
+git checkout --detach --no-recurse-submodules <exact SHA> --
+git rev-parse --verify HEAD
+git rev-parse --abbrev-ref HEAD
+```
+
+Every invocation uses separate `ProcessBuilder` arguments, disabled credential helpers and LFS
+filters, isolated HOME/global configuration/hooks, non-interactive environment variables, a
+bounded per-command timeout, continuously drained bounded stdout/stderr, and process-tree
+termination on timeout. Success requires exact revision equality and detached `HEAD`.
+
+Before success, `.git` must be an ordinary in-source directory. `.git` redirection, linked
+worktree `commondir`, object alternates, symbolic links, and special source entries fail closed.
+On failure after mutation begins, only source contents and the isolated Git environment are
+removed; workspace siblings remain. Cleanup failure takes precedence and retains the original
+failure as suppressed context. Same-workspace materialization uses bounded striped locks;
+duplicates fail and different non-colliding workspaces can proceed concurrently.
 
 ### AS-023F - Orchestration Integration and Cleanup
 
