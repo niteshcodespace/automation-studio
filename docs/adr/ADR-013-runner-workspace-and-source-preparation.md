@@ -169,6 +169,12 @@ The platform will not persist runner workspace paths, credentials, tokens, resol
 temporary directories, Git commands/output, or runner-local diagnostics. A workspace marker is
 ephemeral infrastructure data, not an authoritative database aggregate.
 
+AS-023B implements this as three nullable all-or-none Project columns, one nullable Suite
+`source_location`, and one nullable Execution JSONB `source_snapshot`. Source is required when a
+Suite declares a non-BUILTIN `engineId`. BUILTIN remains source-independent, and historical
+Suites with no provider identity retain legacy admission without a fabricated snapshot. V15
+extends the existing database trigger so `source_snapshot` is immutable after insertion.
+
 ## Failure Decision
 
 Preparation failures use sanitized categories for invalid configuration, unsupported source,

@@ -19,6 +19,16 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
     Optional<Project> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select project
+            from Project project
+            where project.id = :projectId
+              and project.workspace.id = :workspaceId
+            """)
+    Optional<Project> findByIdAndWorkspaceIdForUpdate(
+            @Param("projectId") UUID projectId, @Param("workspaceId") UUID workspaceId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select project from Project project where project.id = :projectId")
     Optional<Project> findByIdForUpdate(@Param("projectId") UUID projectId);
 }

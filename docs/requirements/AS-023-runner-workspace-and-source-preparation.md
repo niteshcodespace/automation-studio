@@ -161,6 +161,11 @@ The optional Suite source location must:
 - Admission does not clone, fetch, or access the runner filesystem.
 - Snapshot creation remains a bounded database/application operation.
 
+AS-023B requires a source snapshot when the Suite declares a non-BUILTIN `engineId`. `BUILTIN`
+is explicitly source-independent. Historical transitional Suites with no `engineId` remain
+admissible without fabricated source until their provider identity is configured. The source
+snapshot is therefore nullable as a whole but, when present, is validated and complete.
+
 ### 9.2 Workspace management
 
 - Each execution receives a unique directory under the configured workspace root.
@@ -428,6 +433,10 @@ security, cleanup, failures, resource bounds, persistence, acceptance criteria, 
 Implement the source domain model, Project ownership, Suite-relative location, immutable
 Execution snapshot, exact-revision validation, Flyway migration, approved API/service changes,
 and PostgreSQL integration tests.
+
+Implemented with Project columns `source_type`, `source_repository`, and `source_revision`;
+Suite column `source_location`; and Execution JSONB `source_snapshot`. Migration V15 leaves
+historical values null, constrains structural shapes, and extends the immutable-snapshot trigger.
 
 ### AS-023C - Immutable Workspace Contract
 

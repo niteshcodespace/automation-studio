@@ -19,5 +19,18 @@ public record UpdateAutomationSuiteRequest(
         @Size(max = 100, message = "Automation suite engine ID must not exceed 100 characters")
         String engineId,
         SuiteType suiteType,
-        Map<String, Object> configuration) {
+        Map<String, Object> configuration,
+        String sourceLocation) {
+
+    public UpdateAutomationSuiteRequest(
+            String name,
+            String description,
+            String engineType,
+            String suiteReference,
+            String engineId,
+            SuiteType suiteType,
+            Map<String, Object> configuration) {
+        this(name, description, engineType, suiteReference, engineId, suiteType,
+                configuration, null);
+    }
 }

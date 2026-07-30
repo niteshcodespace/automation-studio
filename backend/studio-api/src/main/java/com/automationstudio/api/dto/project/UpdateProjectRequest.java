@@ -1,6 +1,7 @@
 package com.automationstudio.api.dto.project;
 
 import com.automationstudio.api.domain.ProjectStatus;
+import com.automationstudio.api.source.SourceType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -11,5 +12,12 @@ public record UpdateProjectRequest(
         String name,
         String description,
         @NotNull(message = "Project status must not be null")
-        ProjectStatus status) {
+        ProjectStatus status,
+        SourceType sourceType,
+        String sourceRepository,
+        String sourceRevision) {
+
+    public UpdateProjectRequest(String name, String description, ProjectStatus status) {
+        this(name, description, status, null, null, null);
+    }
 }

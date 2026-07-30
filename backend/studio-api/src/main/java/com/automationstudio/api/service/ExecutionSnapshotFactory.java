@@ -4,6 +4,7 @@ import com.automationstudio.api.domain.ExecutionSelection;
 import com.automationstudio.api.entity.AutomationSuite;
 import com.automationstudio.api.entity.AutomationTestCase;
 import com.automationstudio.api.entity.Environment;
+import com.automationstudio.api.entity.Project;
 import com.automationstudio.api.security.SensitiveKeyDetector;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
@@ -11,11 +12,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
+import com.automationstudio.api.source.ExecutionSourceReference;
+import com.automationstudio.api.source.SourceConfigurationValidator;
 
 @Component
 public class ExecutionSnapshotFactory {
 
     private final SensitiveKeyDetector sensitiveKeyDetector;
+    private final SourceConfigurationValidator sourceValidator =
+            new SourceConfigurationValidator();
 
     public ExecutionSnapshotFactory(SensitiveKeyDetector sensitiveKeyDetector) {
         this.sensitiveKeyDetector = sensitiveKeyDetector;
@@ -42,6 +47,23 @@ public class ExecutionSnapshotFactory {
         snapshot.put("suiteReference", suite.getSuiteReference());
         snapshot.put("configuration", removeSensitiveValues(suite.getConfiguration()));
         return snapshot;
+    }
+
+    public Map<String, Object> source(Project project, AutomationSuite suite) {
+        boolean sourceIndependent = suite.getEngineId() == null
+                || "BUILTIN".equalsIgnoreCase(suite.getEngineId());
+        boolean absent = project.getSourceType() == null
+                && project.getSourceRepository() == null
+                && project.getSourceRevision() == null;
+        if (absent && sourceIndependent) {
+            return null;
+        }
+        ExecutionSourceReference source = sourceValidator.validate(
+                project.getSourceType(),
+                project.getSourceRepository(),
+                project.getSourceRevision(),
+                suite.getSourceLocation());
+        return source.toSnapshot();
     }
 
     public Map<String, Object> request(

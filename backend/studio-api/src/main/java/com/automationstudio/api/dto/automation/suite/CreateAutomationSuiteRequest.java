@@ -21,5 +21,19 @@ public record CreateAutomationSuiteRequest(
         String engineId,
         SuiteType suiteType,
         Map<String, Object> configuration,
-        AutomationSuiteStatus status) {
+        AutomationSuiteStatus status,
+        String sourceLocation) {
+
+    public CreateAutomationSuiteRequest(
+            String name,
+            String description,
+            String engineType,
+            String suiteReference,
+            String engineId,
+            SuiteType suiteType,
+            Map<String, Object> configuration,
+            AutomationSuiteStatus status) {
+        this(name, description, engineType, suiteReference, engineId, suiteType,
+                configuration, status, null);
+    }
 }

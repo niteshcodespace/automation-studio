@@ -71,7 +71,7 @@ class ExecutionServiceImplTest {
     @Test
     void rejectsMissingProjectWithoutDisclosingScopedResources() {
         UUID projectId = UUID.randomUUID();
-        when(projectRepository.findById(projectId)).thenReturn(Optional.empty());
+        when(projectRepository.findByIdForUpdate(projectId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.create(
                 projectId, "operator", command(ExecutionSelectionMode.SUITE, null)))
@@ -109,7 +109,6 @@ class ExecutionServiceImplTest {
     @Test
     void rejectsInvalidRequester() {
         UUID projectId = UUID.randomUUID();
-        when(projectRepository.findById(projectId)).thenReturn(Optional.of(new Project()));
 
         assertThatThrownBy(() -> service.create(
                 projectId, " ", command(ExecutionSelectionMode.SUITE, null)))
@@ -249,11 +248,12 @@ class ExecutionServiceImplTest {
     }
 
     private void stubCatalog(UUID projectId) {
-        when(projectRepository.findById(projectId)).thenReturn(Optional.of(new Project()));
+        when(projectRepository.findByIdForUpdate(projectId))
+                .thenReturn(Optional.of(new Project()));
         when(environmentRepository.findByProjectIdAndId(
                 eq(projectId), any())).thenReturn(
                 Optional.of(new Environment()));
-        when(suiteRepository.findByProjectIdAndId(
+        when(suiteRepository.findByProjectIdAndIdForUpdate(
                 eq(projectId), any())).thenReturn(
                 Optional.of(new AutomationSuite()));
     }

@@ -65,6 +65,10 @@ public class AutomationSuite {
     @Column(name = "suite_reference", nullable = false, length = 300)
     private String suiteReference;
 
+    @Size(max = 500)
+    @Column(name = "source_location", length = 500)
+    private String sourceLocation;
+
     @Size(max = 100)
     @Column(name = "engine_id", length = 100)
     private String engineId;

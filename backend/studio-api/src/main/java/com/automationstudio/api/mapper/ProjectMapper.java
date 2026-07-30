@@ -14,6 +14,9 @@ public interface ProjectMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "workspace", ignore = true)
     @Mapping(target = "status", ignore = true)
+    @Mapping(target = "sourceType", ignore = true)
+    @Mapping(target = "sourceRepository", ignore = true)
+    @Mapping(target = "sourceRevision", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     Project toEntity(CreateProjectRequest request);
@@ -23,6 +26,9 @@ public interface ProjectMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "workspace", ignore = true)
+    @Mapping(target = "sourceType", ignore = true)
+    @Mapping(target = "sourceRepository", ignore = true)
+    @Mapping(target = "sourceRevision", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     void updateEntity(UpdateProjectRequest request, @MappingTarget Project project);
