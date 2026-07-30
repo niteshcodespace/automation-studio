@@ -19,9 +19,7 @@ Documentation only.
 ### AS-024B - Playwright Engine Configuration Contracts
 
 Add the exact dependency/descriptor, immutable configuration, operator properties, strict parsing,
-timeout/viewport bounds, and immutable runtime metrics contract. Metrics remain transient engine
-telemetry carried by an internal runtime result, with no provider-neutral result change,
-persistence, or API.
+and timeout/viewport bounds.
 
 ### AS-024C - Secure Versioned Manifest Contract and Loader
 
@@ -32,8 +30,10 @@ reference resolution, containment/link defenses, structural limits, and compatib
 
 Add the internal runtime port, preinstalled-browser validation, headless Chromium adapter,
 one-context/one-page lifecycle, bounded timeouts, startup-duration measurement, and cleanup
-precedence. Shape the runtime around execution-scoped resources so future pages, contexts, and
-bounded parallelism do not require redesign.
+precedence. Add the immutable runtime metrics contract and carry it on the internal runtime result
+as transient engine telemetry, with no provider-neutral result change, persistence, or API. Shape
+the runtime around execution-scoped resources so future pages, contexts, and bounded parallelism
+do not require redesign.
 
 ### AS-024E - Pluggable Action and Assertion Execution
 

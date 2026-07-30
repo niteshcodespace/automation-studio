@@ -15,7 +15,8 @@ workspace-lifecycle authority.
 
 ## 3. Approved Initial Scope
 
-- engine identity `playwright-java` with one exact supported version;
+- engine identity `playwright-java` with exact version `1.61.0`, matching the pinned Playwright
+  Java runtime dependency;
 - an explicit versioned declarative scenario manifest;
 - Chromium only;
 - headless only;
@@ -70,6 +71,9 @@ Initial approved settings include:
 
 Unknown keys and invalid bounds fail closed. Browser binary location and provisioning policy are
 operator-owned and cannot be selected by a scenario.
+
+The provider-neutral `engineVersion` is the exact supported Playwright Java runtime version. AS-024
+does not introduce a separate Automation Studio engine-contract version dimension.
 
 ## 7. Pluggable Action Architecture
 
