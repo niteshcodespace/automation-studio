@@ -84,15 +84,18 @@ receive the workspace root, sibling visibility, arbitrary path authority, or cle
 
 ## Provider-Neutral Contracts
 
-The execution plane will define narrow concepts equivalent to:
+The execution plane defines narrow concepts:
 
 - `ExecutionSourceReference`: immutable admitted source identity;
-- `SourceResolver`: materializes a supported source into a manager-owned destination;
-- `ExecutionWorkspace`: immutable identity of a verified allocated workspace;
-- `WorkspaceManager`: creates, validates, and cleans workspaces; and
-- `PreparedExecutionWorkspace`: immutable verified engine input.
+- `WorkspaceId` and `WorkspaceProviderId`: opaque immutable identities;
+- `WorkspaceDescriptor`: immutable execution ownership, provider, lifecycle, and metadata;
+- `WorkspaceMetadata`: immutable preparation time and optional admitted source;
+- preparation and release request/result values; and
+- `WorkspaceProvider`: provider-neutral preparation and release port.
 
-Exact Java names and packaging are finalized in AS-023C. The dependency direction is:
+AS-023C places these contracts in the `execution.workspace` package. Source materialization
+remains a later, separate port. No workspace contract carries `Path`, `File`, a filesystem URI,
+or an implementation locator. The dependency direction is:
 
 ```text
 Execution orchestrator
@@ -105,6 +108,12 @@ Engine provider
 
 The Source Resolver knows no engine. The Workspace Manager knows no Git or engine. Providers
 receive no repository, JPA entity, lease, claim token, persistence handle, or transaction handle.
+
+The immutable descriptor follows only
+`PLANNED -> PREPARING -> READY -> IN_USE -> RELEASING -> RELEASED`. Prepared metadata is attached
+exactly when entering `READY` and is retained unchanged afterward. Provider results are correlated
+to their requests and fail closed if workspace identity, execution ownership, provider identity,
+source identity, or prepared metadata differs.
 
 ## Transaction Boundary
 

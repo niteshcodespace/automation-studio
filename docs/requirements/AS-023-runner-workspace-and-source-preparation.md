@@ -81,9 +81,12 @@ AS-023 does not implement:
 - **Reconciliation**: bounded removal of abandoned workspaces; it is never execution resume or
   retry.
 
-Conceptual Java names such as `ExecutionSourceReference`, `SourceResolver`,
-`ExecutionWorkspace`, `WorkspaceManager`, and `PreparedExecutionWorkspace` are working names.
-AS-023C will finalize code shape after review.
+AS-023C finalizes the provider-neutral workspace contract in the
+`execution.workspace` package. `WorkspaceId`, `WorkspaceProviderId`, `WorkspaceDescriptor`,
+`WorkspaceMetadata`, and `WorkspaceState` define immutable identity, ownership, provider,
+preparation metadata, and lifecycle. `WorkspaceProvider` is the preparation/release port.
+No contract exposes a host path, directory, file, URI locator, persistence type, or mutable
+filesystem object.
 
 ## 7. Source Ownership Model
 
@@ -440,8 +443,21 @@ historical values null, constrains structural shapes, and extends the immutable-
 
 ### AS-023C - Immutable Workspace Contract
 
-Define provider-neutral workspace models, Source Resolver and Workspace Manager ports, validation,
-configuration properties, and contract tests. Add no filesystem adapter.
+Define provider-neutral immutable workspace identity, execution ownership, provider identity,
+lifecycle, preparation/release requests and results, validation, and contract tests. Add no
+filesystem adapter, source resolver, runtime configuration, persistence, or orchestration wiring.
+
+The approved lifecycle is strictly:
+
+```text
+PLANNED -> PREPARING -> READY -> IN_USE -> RELEASING -> RELEASED
+```
+
+Lifecycle changes create a new immutable descriptor while retaining workspace ID, execution ID,
+provider ID, and prepared metadata. Metadata is absent before `READY`, required from `READY`
+onward, and cannot change. Preparation and release results must match the identity and ownership
+of their originating request. A nullable admitted source in metadata preserves source-independent
+execution compatibility without fabricating source.
 
 ### AS-023D - Local Workspace Manager
 
