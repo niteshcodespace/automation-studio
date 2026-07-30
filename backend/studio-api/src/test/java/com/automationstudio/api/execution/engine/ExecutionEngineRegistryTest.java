@@ -31,7 +31,9 @@ class ExecutionEngineRegistryTest {
     void rejectsDuplicateNullAndUnknownRegistrations() {
         assertThatThrownBy(() -> new ExecutionEngineRegistryImpl(
                 List.of(engine("playwright", "1"), engine("playwright", "1"))))
-                .isInstanceOf(ExecutionEngineRegistrationException.class);
+                .isInstanceOf(ExecutionEngineRegistrationException.class)
+                .hasMessage("Duplicate execution engine registration")
+                .hasMessageNotContaining("playwright");
         List<ExecutionEngine> withNull = new ArrayList<>();
         withNull.add(null);
         assertThatThrownBy(() -> new ExecutionEngineRegistryImpl(withNull))
@@ -56,6 +58,19 @@ class ExecutionEngineRegistryTest {
                 .isInstanceOf(ExecutionEngineNotFoundException.class);
         assertThatThrownBy(() -> registry.resolve("playwright", "2"))
                 .isInstanceOf(ExecutionEngineCompatibilityException.class);
+    }
+
+    @Test
+    void supportsEmptyRegistryAndDefensivelyCopiesInput() {
+        List<ExecutionEngine> engines = new ArrayList<>();
+        ExecutionEngineRegistry registry = new ExecutionEngineRegistryImpl(engines);
+        engines.add(engine("late", "1"));
+
+        assertThat(registry.supportedEngines()).isEmpty();
+        assertThatThrownBy(() -> registry.resolve("late", "1"))
+                .isInstanceOf(ExecutionEngineNotFoundException.class)
+                .hasMessage("Execution engine was not found")
+                .hasMessageNotContaining("late");
     }
 
     @Test

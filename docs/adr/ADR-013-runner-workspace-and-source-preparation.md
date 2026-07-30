@@ -295,6 +295,21 @@ the triggering preparation failure as suppressed context. A `READY` workspace ca
 released by the manager before engine use; internally it follows the existing state graph through
 `IN_USE` and `RELEASING`. This does not introduce a new durable state or relax provider ownership.
 
+### AS-023G engine orchestration refinement
+
+AS-023G reuses AS-022's immutable `(engineName, engineVersion)` descriptor and registry. The
+existing engine interface gains a compatible prepared-workspace invocation overload; its default
+adapter preserves the approved BUILTIN engine, while future engines can consume the path-free
+preparation evidence directly. Duplicate exact name/version registrations fail startup, registry
+state is immutable, and an empty registry is valid but resolves no engine.
+
+The stateless application orchestrator owns preparation, exact engine selection, invocation,
+result correlation, and mandatory release. Valid `FAILED` and `CANCELLED` results remain ordinary
+terminal outcomes. Thrown engine failures are sanitized application failures. Cleanup failure
+takes precedence over success or any prior failure and retains that prior failure as suppressed
+context. No `@Transactional` boundary is used because database rollback cannot reverse source,
+filesystem, or provider execution work.
+
 ### Benefits
 
 - Executions identify reproducible source independent of later catalog changes.

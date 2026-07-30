@@ -5,6 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.automationstudio.api.execution.workspace.WorkspaceManager;
 import com.automationstudio.api.execution.workspace.WorkspaceProvider;
 import com.automationstudio.api.execution.preparation.SourcePreparationService;
+import com.automationstudio.api.execution.engine.ExecutionEngineRegistry;
+import com.automationstudio.api.execution.engine.ExecutionEngineRegistryImpl;
+import com.automationstudio.api.execution.orchestration.ExecutionOrchestrator;
+import java.util.List;
 import com.automationstudio.api.source.materialization.SourceMaterializer;
 import java.time.Clock;
 import org.junit.jupiter.api.Test;
@@ -15,6 +19,8 @@ class LocalWorkspaceConfigurationTest {
     private final ApplicationContextRunner contextRunner =
             new ApplicationContextRunner()
                     .withBean(Clock.class, Clock::systemUTC)
+                    .withBean(ExecutionEngineRegistry.class,
+                            () -> new ExecutionEngineRegistryImpl(List.of()))
                     .withUserConfiguration(LocalWorkspaceConfiguration.class);
 
     @Test
@@ -24,6 +30,7 @@ class LocalWorkspaceConfigurationTest {
             assertThat(context).doesNotHaveBean(WorkspaceManager.class);
             assertThat(context).doesNotHaveBean(SourceMaterializer.class);
             assertThat(context).doesNotHaveBean(SourcePreparationService.class);
+            assertThat(context).doesNotHaveBean(ExecutionOrchestrator.class);
         });
 
         contextRunner
@@ -34,6 +41,7 @@ class LocalWorkspaceConfigurationTest {
                     assertThat(context).hasSingleBean(WorkspaceManager.class);
                     assertThat(context).hasSingleBean(SourceMaterializer.class);
                     assertThat(context).hasSingleBean(SourcePreparationService.class);
+                    assertThat(context).hasSingleBean(ExecutionOrchestrator.class);
                     assertThat(context.getBean(WorkspaceProvider.class).providerId())
                             .isEqualTo(LocalWorkspaceProvider.PROVIDER_ID);
                 });

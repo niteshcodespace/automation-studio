@@ -545,11 +545,26 @@ manager traverses the existing immutable `READY -> IN_USE -> RELEASING -> RELEAS
 than adding a lifecycle transition. AS-023F adds no engine invocation, execution lifecycle
 mutation, persistence, REST API, credential handling, or AS-023G hardening.
 
-### AS-023G - PostgreSQL, Concurrency, and Security Hardening
+### AS-023G - Runner Engine Execution Orchestrator
 
-Prove immutable snapshot behavior, parallel isolation, duplicate cleanup, partial creation,
-ownership loss, malicious paths, symlink/junction defense, abandoned-workspace reconciliation,
-and Flyway compatibility.
+Reuse the AS-022 `(engineName, engineVersion)` descriptor and immutable registry rather than
+introducing another engine taxonomy. Extend the provider-neutral engine boundary with a
+path-free request containing the immutable execution context and AS-023F preparation evidence.
+Engine results contain only correlated terminal state, timestamps, duration, workspace identity,
+and resolved revision.
+
+The application orchestrator performs exactly: validate request, prepare source, validate
+preparation, resolve one exact engine, invoke it, validate its result, release the workspace, and
+return the completed result. A valid `FAILED` or `CANCELLED` engine result is an outcome, while an
+engine exception is `ENGINE_EXECUTION_FAILED`. Every successful preparation is followed by
+cleanup, including unknown-engine and invariant-failure paths.
+
+Cleanup failure prevents success and takes external precedence as `WORKSPACE_CLEANUP_FAILED`;
+the triggering engine or invariant failure is retained as suppressed context. No database
+transaction surrounds filesystem or engine work. The immutable registry permits an empty engine
+collection and fails closed on resolution; AS-023G introduces no fake production engine.
+Concrete browser/API/mobile/performance/database engines, persistence, artifacts, scheduling,
+retry behavior, and REST remain deferred.
 
 ### AS-023H - Final Verification and Documentation
 

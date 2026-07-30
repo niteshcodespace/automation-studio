@@ -33,8 +33,7 @@ public class ExecutionEngineRegistryImpl implements ExecutionEngineRegistry {
                     descriptor.engineVersion(), new ExecutionEngineSupport(engine, descriptor));
             if (prior != null) {
                 throw new ExecutionEngineRegistrationException(
-                        "Duplicate execution engine registration for "
-                                + descriptor.engineName() + ":" + descriptor.engineVersion());
+                        "Duplicate execution engine registration");
             }
         }
         Map<String, Map<String, ExecutionEngineSupport>> immutable = new LinkedHashMap<>();
@@ -54,7 +53,7 @@ public class ExecutionEngineRegistryImpl implements ExecutionEngineRegistry {
         Map<String, ExecutionEngineSupport> versions = engines.get(name);
         if (versions == null) {
             throw new ExecutionEngineNotFoundException(
-                    "Execution engine was not found: " + name);
+                    "Execution engine was not found");
         }
         if (versions.size() != 1) {
             throw new ExecutionEngineCompatibilityException(
@@ -70,7 +69,7 @@ public class ExecutionEngineRegistryImpl implements ExecutionEngineRegistry {
         Map<String, ExecutionEngineSupport> versions = engines.get(name);
         if (versions == null) {
             throw new ExecutionEngineNotFoundException(
-                    "Execution engine was not found: " + name);
+                    "Execution engine was not found");
         }
         ExecutionEngineSupport support = versions.get(version);
         if (support == null) {
