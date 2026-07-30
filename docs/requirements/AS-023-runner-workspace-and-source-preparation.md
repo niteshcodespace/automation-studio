@@ -461,8 +461,31 @@ execution compatibility without fabricating source.
 
 ### AS-023D - Local Workspace Manager
 
-Implement secure execution-scoped directory creation, canonical containment, symlink/junction
-protection, idempotent cleanup, and concurrent filesystem tests.
+Implement `LocalWorkspaceProvider`, `WorkspaceManager`, explicit root configuration, secure
+execution-scoped directory creation, canonical containment, link/junction protection, idempotent
+cleanup, and concurrent filesystem tests.
+
+AS-023D uses the property `automation.runner.workspace.root`. No default directory exists; the
+local provider and manager are configured only when the property is explicitly present. The
+configured root must be absolute, must not contain dot/traversal segments, and must not be a
+filesystem root, user home, working directory, link, or non-directory. It is created lazily and
+its real path must equal its normalized configured path.
+
+Each workspace is the direct root child named by the canonical workspace UUID:
+
+```text
+<workspace-root>/<workspace-id>/
+    metadata/
+    source/
+    artifacts/
+    temp/
+```
+
+AS-023D creates only this empty structure. Duplicate preparation fails closed. Same-workspace
+prepare/release operations are serialized by bounded striped locks; one concurrent prepare wins
+and concurrent releases are idempotent. Release performs a complete no-follow validation pass
+before deletion, rejects symbolic links and other special entries, and never follows an entry
+outside the canonical workspace. Local paths remain private to the adapter.
 
 ### AS-023E - Initial Source Resolver
 

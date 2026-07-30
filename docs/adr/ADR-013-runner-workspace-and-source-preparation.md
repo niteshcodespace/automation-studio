@@ -74,6 +74,16 @@ An operator configures one validated workspace root. The Workspace Manager creat
 platform-named child directory per execution and retains exclusive authority to validate and
 delete it.
 
+AS-023D implements the first adapter as `LocalWorkspaceProvider`, conditionally enabled by the
+explicit `automation.runner.workspace.root` property. There is no hardcoded fallback root. The
+provider creates the root lazily, requires its real path to equal the configured normalized
+absolute path, and rejects filesystem roots, user home, working directory, links, and
+non-directories.
+
+The workspace name is the canonical `WorkspaceId` UUID and is always an immediate child of the
+root. Its fixed empty layout is `metadata`, `source`, `artifacts`, and `temp`. Paths remain private
+to the local adapter and are not added to `WorkspaceDescriptor`.
+
 Every path operation proves canonical containment beneath the root. Absolute user paths, traversal,
 drive/UNC escape, unsafe symbolic links, Windows junctions/reparse points, overlong names, and
 excessive depth fail closed. Recursive deletion is forbidden unless the target is resolved,
@@ -145,6 +155,11 @@ failure.
 Cleanup is bounded, idempotent, containment-verified, and safe when the workspace is already
 absent. It cannot overwrite a more authoritative execution result. Cleanup failure is a sanitized
 secondary operational diagnostic.
+
+The AS-023D adapter performs a no-follow validation walk before its deletion walk. The workspace
+must resolve to the expected direct root child, and symbolic links, junction-like special entries,
+or canonical escape fail closed. Duplicate release succeeds when the workspace is already absent;
+cleanup failures are surfaced and never silently downgraded.
 
 At startup, bounded reconciliation may remove only format-valid, marker-validated, sufficiently
 old workspace children beneath the configured root. It cannot resume, retry, reclaim, or finalize
