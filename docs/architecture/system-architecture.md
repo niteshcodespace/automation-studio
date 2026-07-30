@@ -161,7 +161,7 @@ C4Container
     Rel(runner, queue, "Claims work and emits progress", "Versioned envelopes")
     Rel(runner, db, "Persists guarded state and heartbeats", "JDBC/TLS")
     Rel(runner, engine, "Invokes", "Engine contract")
-    Rel(runner, scm, "Retrieves approved revision", "HTTPS/SSH")
+    Rel(runner, scm, "Retrieves approved exact revision", "HTTPS")
     Rel(runner, secretStore, "Resolves execution secrets", "TLS")
     Rel(engine, sut, "Executes tests", "Engine-specific protocol")
     Rel(runner, artifacts, "Stores evidence", "Artifact port")
@@ -179,6 +179,17 @@ The MCP Server and AI Orchestration Service are logical boundaries. They may be 
 The authoritative domain includes Project, Environment, Test Suite, Test Case, Engine, Engine Version, Execution, Execution Attempt, Test Result, Step Result, Artifact, Execution Event, and Audit Event.
 
 An execution stores immutable snapshots of the selected suite revision, non-secret environment configuration, engine version, and relevant runtime configuration. Secret values are never included in these snapshots.
+
+For source-based execution, Project owns sanitized repository-level configuration, Automation
+Suite owns an optional repository-relative location, and Execution stores the fully resolved
+immutable source identity. The initial source is an approved credential-free Git HTTPS repository
+at an exact commit. Runner-local workspace paths and source-retrieval diagnostics are ephemeral
+and are not domain facts.
+
+The runner creates a unique workspace beneath an operator-controlled root only after fenced start
+commits. It materializes and verifies source, invokes the engine, performs fenced completion, and
+cleans the workspace through bounded idempotent infrastructure. No filesystem, source, engine, or
+cleanup work occurs inside a database transaction.
 
 The AI domain adds Analysis Request, Context Snapshot, Prompt Template, Model Invocation, AI Recommendation, Generation Proposal, Approval Decision, and AI Safety Event. These records reference authoritative facts; they do not replace or mutate them.
 

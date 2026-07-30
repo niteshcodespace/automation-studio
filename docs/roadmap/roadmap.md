@@ -4,8 +4,17 @@
 
 - Project foundation
 - Environment management
+- Runner workspace and source preparation
 - Playwright Java engine
 - OrangeHRM smoke test execution
+
+Current delivery order:
+
+```text
+AS-022 Runner Execution Orchestrator (complete)
+    -> AS-023 Runner Workspace and Source Preparation
+    -> AS-024 Playwright Java Execution Engine
+```
 
 ## Phase 2
 

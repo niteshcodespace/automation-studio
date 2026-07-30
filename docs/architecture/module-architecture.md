@@ -11,10 +11,10 @@ The execution runner is a separate runtime boundary. Engine implementations are 
 | Module | Responsibilities |
 |---|---|
 | Identity and Access | Authentication integration, authorization, roles, service identities, and audit actor resolution |
-| Projects | Project lifecycle, membership, project settings, and source references |
+| Projects | Project lifecycle, membership, project settings, and repository-level source configuration |
 | Environments | Environment configuration, secret references, and validation |
-| Test Catalog | Test-suite definitions, source revision selection, and engine requirements |
-| Executions | Admission, immutable snapshots, state transitions, cancellation intent, retry, and summaries |
+| Test Catalog | Test-suite definitions, repository-relative source location, and engine requirements |
+| Executions | Admission, immutable source/configuration snapshots, state transitions, cancellation intent, retry, and summaries |
 | Engine Catalog | Registered engine versions, capabilities, compatibility, and health metadata |
 | Reports | Read models, execution history, trends, and report summaries |
 | Artifacts | Artifact metadata, authorization, retention policy, and storage-port access |
@@ -29,13 +29,24 @@ No module may bypass another module's invariants by writing its persistence reco
 |---|---|
 | Work Consumer | Claims durable work and prevents duplicate active processing |
 | Execution Coordinator | Coordinates an execution attempt and guarded state changes |
-| Workspace Manager | Creates, bounds, and cleans up an isolated execution workspace |
-| Source Resolver | Retrieves the approved source revision |
+| Workspace Manager | Creates, verifies, bounds, and idempotently cleans an isolated execution workspace beneath an operator-controlled root |
+| Source Resolver | Materializes and verifies the admitted exact source revision without engine or persistence knowledge |
 | Secret Resolver | Resolves scoped secrets immediately before execution |
 | Plugin Registry | Finds a compatible, approved engine plugin |
 | Timeout and Cancellation Controller | Enforces execution limits and cooperative cancellation |
 | Result and Artifact Collector | Normalizes events, persists results, and uploads evidence |
 | Lease and Heartbeat Manager | Maintains runner ownership and detects abandoned work |
+
+Workspace preparation starts only after fenced execution start commits. Source retrieval,
+filesystem work, engine invocation, and cleanup remain outside database transactions. The
+Workspace Manager alone controls host paths and deletion. The Source Resolver receives an
+immutable source identity and manager-owned destination; the engine receives only immutable
+prepared-workspace details. Runner-local directories are never authoritative execution state.
+
+The initial durable source type is a policy-approved credential-free Git HTTPS repository at an
+exact commit, plus an optional bounded Suite-owned repository-relative location. Project owns
+repository configuration, including the currently approved commit, and Execution snapshots the
+resolved identity. See ADR-013.
 
 ## Engine Plugin Contract
 

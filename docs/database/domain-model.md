@@ -708,6 +708,17 @@ Workspace establishes the multi-tenant boundary without implementing authenticat
 
 Environment credentials and tokens will later be represented by secure external references.
 
+### Decision 8: Snapshot immutable execution source identity
+
+Project owns repository-level source configuration and Automation Suite owns an optional
+repository-relative source location. At admission, Execution captures the resolved source type,
+sanitized repository identity, exact immutable commit, and optional relative location. Later
+Project or Suite changes cannot redefine admitted work.
+
+Runner-local workspace paths, temporary directories, credentials, Git output, and cleanup state
+are not domain data and must not be persisted. AS-023B will define the physical PostgreSQL shape;
+AS-023A makes no schema change.
+
 ---
 
 ## 13. Approval Status
