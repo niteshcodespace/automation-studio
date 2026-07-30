@@ -7,11 +7,17 @@ import com.automationstudio.api.domain.ExecutionStatus;
 import com.automationstudio.api.execution.ExecutionContext;
 import com.automationstudio.api.execution.engine.ExecutionEngine;
 import com.automationstudio.api.execution.engine.ExecutionEngineDescriptor;
+import com.automationstudio.api.execution.lifecycle.ExecutionFailureReason;
+import com.automationstudio.api.execution.lifecycle.ExecutionLifecycleService;
+import com.automationstudio.api.execution.lifecycle.ExecutionResult;
+import com.automationstudio.api.execution.lifecycle.ExecutionTerminationReason;
 import com.automationstudio.api.execution.orchestration.ExecutionOwnershipException;
 import com.automationstudio.api.execution.orchestration.RunnerExecutionException;
 import com.automationstudio.api.execution.orchestration.RunnerExecutionRequest;
 import com.automationstudio.api.execution.orchestration.RunnerExecutionService;
 import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,6 +40,7 @@ class RunnerExecutionIntegrationTest extends IntegrationTestBase {
     private static final String PREFIX = "as022d-";
 
     @Autowired private RunnerExecutionService executionService;
+    @Autowired private ExecutionLifecycleService lifecycleService;
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private ObjectMapper objectMapper;
 
@@ -88,6 +95,19 @@ class RunnerExecutionIntegrationTest extends IntegrationTestBase {
 
         assertThat(completion.status()).isEqualTo(ExecutionStatus.RUNNING);
         assertThat(status(fixture.executionId())).isEqualTo("RUNNING");
+        assertThat(artifactCount(fixture.executionId())).isZero();
+    }
+
+    @Test
+    void executesProviderNeutralLifecycleToPassedState() {
+        Fixture fixture = insertFixture("5 minutes");
+
+        ExecutionResult result = lifecycleService.execute(request(fixture));
+
+        assertThat(result.status())
+                .isEqualTo(com.automationstudio.api.execution.lifecycle.ExecutionStatus.SUCCEEDED);
+        assertThat(result.executionId()).isEqualTo(fixture.executionId());
+        assertThat(status(fixture.executionId())).isEqualTo("PASSED");
         assertThat(artifactCount(fixture.executionId())).isZero();
     }
 
@@ -290,6 +310,22 @@ class RunnerExecutionIntegrationTest extends IntegrationTestBase {
 
                 @Override
                 public void validate(ExecutionContext context) {
+                }
+
+                @Override
+                public ExecutionResult execute(ExecutionContext context) {
+                    OffsetDateTime startedAt = OffsetDateTime.now();
+                    OffsetDateTime finishedAt = startedAt.plusNanos(1_000_000);
+                    return new ExecutionResult(
+                            context.executionId(),
+                            context.runner().runnerId(),
+                            com.automationstudio.api.execution.lifecycle.ExecutionStatus.SUCCEEDED,
+                            startedAt,
+                            finishedAt,
+                            Duration.between(startedAt, finishedAt),
+                            ExecutionTerminationReason.COMPLETED,
+                            ExecutionFailureReason.NONE,
+                            Map.of("engine", "test-engine"));
                 }
             };
         }

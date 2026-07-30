@@ -2,6 +2,7 @@ package com.automationstudio.api.execution.orchestration;
 
 import com.automationstudio.api.entity.Execution;
 import com.automationstudio.api.entity.ExecutionLease;
+import com.automationstudio.api.domain.ExecutionStatus;
 import com.automationstudio.api.execution.ExecutionContext;
 import com.automationstudio.api.execution.engine.ExecutionEngineRegistry;
 import com.automationstudio.api.execution.engine.ExecutionEngineSupport;
@@ -72,6 +73,27 @@ public class RunnerExecutionServiceImpl implements RunnerExecutionService {
                 ownership.execution().getId(),
                 ownership.execution().getStatus(),
                 ownership.execution().getVersion(),
+                ownership.lease().getLeaseGeneration(),
+                ownership.lease().getVersion(),
+                ownership.databaseTime());
+    }
+
+    @Override
+    @Transactional
+    public ExecutionCompletionResult complete(
+            RunnerExecutionRequest request, ExecutionStatus terminalStatus) {
+        LockedOwnership ownership = lockAndValidate(request);
+        stateValidator.validateCompletion(ownership.execution(), terminalStatus);
+        if (terminalStatus == ExecutionStatus.PASSED) {
+            ownership.execution().markPassed(ownership.databaseTime());
+        } else {
+            ownership.execution().markFailed(ownership.databaseTime());
+        }
+        Execution completed = executionRepository.saveAndFlush(ownership.execution());
+        return new ExecutionCompletionResult(
+                completed.getId(),
+                completed.getStatus(),
+                completed.getVersion(),
                 ownership.lease().getLeaseGeneration(),
                 ownership.lease().getVersion(),
                 ownership.databaseTime());

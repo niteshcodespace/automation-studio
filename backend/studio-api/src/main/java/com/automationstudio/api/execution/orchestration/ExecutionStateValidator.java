@@ -15,6 +15,16 @@ public class ExecutionStateValidator {
         validate(execution, ExecutionStatus.RUNNING, "prepare completion");
     }
 
+    public void validateCompletion(
+            Execution execution, ExecutionStatus terminalStatus) {
+        validate(execution, ExecutionStatus.RUNNING, "complete");
+        if (terminalStatus != ExecutionStatus.PASSED
+                && terminalStatus != ExecutionStatus.FAILED) {
+            throw new RunnerExecutionException(
+                    "Execution terminal status must be PASSED or FAILED");
+        }
+    }
+
     private static void validate(
             Execution execution, ExecutionStatus requiredStatus, String operation) {
         if (execution == null) {
