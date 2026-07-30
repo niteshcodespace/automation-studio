@@ -7,6 +7,8 @@ import com.automationstudio.api.domain.ExecutionStatus;
 import com.automationstudio.api.execution.ExecutionContext;
 import com.automationstudio.api.execution.engine.ExecutionEngine;
 import com.automationstudio.api.execution.engine.ExecutionEngineDescriptor;
+import com.automationstudio.api.execution.engine.ExecutionEngineRegistry;
+import com.automationstudio.api.execution.engine.builtin.BuiltinExecutionEngine;
 import com.automationstudio.api.execution.evidence.ExecutionArtifact;
 import com.automationstudio.api.execution.evidence.ExecutionArtifactReference;
 import com.automationstudio.api.execution.evidence.ExecutionArtifactType;
@@ -47,6 +49,8 @@ class RunnerExecutionIntegrationTest extends IntegrationTestBase {
 
     @Autowired private RunnerExecutionService executionService;
     @Autowired private ExecutionLifecycleService lifecycleService;
+    @Autowired private ExecutionEngineRegistry engineRegistry;
+    @Autowired private BuiltinExecutionEngine builtinExecutionEngine;
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private ObjectMapper objectMapper;
 
@@ -120,6 +124,65 @@ class RunnerExecutionIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    void executesProductionBuiltinEngineToPassedWithNormalizedEvidence() {
+        Fixture fixture = insertBuiltinFixture("SUCCEED", true, "approved message");
+
+        ExecutionResult result = lifecycleService.execute(request(fixture));
+
+        assertThat(engineRegistry.resolve("BUILTIN", "1.0.0").engine())
+                .isSameAs(builtinExecutionEngine);
+        assertThat(result.status())
+                .isEqualTo(com.automationstudio.api.execution.lifecycle.ExecutionStatus.SUCCEEDED);
+        assertThat(result.executionId()).isEqualTo(fixture.executionId());
+        assertThat(result.metadata()).containsEntry("engine", "BUILTIN");
+        assertThat(result.metadata()).containsEntry("message", "approved message");
+        assertThat(result.evidence().artifacts()).singleElement().satisfies(artifact -> {
+            assertThat(artifact.reference().uri().getScheme()).isEqualTo("builtin");
+            assertThat(artifact.reference().uri().getUserInfo()).isNull();
+        });
+        assertThat(result.evidence().summary().duration()).isEqualTo(result.duration());
+        assertThat(status(fixture.executionId())).isEqualTo("PASSED");
+        assertThat(startedAt(fixture.executionId())).isNotNull();
+        assertThat(finishedAt(fixture.executionId())).isNotNull();
+        assertThat(executionVersion(fixture.executionId()))
+                .isGreaterThan(fixture.executionVersion());
+        assertThat(artifactCount(fixture.executionId())).isZero();
+        assertThat(result.toString()).doesNotContain(fixture.claimToken().toString());
+        assertThat(persistedError(fixture.executionId())).isNull();
+    }
+
+    @Test
+    void executesProductionBuiltinEngineToProviderDeclaredFailure() {
+        Fixture fixture = insertBuiltinFixture("FAIL", false, "safe failure");
+
+        ExecutionResult result = lifecycleService.execute(request(fixture));
+
+        assertThat(result.status())
+                .isEqualTo(com.automationstudio.api.execution.lifecycle.ExecutionStatus.FAILED);
+        assertThat(result.failureReason()).isEqualTo(
+                ExecutionFailureReason.ENGINE_REPORTED_FAILURE);
+        assertThat(result.evidence().artifacts()).isEmpty();
+        assertThat(status(fixture.executionId())).isEqualTo("FAILED");
+        assertThat(artifactCount(fixture.executionId())).isZero();
+        assertThat(result.toString()).doesNotContain(fixture.claimToken().toString());
+        assertThat(persistedError(fixture.executionId())).isNull();
+    }
+
+    @Test
+    void rejectsInvalidBuiltinConfigurationBeforeLifecycleMutation() {
+        Fixture fixture = insertBuiltinFixture("UNSUPPORTED", true, null);
+
+        Throwable failure = catchThrowable(() -> lifecycleService.execute(request(fixture)));
+
+        assertThat(failure)
+                .isInstanceOf(com.automationstudio.api.execution.engine.builtin
+                        .BuiltinExecutionEngineException.class);
+        assertThat(status(fixture.executionId())).isEqualTo("CLAIMED");
+        assertThat(startedAt(fixture.executionId())).isNull();
+        assertThat(artifactCount(fixture.executionId())).isZero();
+    }
+
+    @Test
     void rejectsExpiredGenerationRunnerAndOptimisticVersionFencesWithoutMutation() {
         Fixture fixture = insertFixture("-1 second");
         assertThat(catchThrowable(() -> executionService.start(request(fixture))))
@@ -170,6 +233,36 @@ class RunnerExecutionIntegrationTest extends IntegrationTestBase {
     }
 
     private Fixture insertFixture(String expiryInterval) {
+        return insertFixture(
+                expiryInterval,
+                "test-engine",
+                "1",
+                "PLAYWRIGHT",
+                Map.of());
+    }
+
+    private Fixture insertBuiltinFixture(
+            String operation, boolean evidenceEnabled, String message) {
+        Map<String, Object> configuration = new java.util.LinkedHashMap<>();
+        configuration.put("operation", operation);
+        configuration.put("evidence", Map.of("enabled", evidenceEnabled));
+        if (message != null) {
+            configuration.put("message", message);
+        }
+        return insertFixture(
+                "5 minutes",
+                "BUILTIN",
+                "1.0.0",
+                "BUILTIN",
+                configuration);
+    }
+
+    private Fixture insertFixture(
+            String expiryInterval,
+            String engineId,
+            String engineVersion,
+            String engineType,
+            Map<String, Object> engineConfiguration) {
         UUID workspace = UUID.randomUUID();
         UUID project = UUID.randomUUID();
         UUID environment = UUID.randomUUID();
@@ -192,8 +285,8 @@ class RunnerExecutionIntegrationTest extends IntegrationTestBase {
         jdbcTemplate.update("""
                 INSERT INTO test_suite (
                     id, project_id, name, engine_type, engine_id, suite_reference, status)
-                VALUES (?, ?, 'Smoke', 'PLAYWRIGHT', 'test-engine', 'tests/smoke', 'ACTIVE')
-                """, suite, project);
+                VALUES (?, ?, 'Smoke', ?, ?, 'tests/smoke', 'ACTIVE')
+                """, suite, project, engineType, engineId);
         jdbcTemplate.update("""
                 INSERT INTO runner (
                     id, runner_key, name, agent_version, hostname,
@@ -205,7 +298,7 @@ class RunnerExecutionIntegrationTest extends IntegrationTestBase {
                     clock_timestamp(), clock_timestamp(), 0,
                     clock_timestamp(), clock_timestamp())
                 """, runner, runnerKey,
-                json(Map.of("engines", Map.of("test-engine", "1"))));
+                json(Map.of("engines", Map.of(engineId, engineVersion))));
         jdbcTemplate.update("""
                 INSERT INTO execution (
                     id, project_id, environment_id, test_suite_id, selection_mode,
@@ -224,10 +317,10 @@ class RunnerExecutionIntegrationTest extends IntegrationTestBase {
                 json(Map.of(
                         "id", suite.toString(),
                         "name", "Smoke",
-                        "engineType", "PLAYWRIGHT",
-                        "engineId", "test-engine",
+                        "engineType", engineType,
+                        "engineId", engineId,
                         "suiteReference", "tests/smoke",
-                        "configuration", Map.of())));
+                        "configuration", engineConfiguration)));
         String insertedExpiry = expiryInterval.startsWith("-")
                 ? "5 minutes"
                 : expiryInterval;
@@ -279,6 +372,21 @@ class RunnerExecutionIntegrationTest extends IntegrationTestBase {
     private Timestamp startedAt(UUID executionId) {
         return jdbcTemplate.queryForObject(
                 "SELECT started_at FROM execution WHERE id = ?", Timestamp.class, executionId);
+    }
+
+    private Timestamp finishedAt(UUID executionId) {
+        return jdbcTemplate.queryForObject(
+                "SELECT finished_at FROM execution WHERE id = ?", Timestamp.class, executionId);
+    }
+
+    private long executionVersion(UUID executionId) {
+        return jdbcTemplate.queryForObject(
+                "SELECT version FROM execution WHERE id = ?", Long.class, executionId);
+    }
+
+    private String persistedError(UUID executionId) {
+        return jdbcTemplate.queryForObject(
+                "SELECT error_message FROM execution WHERE id = ?", String.class, executionId);
     }
 
     private int artifactCount(UUID executionId) {

@@ -169,6 +169,21 @@ class ExecutionLifecycleServiceTest {
         verify(engine, never()).execute(context);
     }
 
+    @Test
+    void propagatesOwnershipLossAfterEngineInvocationWithoutNormalization() {
+        when(engine.execute(context)).thenReturn(success());
+        when(runnerService.complete(
+                eq(completionRequest()),
+                eq(com.automationstudio.api.domain.ExecutionStatus.PASSED)))
+                .thenThrow(new ExecutionOwnershipException("lease expired"));
+
+        assertThatThrownBy(() -> service.execute(request))
+                .isInstanceOf(ExecutionOwnershipException.class)
+                .hasMessage("lease expired");
+
+        verify(engine).execute(context);
+    }
+
     private ExecutionResult success() {
         return new ExecutionResult(
                 executionId, runnerUuid, ExecutionStatus.SUCCEEDED,
