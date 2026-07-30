@@ -282,6 +282,19 @@ secret-provider boundary.
 
 ## Consequences
 
+### AS-023F orchestration refinement
+
+The application-layer `SourcePreparationService` composes only the provider-neutral
+`WorkspaceManager` and `SourceMaterializer` ports. Its request uses the workspace descriptor as
+the single execution/workspace identity, and its result contains no runner path or credential
+data. Downstream results are cross-validated before success.
+
+Preparation is compensating rather than transactional: a materialization or invariant failure
+releases the prepared workspace. Cleanup failure is the externally visible failure and retains
+the triggering preparation failure as suppressed context. A `READY` workspace can therefore be
+released by the manager before engine use; internally it follows the existing state graph through
+`IN_USE` and `RELEASING`. This does not introduce a new durable state or relax provider ownership.
+
 ### Benefits
 
 - Executions identify reproducible source independent of later catalog changes.

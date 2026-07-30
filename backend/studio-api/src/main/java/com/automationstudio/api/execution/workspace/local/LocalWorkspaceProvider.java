@@ -17,6 +17,7 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.DosFileAttributeView;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -295,6 +296,7 @@ public final class LocalWorkspaceProvider
                         throw new LocalWorkspaceException(
                                 "Workspace changed during cleanup");
                     }
+                    clearReadOnlyFile(file);
                     Files.delete(file);
                     return FileVisitResult.CONTINUE;
                 }
@@ -312,6 +314,14 @@ public final class LocalWorkspaceProvider
             });
         } catch (IOException exception) {
             throw new LocalWorkspaceException("Workspace cleanup failed", exception);
+        }
+    }
+
+    private void clearReadOnlyFile(Path file) throws IOException {
+        DosFileAttributeView dosAttributes = Files.getFileAttributeView(
+                file, DosFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+        if (dosAttributes != null && dosAttributes.readAttributes().isReadOnly()) {
+            dosAttributes.setReadOnly(false);
         }
     }
 

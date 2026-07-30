@@ -20,9 +20,7 @@ class WorkspaceManagerTest {
                 new WorkspaceId(UUID.randomUUID()), UUID.randomUUID(), PROVIDER_ID);
 
         WorkspaceDescriptor ready = manager.prepare(planned, null);
-        WorkspaceDescriptor inUse =
-                ready.transitionTo(WorkspaceState.IN_USE, null);
-        WorkspaceDescriptor released = manager.release(inUse);
+        WorkspaceDescriptor released = manager.release(ready);
 
         assertThat(ready.state()).isEqualTo(WorkspaceState.READY);
         assertThat(released.state()).isEqualTo(WorkspaceState.RELEASED);

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.automationstudio.api.execution.workspace.WorkspaceManager;
 import com.automationstudio.api.execution.workspace.WorkspaceProvider;
+import com.automationstudio.api.execution.preparation.SourcePreparationService;
 import com.automationstudio.api.source.materialization.SourceMaterializer;
 import java.time.Clock;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,7 @@ class LocalWorkspaceConfigurationTest {
             assertThat(context).doesNotHaveBean(WorkspaceProvider.class);
             assertThat(context).doesNotHaveBean(WorkspaceManager.class);
             assertThat(context).doesNotHaveBean(SourceMaterializer.class);
+            assertThat(context).doesNotHaveBean(SourcePreparationService.class);
         });
 
         contextRunner
@@ -31,6 +33,7 @@ class LocalWorkspaceConfigurationTest {
                     assertThat(context).hasSingleBean(WorkspaceProvider.class);
                     assertThat(context).hasSingleBean(WorkspaceManager.class);
                     assertThat(context).hasSingleBean(SourceMaterializer.class);
+                    assertThat(context).hasSingleBean(SourcePreparationService.class);
                     assertThat(context.getBean(WorkspaceProvider.class).providerId())
                             .isEqualTo(LocalWorkspaceProvider.PROVIDER_ID);
                 });

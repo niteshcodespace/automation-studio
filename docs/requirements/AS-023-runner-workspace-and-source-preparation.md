@@ -529,9 +529,21 @@ duplicates fail and different non-colliding workspaces can proceed concurrently.
 
 ### AS-023F - Orchestration Integration and Cleanup
 
-Prepare after fenced start, materialize outside transactions, invoke only after successful
-preparation, clean in a finally-equivalent boundary, preserve BUILTIN compatibility, and normalize
-preparation failures.
+Introduce a provider-neutral application service that accepts one immutable planned workspace
+descriptor and one admitted source reference. It must call `WorkspaceManager.prepare` before
+`SourceMaterializer.materialize`, return only path-free prepared-workspace and normalized source
+evidence, and reject null, mismatched, or incomplete downstream evidence.
+
+Workspace failure must prevent materialization. Materialization or post-prepare invariant failure
+must compensate by releasing the prepared workspace. If compensation also fails, cleanup failure
+takes precedence and the original failure remains suppressed. Public failures use stable sanitized
+codes: `WORKSPACE_PREPARATION_FAILED`, `SOURCE_MATERIALIZATION_FAILED`,
+`PREPARATION_INVARIANT_VIOLATION`, and `WORKSPACE_COMPENSATION_FAILED`.
+
+Releasing a `READY` workspace is an approved manager operation for pre-engine compensation; the
+manager traverses the existing immutable `READY -> IN_USE -> RELEASING -> RELEASED` graph rather
+than adding a lifecycle transition. AS-023F adds no engine invocation, execution lifecycle
+mutation, persistence, REST API, credential handling, or AS-023G hardening.
 
 ### AS-023G - PostgreSQL, Concurrency, and Security Hardening
 

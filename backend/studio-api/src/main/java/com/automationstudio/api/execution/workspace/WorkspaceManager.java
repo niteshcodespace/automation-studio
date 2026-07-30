@@ -38,12 +38,16 @@ public final class WorkspaceManager {
         if (workspace.state() == WorkspaceState.RELEASED) {
             return workspace;
         }
-        if (workspace.state() != WorkspaceState.IN_USE) {
+        if (workspace.state() != WorkspaceState.READY
+                && workspace.state() != WorkspaceState.IN_USE) {
             throw new WorkspaceContractException(
-                    "Workspace manager release requires IN_USE or RELEASED state");
+                    "Workspace manager release requires READY, IN_USE, or RELEASED state");
         }
+        WorkspaceDescriptor releasable = workspace.state() == WorkspaceState.READY
+                ? workspace.transitionTo(WorkspaceState.IN_USE, null)
+                : workspace;
         WorkspaceDescriptor releasing =
-                workspace.transitionTo(WorkspaceState.RELEASING, null);
+                releasable.transitionTo(WorkspaceState.RELEASING, null);
         try {
             return provider.release(new WorkspaceReleaseRequest(releasing))
                     .workspace();

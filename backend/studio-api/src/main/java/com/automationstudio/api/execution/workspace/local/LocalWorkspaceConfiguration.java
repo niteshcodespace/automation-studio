@@ -2,6 +2,8 @@ package com.automationstudio.api.execution.workspace.local;
 
 import com.automationstudio.api.execution.workspace.WorkspaceManager;
 import com.automationstudio.api.execution.workspace.WorkspaceProvider;
+import com.automationstudio.api.execution.preparation.SourcePreparationService;
+import com.automationstudio.api.execution.preparation.SourcePreparationServiceImpl;
 import com.automationstudio.api.source.SourceConfigurationValidator;
 import com.automationstudio.api.source.materialization.SourceMaterializer;
 import com.automationstudio.api.source.materialization.git.GitMaterializationProperties;
@@ -39,5 +41,14 @@ public class LocalWorkspaceConfiguration {
             Clock clock) {
         return new GitSourceMaterializer(
                 provider, new SourceConfigurationValidator(), properties, clock);
+    }
+
+    @Bean
+    SourcePreparationService sourcePreparationService(
+            WorkspaceManager workspaceManager,
+            SourceMaterializer sourceMaterializer,
+            Clock clock) {
+        return new SourcePreparationServiceImpl(
+                workspaceManager, sourceMaterializer, clock);
     }
 }
