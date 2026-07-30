@@ -8,6 +8,7 @@ import com.automationstudio.api.execution.preparation.SourcePreparationService;
 import com.automationstudio.api.execution.engine.ExecutionEngineRegistry;
 import com.automationstudio.api.execution.engine.ExecutionEngineRegistryImpl;
 import com.automationstudio.api.execution.orchestration.ExecutionOrchestrator;
+import com.automationstudio.api.execution.workspace.local.access.EngineWorkspaceAccessResolver;
 import java.util.List;
 import com.automationstudio.api.source.materialization.SourceMaterializer;
 import java.time.Clock;
@@ -31,6 +32,7 @@ class LocalWorkspaceConfigurationTest {
             assertThat(context).doesNotHaveBean(SourceMaterializer.class);
             assertThat(context).doesNotHaveBean(SourcePreparationService.class);
             assertThat(context).doesNotHaveBean(ExecutionOrchestrator.class);
+            assertThat(context).doesNotHaveBean(EngineWorkspaceAccessResolver.class);
         });
 
         contextRunner
@@ -42,6 +44,7 @@ class LocalWorkspaceConfigurationTest {
                     assertThat(context).hasSingleBean(SourceMaterializer.class);
                     assertThat(context).hasSingleBean(SourcePreparationService.class);
                     assertThat(context).hasSingleBean(ExecutionOrchestrator.class);
+                    assertThat(context).hasSingleBean(EngineWorkspaceAccessResolver.class);
                     assertThat(context.getBean(WorkspaceProvider.class).providerId())
                             .isEqualTo(LocalWorkspaceProvider.PROVIDER_ID);
                 });

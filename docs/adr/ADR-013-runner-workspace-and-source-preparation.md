@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -310,6 +310,24 @@ takes precedence over success or any prior failure and retains that prior failur
 context. No `@Transactional` boundary is used because database rollback cannot reverse source,
 filesystem, or provider execution work.
 
+### AS-023H secure engine workspace access refinement
+
+Provider-neutral engine and orchestration contracts remain path-free. Future local engine adapters
+obtain physical directories only through an infrastructure package and a factory-created access
+request derived from trusted PREPARED source evidence. The request retains nested preparation
+metadata privately so repository identity is not exposed through its public access API.
+
+`LocalEngineWorkspaceAccessResolver` delegates root and location resolution to the approved local
+provider. Resolution requires READY local-provider ownership and matching execution, workspace,
+and immutable revision evidence. Canonical root/workspace/fixed-child containment is revalidated,
+and the full tree rejects links and special entries. Only source, artifacts, metadata, and temp
+are exposed; there is no arbitrary subpath or root API.
+
+The access handle has an atomic, independently scoped OPEN/CLOSED lifecycle. Close is idempotent
+and thread-safe, disables every location getter, and never deletes or releases the workspace.
+AS-023G retains final-release ownership. No transaction is introduced because opening or closing
+an infrastructure handle is not durable database work.
+
 ### Benefits
 
 - Executions identify reproducible source independent of later catalog changes.
@@ -345,7 +363,7 @@ filesystem, or provider execution work.
 
 ## Follow-Up Work
 
-- AS-023B through AS-023H implement and harden this decision.
+- AS-023B through AS-023H implement and harden this decision; AS-023 is complete.
 - AS-024 adds the Playwright Java provider behind the prepared-workspace contract.
 - Later ADRs may define secret-backed private Git access, artifact storage, stronger isolation,
   retries/attempts, source caching, and additional source mechanisms.

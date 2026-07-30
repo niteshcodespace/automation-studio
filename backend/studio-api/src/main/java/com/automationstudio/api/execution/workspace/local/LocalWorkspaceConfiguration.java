@@ -7,6 +7,8 @@ import com.automationstudio.api.execution.preparation.SourcePreparationServiceIm
 import com.automationstudio.api.execution.engine.ExecutionEngineRegistry;
 import com.automationstudio.api.execution.orchestration.ExecutionOrchestrator;
 import com.automationstudio.api.execution.orchestration.ExecutionOrchestratorImpl;
+import com.automationstudio.api.execution.workspace.local.access.EngineWorkspaceAccessResolver;
+import com.automationstudio.api.execution.workspace.local.access.LocalEngineWorkspaceAccessResolver;
 import com.automationstudio.api.source.SourceConfigurationValidator;
 import com.automationstudio.api.source.materialization.SourceMaterializer;
 import com.automationstudio.api.source.materialization.git.GitMaterializationProperties;
@@ -35,6 +37,12 @@ public class LocalWorkspaceConfiguration {
     @Bean
     WorkspaceManager workspaceManager(WorkspaceProvider provider) {
         return new WorkspaceManager(provider);
+    }
+
+    @Bean
+    EngineWorkspaceAccessResolver engineWorkspaceAccessResolver(
+            LocalWorkspaceProvider provider) {
+        return new LocalEngineWorkspaceAccessResolver(provider);
     }
 
     @Bean

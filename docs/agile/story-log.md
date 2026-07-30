@@ -8,7 +8,7 @@
 | AS-023D | Local Workspace Manager | Complete - approved |
 | AS-023E | Initial Source Resolver | Complete - approved |
 | AS-023F | Runner Source Preparation Orchestration | Complete - approved |
-| AS-023G | Runner Engine Execution Orchestrator | Complete - pending review |
-| AS-023H | Final Verification and Documentation | Not started |
+| AS-023G | Runner Engine Execution Orchestrator | Complete - approved |
+| AS-023H | Secure Engine Workspace Access Boundary | Complete - pending review |
 
-AS-023H remains blocked until explicit AS-023G approval.
+AS-023 is implementation-complete pending AS-023H review. Concrete engines remain deferred.

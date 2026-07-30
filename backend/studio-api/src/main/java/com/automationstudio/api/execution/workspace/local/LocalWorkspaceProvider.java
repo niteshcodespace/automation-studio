@@ -116,12 +116,14 @@ public final class LocalWorkspaceProvider
             Path workspace = resolveWorkspace(root, workspaceId);
             try {
                 requireCanonicalWorkspace(root, workspace);
-                return new LocalWorkspaceLocation(
+                LocalWorkspaceLocation location = new LocalWorkspaceLocation(
                         workspace,
                         requireCanonicalChild(workspace, "source"),
                         requireCanonicalChild(workspace, "metadata"),
                         requireCanonicalChild(workspace, "artifacts"),
                         requireCanonicalChild(workspace, "temp"));
+                validateTree(root, workspace, "Workspace access validation failed");
+                return location;
             } catch (IOException exception) {
                 throw new LocalWorkspaceException(
                         "Workspace location validation failed", exception);
@@ -210,8 +212,13 @@ public final class LocalWorkspaceProvider
     }
 
     private void requireCanonicalWorkspace(Path root, Path workspace) throws IOException {
-        if (Files.isSymbolicLink(workspace)
-                || !Files.isDirectory(workspace, LinkOption.NOFOLLOW_LINKS)) {
+        if (Files.notExists(workspace, LinkOption.NOFOLLOW_LINKS)) {
+            throw new LocalWorkspaceException("Workspace does not exist");
+        }
+        if (Files.isSymbolicLink(workspace)) {
+            throw new LocalWorkspaceException("Workspace link is not allowed");
+        }
+        if (!Files.isDirectory(workspace, LinkOption.NOFOLLOW_LINKS)) {
             throw new LocalWorkspaceException("Workspace must be a real directory");
         }
         Path realWorkspace = workspace.toRealPath();
@@ -225,11 +232,15 @@ public final class LocalWorkspaceProvider
 
     private Path requireCanonicalChild(Path workspace, String name) throws IOException {
         Path child = workspace.resolve(name).normalize();
-        if (!Objects.equals(child.getParent(), workspace)
-                || Files.isSymbolicLink(child)
-                || !Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS)) {
+        if (!Objects.equals(child.getParent(), workspace)) {
             throw new LocalWorkspaceException(
-                    "Workspace child directory is invalid");
+                                "Workspace child directory is invalid");
+        }
+        if (Files.isSymbolicLink(child)) {
+            throw new LocalWorkspaceException("Workspace child link is not allowed");
+        }
+        if (!Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS)) {
+            throw new LocalWorkspaceException("Workspace child directory is invalid");
         }
         Path realChild = child.toRealPath();
         if (!realChild.equals(child)
@@ -242,6 +253,10 @@ public final class LocalWorkspaceProvider
     }
 
     private void validateTree(Path root, Path workspace) {
+        validateTree(root, workspace, "Workspace cleanup validation failed");
+    }
+
+    private void validateTree(Path root, Path workspace, String failureMessage) {
         try {
             requireCanonicalWorkspace(root, workspace);
             Path realWorkspace = workspace.toRealPath();
@@ -263,8 +278,7 @@ public final class LocalWorkspaceProvider
                 }
             });
         } catch (IOException exception) {
-            throw new LocalWorkspaceException(
-                    "Workspace cleanup validation failed", exception);
+            throw new LocalWorkspaceException(failureMessage, exception);
         }
     }
 

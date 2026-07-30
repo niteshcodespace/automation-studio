@@ -566,7 +566,26 @@ collection and fails closed on resolution; AS-023G introduces no fake production
 Concrete browser/API/mobile/performance/database engines, persistence, artifacts, scheduling,
 retry behavior, and REST remain deferred.
 
-### AS-023H - Final Verification and Documentation
+### AS-023H - Secure Engine Workspace Access Boundary
 
-Complete architecture, security, filesystem, transaction, performance/resource, focused,
-PostgreSQL, full Maven, and documentation reconciliation gates.
+Provide an infrastructure-only local access resolver for future concrete engine adapters.
+`EngineWorkspaceAccessRequest` is created only from a trusted `SourcePreparationResult`, retains
+that evidence privately, and publicly exposes only execution ID, workspace ID, and resolved
+revision. Provider-neutral preparation, orchestration, and engine contracts remain path-free.
+
+The local resolver accepts only PREPARED/READY evidence owned by the local provider, correlates
+execution/workspace/revision identity, and delegates physical lookup to `LocalWorkspaceProvider`.
+The provider validates its canonical configured root, the exact platform-named workspace child,
+all four fixed directories, and the complete workspace tree. Workspace or child links, nested
+links, special entries, missing/non-directory locations, canonical mismatch, and escape fail
+closed.
+
+`EngineWorkspaceAccess` exposes only source, artifacts, metadata, and temporary directories.
+It has no arbitrary resolve API and does not reveal the configured root or workspace siblings.
+The handle uses an atomic OPEN/CLOSED lifecycle: close is thread-safe and idempotent, all path
+access after close fails, and close performs no deletion or workspace release. Final release
+remains owned by the AS-023G orchestrator or explicit lifecycle manager.
+
+The resolver is wired only with the conditional local workspace provider. It adds no transaction,
+remote provider, concrete engine, persistence, REST, scheduling, retry, process execution, or
+artifact upload.
