@@ -80,6 +80,23 @@ class ExecutionHeartbeatServiceImplTest {
     }
 
     @Test
+    void renewsDuringClaimedStartupAndRunningExecution() {
+        for (ExecutionStatus status : java.util.List.of(
+                ExecutionStatus.CLAIMED, ExecutionStatus.RUNNING)) {
+            ExecutionLease lease = lease(status);
+            when(leaseRepository.findByExecutionIdForUpdate(EXECUTION_ID))
+                    .thenReturn(Optional.of(lease));
+            when(executionRepository.findByIdForUpdate(EXECUTION_ID))
+                    .thenReturn(Optional.of(lease.getExecution()));
+            when(heartbeatRepository.currentDatabaseTime()).thenReturn(DB_TIME);
+            when(leaseRepository.saveAndFlush(lease)).thenReturn(lease);
+
+            assertThat(service.renew(command("runner-1", TOKEN, 1, 3)).leaseExpiresAt())
+                    .isEqualTo(DB_TIME.plusMinutes(2));
+        }
+    }
+
+    @Test
     void rejectsInvalidCommandsBeforeRepositoryAccess() {
         assertInvalid(null);
         assertInvalid(new RenewExecutionLeaseCommand(
@@ -179,6 +196,9 @@ class ExecutionHeartbeatServiceImplTest {
         Execution execution = new Execution();
         if (status == ExecutionStatus.CLAIMED) {
             execution.claim();
+        } else if (status == ExecutionStatus.RUNNING) {
+            execution.claim();
+            execution.start(DB_TIME.minusSeconds(30));
         } else if (status == ExecutionStatus.CANCEL_REQUESTED) {
             execution.requestCancellation(DB_TIME, "actor", null);
         }
