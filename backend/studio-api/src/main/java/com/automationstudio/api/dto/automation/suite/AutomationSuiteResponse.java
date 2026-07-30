@@ -13,6 +13,7 @@ public record AutomationSuiteResponse(
         String description,
         String engineType,
         String suiteReference,
+        String sourceLocation,
         String engineId,
         SuiteType suiteType,
         Map<String, Object> configuration,
@@ -20,4 +21,22 @@ public record AutomationSuiteResponse(
         long version,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt) {
+
+    public AutomationSuiteResponse(
+            UUID id,
+            UUID projectId,
+            String name,
+            String description,
+            String engineType,
+            String suiteReference,
+            String engineId,
+            SuiteType suiteType,
+            Map<String, Object> configuration,
+            AutomationSuiteStatus status,
+            long version,
+            OffsetDateTime createdAt,
+            OffsetDateTime updatedAt) {
+        this(id, projectId, name, description, engineType, suiteReference, null,
+                engineId, suiteType, configuration, status, version, createdAt, updatedAt);
+    }
 }

@@ -77,18 +77,20 @@ public class ExecutionServiceImpl implements ExecutionService {
     @Override
     public Execution create(
             UUID projectId, String requester, CreateExecutionCommand command) {
-        Project project = findProject(projectId);
         validateRequester(requester);
         if (command == null) {
             throw new InvalidRequestException("Execution command must not be null");
         }
+        Project project = projectRepository.findByIdForUpdate(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Project not found with id: " + projectId));
 
         Environment environment = environmentRepository.findByProjectIdAndId(
                         projectId, command.environmentId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Environment not found with id: " + command.environmentId()
                                 + " in project: " + projectId));
-        AutomationSuite suite = suiteRepository.findByProjectIdAndId(
+        AutomationSuite suite = suiteRepository.findByProjectIdAndIdForUpdate(
                         projectId, command.automationSuiteId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Automation suite not found with id: " + command.automationSuiteId()
@@ -112,6 +114,7 @@ public class ExecutionServiceImpl implements ExecutionService {
         execution.setEnvironmentSnapshot(snapshotFactory.environment(environment));
         execution.setSuiteSnapshot(snapshotFactory.suite(suite));
         execution.setRequestSnapshot(snapshotFactory.request(selection, requester, requestedAt));
+        execution.setSourceSnapshot(snapshotFactory.source(project, suite));
         execution = executionRepository.saveAndFlush(execution);
 
         if (selection.getMode() == ExecutionSelectionMode.TEST_CASES) {

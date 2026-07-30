@@ -1,6 +1,7 @@
 package com.automationstudio.api.entity;
 
 import com.automationstudio.api.domain.ProjectStatus;
+import com.automationstudio.api.source.SourceType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -51,6 +52,18 @@ public class Project {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private ProjectStatus status = ProjectStatus.ACTIVE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source_type", length = 30)
+    private SourceType sourceType;
+
+    @Size(max = 1000)
+    @Column(name = "source_repository", length = 1000)
+    private String sourceRepository;
+
+    @Size(max = 40)
+    @Column(name = "source_revision", length = 40)
+    private String sourceRevision;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

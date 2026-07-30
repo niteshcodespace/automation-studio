@@ -184,7 +184,7 @@ class ProjectServiceImplTest {
         UpdateProjectRequest request = new UpdateProjectRequest(
                 "  Internal Portal  ", "Updated project", ProjectStatus.INACTIVE);
         ProjectResponse expectedResponse = projectResponse(PROJECT_ID, "Internal Portal");
-        when(projectRepository.findByIdAndWorkspaceId(PROJECT_ID, WORKSPACE_ID))
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(PROJECT_ID, WORKSPACE_ID))
                 .thenReturn(Optional.of(project));
         when(projectRepository.existsByWorkspaceIdAndName(WORKSPACE_ID, "Internal Portal"))
                 .thenReturn(false);
@@ -207,7 +207,7 @@ class ProjectServiceImplTest {
         UpdateProjectRequest request = new UpdateProjectRequest(
                 "  Customer Portal  ", "Updated project", ProjectStatus.ARCHIVED);
         ProjectResponse expectedResponse = projectResponse(PROJECT_ID, "Customer Portal");
-        when(projectRepository.findByIdAndWorkspaceId(PROJECT_ID, WORKSPACE_ID))
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(PROJECT_ID, WORKSPACE_ID))
                 .thenReturn(Optional.of(project));
         when(projectRepository.save(project)).thenReturn(project);
         when(projectMapper.toResponse(project)).thenReturn(expectedResponse);
@@ -227,7 +227,7 @@ class ProjectServiceImplTest {
         Project project = project(PROJECT_ID, "Customer Portal");
         UpdateProjectRequest request = new UpdateProjectRequest(
                 "  Admin Portal  ", null, ProjectStatus.ACTIVE);
-        when(projectRepository.findByIdAndWorkspaceId(PROJECT_ID, WORKSPACE_ID))
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(PROJECT_ID, WORKSPACE_ID))
                 .thenReturn(Optional.of(project));
         when(projectRepository.existsByWorkspaceIdAndName(WORKSPACE_ID, "Admin Portal"))
                 .thenReturn(true);
@@ -246,7 +246,7 @@ class ProjectServiceImplTest {
     void throwsResourceNotFoundExceptionWhenUpdatingMissingProject() {
         UpdateProjectRequest request = new UpdateProjectRequest(
                 "Customer Portal", null, ProjectStatus.ACTIVE);
-        when(projectRepository.findByIdAndWorkspaceId(PROJECT_ID, WORKSPACE_ID))
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(PROJECT_ID, WORKSPACE_ID))
                 .thenReturn(Optional.empty());
 
         assertThatExceptionOfType(ResourceNotFoundException.class)

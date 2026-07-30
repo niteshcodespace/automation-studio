@@ -136,3 +136,35 @@ sequenceDiagram
 ```
 
 Read-only MCP tools and resources still require normal authentication, authorization, and audit. Secret values are not available through MCP.
+
+## Runner Workspace and Source Preparation
+
+AS-023 preparation uses runner-local phases and does not add durable execution statuses.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant O as Execution Orchestrator
+    participant DB as PostgreSQL
+    participant W as Workspace Manager
+    participant S as Source Resolver
+    participant E as Engine Provider
+
+    O->>DB: Fenced CLAIMED to RUNNING
+    DB-->>O: Commit ownership and immutable source snapshot
+    O->>W: Create unique execution workspace
+    W-->>O: Verified workspace
+    O->>S: Materialize admitted Git HTTPS source at exact commit
+    S->>S: Verify materialized commit and relative source location
+    S-->>O: Prepared immutable workspace
+    O->>E: Execute with prepared workspace details
+    E-->>O: Normalized result and evidence
+    O->>DB: Fresh fenced terminal write
+    DB-->>O: Commit authoritative outcome
+    O->>W: Bounded idempotent cleanup
+```
+
+All Workspace Manager, Source Resolver, engine, evidence, and cleanup calls occur outside database
+transactions. On preparation failure the engine is not invoked. On ownership loss the runner
+performs safe bounded cleanup but makes no stale write. Cleanup failure remains secondary to an
+authoritative outcome.

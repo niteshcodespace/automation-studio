@@ -10,6 +10,7 @@ import com.automationstudio.api.repository.AutomationSuiteRepository;
 import com.automationstudio.api.repository.AutomationTestCaseRepository;
 import com.automationstudio.api.repository.ProjectRepository;
 import com.automationstudio.api.service.AutomationSuiteService;
+import com.automationstudio.api.source.SourceConfigurationValidator;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -24,6 +25,8 @@ public class AutomationSuiteServiceImpl implements AutomationSuiteService {
     private final AutomationSuiteRepository automationSuiteRepository;
     private final AutomationTestCaseRepository testCaseRepository;
     private final ProjectRepository projectRepository;
+    private final SourceConfigurationValidator sourceValidator =
+            new SourceConfigurationValidator();
 
     public AutomationSuiteServiceImpl(
             AutomationSuiteRepository automationSuiteRepository,
@@ -45,6 +48,8 @@ public class AutomationSuiteServiceImpl implements AutomationSuiteService {
         suite.setId(null);
         suite.setProject(project);
         suite.setName(normalizedName);
+        suite.setSourceLocation(
+                sourceValidator.normalizeSourceLocation(suite.getSourceLocation()));
         if (suite.getStatus() == null) {
             suite.setStatus(AutomationSuiteStatus.ACTIVE);
         }
@@ -94,6 +99,8 @@ public class AutomationSuiteServiceImpl implements AutomationSuiteService {
         suite.setDescription(updates.getDescription());
         suite.setEngineType(updates.getEngineType());
         suite.setSuiteReference(updates.getSuiteReference());
+        suite.setSourceLocation(
+                sourceValidator.normalizeSourceLocation(updates.getSourceLocation()));
         suite.setEngineId(updates.getEngineId());
         suite.setSuiteType(updates.getSuiteType());
         suite.setConfiguration(updates.getConfiguration());

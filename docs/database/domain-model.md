@@ -708,6 +708,21 @@ Workspace establishes the multi-tenant boundary without implementing authenticat
 
 Environment credentials and tokens will later be represented by secure external references.
 
+### Decision 8: Snapshot immutable execution source identity
+
+Project owns repository-level source configuration and Automation Suite owns an optional
+repository-relative source location. At admission, Execution captures the resolved source type,
+sanitized repository identity, exact immutable commit, and optional relative location. Later
+Project or Suite changes cannot redefine admitted work.
+
+V15 stores Project source type/repository/revision as nullable all-or-none columns, Suite
+`source_location` as a nullable portable relative location, and the immutable Execution source
+identity as nullable JSONB `source_snapshot`. BUILTIN and historical provider-unspecified Suites
+may have no source snapshot; a declared source-based provider may not.
+
+Runner-local workspace paths, temporary directories, credentials, Git output, and cleanup state
+are not domain data and must not be persisted.
+
 ---
 
 ## 13. Approval Status

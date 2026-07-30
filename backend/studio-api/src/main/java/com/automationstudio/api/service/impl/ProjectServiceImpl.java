@@ -11,6 +11,8 @@ import com.automationstudio.api.mapper.ProjectMapper;
 import com.automationstudio.api.repository.ProjectRepository;
 import com.automationstudio.api.repository.WorkspaceRepository;
 import com.automationstudio.api.service.ProjectService;
+import com.automationstudio.api.source.ExecutionSourceReference;
+import com.automationstudio.api.source.SourceConfigurationValidator;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,8 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectRepository projectRepository;
     private final WorkspaceRepository workspaceRepository;
     private final ProjectMapper projectMapper;
+    private final SourceConfigurationValidator sourceValidator =
+            new SourceConfigurationValidator();
 
     public ProjectServiceImpl(
             ProjectRepository projectRepository,
@@ -49,6 +53,12 @@ public class ProjectServiceImpl implements ProjectService {
         Project project = projectMapper.toEntity(request);
         project.setName(normalizedName);
         project.setWorkspace(workspace);
+        applySourceConfiguration(
+                project,
+                request.sourceType(),
+                request.sourceRepository(),
+                request.sourceRevision(),
+                false);
 
         Project savedProject = projectRepository.save(project);
         return projectMapper.toResponse(savedProject);
@@ -78,7 +88,7 @@ public class ProjectServiceImpl implements ProjectService {
             UUID workspaceId,
             UUID projectId,
             UpdateProjectRequest request) {
-        Project project = findProject(workspaceId, projectId);
+        Project project = findProjectForUpdate(workspaceId, projectId);
         String requestedName = request.name().trim();
         String existingName = project.getName().trim();
 
@@ -91,6 +101,12 @@ public class ProjectServiceImpl implements ProjectService {
 
         projectMapper.updateEntity(request, project);
         project.setName(requestedName);
+        applySourceConfiguration(
+                project,
+                request.sourceType(),
+                request.sourceRepository(),
+                request.sourceRevision(),
+                true);
         Project savedProject = projectRepository.save(project);
         return projectMapper.toResponse(savedProject);
     }
@@ -106,5 +122,35 @@ public class ProjectServiceImpl implements ProjectService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Project not found with id: " + projectId
                                 + " in workspace: " + workspaceId));
+    }
+
+    private Project findProjectForUpdate(UUID workspaceId, UUID projectId) {
+        return projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Project not found with id: " + projectId
+                                + " in workspace: " + workspaceId));
+    }
+
+    private void applySourceConfiguration(
+            Project project,
+            com.automationstudio.api.source.SourceType sourceType,
+            String repository,
+            String revision,
+            boolean preserveWhenAbsent) {
+        boolean absent = sourceType == null && repository == null && revision == null;
+        if (absent && preserveWhenAbsent) {
+            return;
+        }
+        if (absent) {
+            project.setSourceType(null);
+            project.setSourceRepository(null);
+            project.setSourceRevision(null);
+            return;
+        }
+        ExecutionSourceReference source =
+                sourceValidator.validate(sourceType, repository, revision, null);
+        project.setSourceType(source.sourceType());
+        project.setSourceRepository(source.repository());
+        project.setSourceRevision(source.revision());
     }
 }

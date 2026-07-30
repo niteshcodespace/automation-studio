@@ -86,6 +86,12 @@ public class Execution {
     @Setter(lombok.AccessLevel.NONE)
     private Map<String, Object> requestSnapshot;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "source_snapshot", columnDefinition = "jsonb")
+    @Getter(lombok.AccessLevel.NONE)
+    @Setter(lombok.AccessLevel.NONE)
+    private Map<String, Object> sourceSnapshot;
+
     @NotBlank
     @Size(max = 150)
     @Column(name = "requested_by", nullable = false, length = 150)
@@ -172,6 +178,14 @@ public class Execution {
 
     public void setRequestSnapshot(Map<String, Object> requestSnapshot) {
         this.requestSnapshot = copySnapshot(requestSnapshot);
+    }
+
+    public Map<String, Object> getSourceSnapshot() {
+        return copySnapshot(sourceSnapshot);
+    }
+
+    public void setSourceSnapshot(Map<String, Object> sourceSnapshot) {
+        this.sourceSnapshot = copySnapshot(sourceSnapshot);
     }
 
     public void claim() {

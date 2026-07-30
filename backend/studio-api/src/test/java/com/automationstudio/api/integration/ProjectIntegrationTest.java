@@ -16,6 +16,7 @@ import com.automationstudio.api.entity.Project;
 import com.automationstudio.api.entity.Workspace;
 import com.automationstudio.api.repository.ProjectRepository;
 import com.automationstudio.api.repository.WorkspaceRepository;
+import com.automationstudio.api.source.SourceType;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,6 +73,66 @@ class ProjectIntegrationTest extends IntegrationTestBase {
                     assertThat(project.getDescription()).isEqualTo(PROJECT_DESCRIPTION);
                     assertThat(project.getStatus()).isEqualTo(ProjectStatus.ACTIVE);
                 });
+    }
+
+    @Test
+    void createAndUpdateProjectSourceConfigurationIsValidatedAndSanitized() throws Exception {
+        Workspace workspace = saveWorkspace();
+        CreateProjectRequest create = new CreateProjectRequest(
+                PROJECT_NAME,
+                PROJECT_DESCRIPTION,
+                SourceType.GIT_HTTPS,
+                "HTTPS://GitHub.COM/acme/automation.git",
+                "ABCDEF0123456789ABCDEF0123456789ABCDEF01");
+
+        String response = mockMvc.perform(post(projectsPath(workspace.getId()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(create)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.sourceType").value("GIT_HTTPS"))
+                .andExpect(jsonPath("$.sourceRepository")
+                        .value("https://github.com/acme/automation.git"))
+                .andExpect(jsonPath("$.sourceRevision")
+                        .value("abcdef0123456789abcdef0123456789abcdef01"))
+                .andReturn().getResponse().getContentAsString();
+        UUID projectId = UUID.fromString(objectMapper.readTree(response).get("id").asText());
+
+        UpdateProjectRequest update = new UpdateProjectRequest(
+                "Updated Portal",
+                "Updated description",
+                ProjectStatus.ACTIVE,
+                SourceType.GIT_HTTPS,
+                "https://github.com/acme/replacement.git",
+                "2222222222222222222222222222222222222222");
+        mockMvc.perform(put(projectPath(workspace.getId(), projectId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sourceRepository")
+                        .value("https://github.com/acme/replacement.git"))
+                .andExpect(jsonPath("$.sourceRevision")
+                        .value("2222222222222222222222222222222222222222"));
+    }
+
+    @Test
+    void credentialBearingRepositoryIsRejectedWithoutEchoingSensitiveValue() throws Exception {
+        Workspace workspace = saveWorkspace();
+        String secretRepository = "https://user:secret@example.test/repo.git";
+        CreateProjectRequest request = new CreateProjectRequest(
+                PROJECT_NAME,
+                PROJECT_DESCRIPTION,
+                SourceType.GIT_HTTPS,
+                secretRepository,
+                "1111111111111111111111111111111111111111");
+
+        mockMvc.perform(post(projectsPath(workspace.getId()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                        .doesNotContain("user", "secret", secretRepository));
+        assertThat(projectRepository.count()).isZero();
     }
 
     @Test

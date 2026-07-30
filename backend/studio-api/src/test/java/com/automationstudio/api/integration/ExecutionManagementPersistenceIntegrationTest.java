@@ -517,7 +517,12 @@ class ExecutionManagementPersistenceIntegrationTest extends IntegrationTestBase 
         mockMvc.perform(get(path + "/" + executionId))
                 .andExpect(status().isOk())
                 .andExpect(result -> assertThat(result.getResponse().getContentAsString())
-                        .doesNotContain("Snapshot", "resolved-", "vault://"));
+                        .doesNotContain(
+                                "environmentSnapshot",
+                                "suiteSnapshot",
+                                "requestSnapshot",
+                                "resolved-",
+                                "vault://"));
         assertThat(output.getAll()).doesNotContain(
                 "resolved-environment-secret",
                 "resolved-suite-secret",

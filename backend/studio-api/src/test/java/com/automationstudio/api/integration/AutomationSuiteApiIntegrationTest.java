@@ -94,8 +94,11 @@ class AutomationSuiteApiIntegrationTest extends IntegrationTestBase {
     @Test
     void createCompleteSuitePersistsEveryField() throws Exception {
         Project project = saveProject("complete");
-        CreateAutomationSuiteRequest request = createRequest(
-                "Checkout suite", AutomationSuiteStatus.INACTIVE);
+        CreateAutomationSuiteRequest request = new CreateAutomationSuiteRequest(
+                "Checkout suite", "Suite description", "PLAYWRIGHT",
+                "tests/checkout-suite", "playwright-java", SuiteType.UI,
+                Map.of("browser", "chromium"), AutomationSuiteStatus.INACTIVE,
+                "automation/ui");
 
         mockMvc.perform(post(suitesPath(project.getId()))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -108,6 +111,7 @@ class AutomationSuiteApiIntegrationTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.description").value("Suite description"))
                 .andExpect(jsonPath("$.engineType").value("PLAYWRIGHT"))
                 .andExpect(jsonPath("$.suiteReference").value("tests/checkout-suite"))
+                .andExpect(jsonPath("$.sourceLocation").value("automation/ui"))
                 .andExpect(jsonPath("$.engineId").value("playwright-java"))
                 .andExpect(jsonPath("$.suiteType").value("UI"))
                 .andExpect(jsonPath("$.configuration.browser").value("chromium"))
@@ -119,12 +123,30 @@ class AutomationSuiteApiIntegrationTest extends IntegrationTestBase {
         AutomationSuite persisted = suiteByName(project.getId(), "Checkout suite");
         assertThat(persisted.getProject().getId()).isEqualTo(project.getId());
         assertThat(persisted.getEngineId()).isEqualTo("playwright-java");
+        assertThat(persisted.getSourceLocation()).isEqualTo("automation/ui");
         assertThat(persisted.getSuiteType()).isEqualTo(SuiteType.UI);
         assertThat(persisted.getStatus()).isEqualTo(AutomationSuiteStatus.INACTIVE);
         assertThat(persisted.getConfiguration()).containsEntry("browser", "chromium");
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT jsonb_typeof(configuration) FROM test_suite WHERE id = ?",
                 String.class, persisted.getId())).isEqualTo("object");
+    }
+
+    @Test
+    void unsafeSourceLocationIsRejectedWithoutPersistence() throws Exception {
+        Project project = saveProject("unsafe-source");
+        CreateAutomationSuiteRequest request = new CreateAutomationSuiteRequest(
+                "Unsafe source suite", "Suite description", "PLAYWRIGHT",
+                "tests/unsafe", "playwright-java", SuiteType.UI,
+                Map.of(), AutomationSuiteStatus.ACTIVE, "../escape");
+
+        mockMvc.perform(post(suitesPath(project.getId()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        assertThat(automationSuiteRepository.countByProjectId(project.getId())).isZero();
     }
 
     @Test
