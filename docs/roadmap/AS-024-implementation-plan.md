@@ -21,10 +21,15 @@ Documentation only.
 Add the exact dependency/descriptor, immutable configuration, operator properties, strict parsing,
 and timeout/viewport bounds.
 
+Status: completed and architecture-approved.
+
 ### AS-024C - Secure Versioned Manifest Contract and Loader
 
 Add explicit schema `"1.0"`, immutable actions, deterministic version negotiation, secure suite
 reference resolution, containment/link defenses, structural limits, and compatibility tests.
+
+Status: completed and architecture-approved. The AS-024B review gate is cleared. Integer
+schema versions are rejected; runtime execution and browser launch remain deferred.
 
 ### AS-024D - Playwright Runtime Boundary and Chromium Adapter
 

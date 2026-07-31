@@ -39,8 +39,24 @@ result persistence, REST APIs, scheduling, retries, dashboards, or reporting.
 
 ## 5. Manifest Contract
 
-The manifest schema version is an explicit semantic contract such as `"1.0"`, not an unstructured
-integer. A loader must resolve exactly one supported contract version before parsing actions.
+The initial manifest schema version is the exact string `"1.0"`, not an unstructured integer. The
+loader resolves that supported contract version before parsing actions. Integer, numeric, blank,
+missing, malformed, and unsupported versions fail closed.
+
+The `"1.0"` manifest contains a required name and a non-empty ordered scenario list. Each scenario
+contains a unique ID, name, and non-empty ordered step list with unique step IDs. The initial
+declarative step actions are `navigate`, `click`, `fill`, `assert-visible`, `assert-text`, and
+`assert-url`. Their permitted data fields are action-specific:
+
+- `navigate`: `url`;
+- `click`: `selector`;
+- `fill`: `selector` and `value`;
+- `assert-visible`: `selector`;
+- `assert-text`: `selector` and `expected`; and
+- `assert-url`: `expected`.
+
+Each step may specify a bounded integral `timeoutMs`. Selectors, URLs, values, expectations,
+variables, and actions are not resolved or executed by the manifest loader.
 
 Future releases must:
 
