@@ -10,6 +10,7 @@ import com.automationstudio.api.execution.engine.playwright.configuration.Playwr
 import com.automationstudio.api.execution.engine.playwright.configuration.PlaywrightNavigationPolicy;
 import com.automationstudio.api.execution.engine.playwright.configuration.PlaywrightRuntimeProperties;
 import java.nio.file.Path;
+import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -88,6 +89,60 @@ class DefaultPlaywrightRuntimeTest {
                         0, 0, 0, Duration.ZERO, Duration.ofNanos(5_000)));
 
         session.close();
+    }
+
+    @Test
+    void actionFacadeTranslatesEverySdkFailureWithoutSensitiveMessages() {
+        FakeSdk sdk = new FakeSdk();
+        PlaywrightRuntimeSession session =
+                runtime(sdk, properties("", Duration.ofSeconds(30)), 0, 1).open(configuration());
+        RuntimeException sensitive = new RuntimeException("selector-url-value-sdk-secret");
+        sdk.page.actionFailure = sensitive;
+
+        assertActionFailure(() -> session.navigate(URI.create("https://example.test/secret"), Duration.ofSeconds(1)),
+                "NAVIGATION_FAILED", "Playwright navigation failed", sensitive);
+        assertActionFailure(() -> session.click("#secret", Duration.ofSeconds(1)),
+                "CLICK_FAILED", "Playwright click failed", sensitive);
+        assertActionFailure(() -> session.fill("#secret", "value-secret", Duration.ofSeconds(1)),
+                "FILL_FAILED", "Playwright fill failed", sensitive);
+        assertActionFailure(() -> session.isVisible("#secret", Duration.ofSeconds(1)),
+                "VISIBILITY_QUERY_FAILED", "Playwright visibility query failed", sensitive);
+        assertActionFailure(() -> session.textContent("#secret", Duration.ofSeconds(1)),
+                "TEXT_QUERY_FAILED", "Playwright text query failed", sensitive);
+        assertActionFailure(session::currentUri,
+                "CURRENT_URL_INVALID", "Playwright current URL is invalid", sensitive);
+        session.close();
+    }
+
+    @Test
+    void currentUriTranslatesMalformedSdkUrlAndValidRuntimeFailureIsNotWrapped() {
+        FakeSdk sdk = new FakeSdk();
+        PlaywrightRuntimeSession session =
+                runtime(sdk, properties("", Duration.ofSeconds(30)), 0, 1).open(configuration());
+        sdk.page.urlValue = "https://[sdk-secret";
+        assertThatThrownBy(session::currentUri)
+                .isInstanceOfSatisfying(PlaywrightRuntimeException.class, failure -> {
+                    assertThat(failure.code()).isEqualTo("CURRENT_URL_INVALID");
+                    assertThat(failure.getMessage()).isEqualTo("Playwright current URL is invalid");
+                    assertThat(failure.getMessage()).doesNotContain("sdk-secret");
+                    assertThat(failure.getCause()).isInstanceOf(IllegalArgumentException.class);
+                });
+
+        PlaywrightRuntimeException existing =
+                new PlaywrightRuntimeException("EXISTING_RUNTIME_FAILURE", "Existing runtime failure");
+        sdk.page.actionFailure = existing;
+        assertThatThrownBy(() -> session.click("#selector", Duration.ofSeconds(1))).isSameAs(existing);
+        session.close();
+    }
+
+    private void assertActionFailure(
+            Runnable operation, String code, String message, RuntimeException cause) {
+        assertThatThrownBy(operation::run)
+                .isInstanceOfSatisfying(PlaywrightRuntimeException.class, failure -> {
+                    assertThat(failure.code()).isEqualTo(code);
+                    assertThat(failure.getMessage()).isEqualTo(message).doesNotContain("secret");
+                    assertThat(failure.getCause()).isSameAs(cause);
+                });
     }
 
     @Test
@@ -535,8 +590,30 @@ class DefaultPlaywrightRuntimeTest {
         private class FakePage implements SdkPage {
             private boolean closeFailure;
             private boolean blockClose;
+            private RuntimeException actionFailure;
+            private String urlValue = "https://example.test/";
             private final CountDownLatch closeEntered = new CountDownLatch(1);
             private final CountDownLatch allowClose = new CountDownLatch(1);
+
+            @Override
+            public void navigate(String uri, Duration timeout) { failAction(); }
+
+            @Override
+            public void click(String selector, Duration timeout) { failAction(); }
+
+            @Override
+            public void fill(String selector, String value, Duration timeout) { failAction(); }
+
+            @Override
+            public boolean isVisible(String selector, Duration timeout) { failAction(); return true; }
+
+            @Override
+            public String textContent(String selector, Duration timeout) { failAction(); return ""; }
+
+            @Override
+            public String url() { failAction(); return urlValue; }
+
+            private void failAction() { if (actionFailure != null) throw actionFailure; }
 
             @Override
             public void close() {

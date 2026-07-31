@@ -1,6 +1,6 @@
 package com.automationstudio.api.execution.engine.playwright.runtime;
 
-public interface PlaywrightRuntimeSession extends AutoCloseable {
+public interface PlaywrightRuntimeSession extends PlaywrightActionRuntime, AutoCloseable {
 
     boolean isOpen();
 

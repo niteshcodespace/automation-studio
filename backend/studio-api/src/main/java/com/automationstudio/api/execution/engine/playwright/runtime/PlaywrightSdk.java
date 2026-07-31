@@ -2,6 +2,7 @@ package com.automationstudio.api.execution.engine.playwright.runtime;
 
 import com.automationstudio.api.execution.engine.playwright.configuration.PlaywrightExecutionConfiguration;
 import com.automationstudio.api.execution.engine.playwright.configuration.PlaywrightRuntimeProperties;
+import java.time.Duration;
 
 interface PlaywrightSdk {
 
@@ -33,6 +34,13 @@ interface PlaywrightSdk {
     }
 
     interface SdkPage extends AutoCloseable {
+        void navigate(String uri, Duration timeout);
+        void click(String selector, Duration timeout);
+        void fill(String selector, String value, Duration timeout);
+        boolean isVisible(String selector, Duration timeout);
+        String textContent(String selector, Duration timeout);
+        String url();
+
         @Override
         void close();
     }

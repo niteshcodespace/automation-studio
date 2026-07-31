@@ -3,6 +3,10 @@ package com.automationstudio.api.execution.engine.playwright.runtime;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.automationstudio.api.execution.engine.ExecutionEngineDescriptor;
+import com.automationstudio.api.execution.engine.playwright.action.PlaywrightActionExecutionContext;
+import com.automationstudio.api.execution.engine.playwright.action.PlaywrightActionExecutor;
+import com.automationstudio.api.execution.engine.playwright.action.PlaywrightActionOutcome;
+import com.automationstudio.api.execution.engine.playwright.action.PlaywrightScenarioExecutionOutcome;
 import com.automationstudio.api.execution.engine.playwright.manifest.PlaywrightScenarioManifest;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.RecordComponent;
@@ -16,10 +20,15 @@ class PlaywrightRuntimeBoundaryTest {
     void exposedRuntimeAndDomainContractsContainNoPlaywrightSdkTypes() {
         List<Class<?>> contracts = List.of(
                 PlaywrightRuntime.class,
+                PlaywrightActionRuntime.class,
                 PlaywrightRuntimeSession.class,
                 PlaywrightRuntimeMetrics.class,
                 PlaywrightRuntimeResult.class,
                 PlaywrightRuntimeException.class,
+                PlaywrightActionExecutor.class,
+                PlaywrightActionExecutionContext.class,
+                PlaywrightActionOutcome.class,
+                PlaywrightScenarioExecutionOutcome.class,
                 ExecutionEngineDescriptor.class,
                 PlaywrightScenarioManifest.class);
 

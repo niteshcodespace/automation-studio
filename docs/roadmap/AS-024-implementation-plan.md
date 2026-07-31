@@ -40,6 +40,8 @@ as transient engine telemetry, with no provider-neutral result change, persisten
 the runtime around execution-scoped resources so future pages, contexts, and bounded parallelism
 do not require redesign.
 
+Status: completed, architecture-approved, and committed.
+
 ### AS-024E - Pluggable Action and Assertion Execution
 
 Add:
@@ -55,6 +57,9 @@ Add:
 
 Executors use an internal runtime façade rather than concrete Playwright page types. No central
 switch/case dispatcher or page-object framework.
+
+Status: implementation complete, pending re-review after remediation of the initial
+`CHANGES REQUIRED` verdict. AS-024F remains blocked until approval.
 
 ### AS-024F - ExecutionEngine Integration
 

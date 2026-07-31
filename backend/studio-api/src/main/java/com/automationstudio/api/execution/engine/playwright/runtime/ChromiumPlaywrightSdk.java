@@ -9,6 +9,7 @@ import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 
 final class ChromiumPlaywrightSdk implements PlaywrightSdk {
 
@@ -79,6 +80,38 @@ final class ChromiumPlaywrightSdk implements PlaywrightSdk {
     }
 
     private record PageHandle(Page delegate) implements SdkPage {
+
+        @Override
+        public void navigate(String uri, Duration timeout) {
+            delegate.navigate(uri, new Page.NavigateOptions().setTimeout(timeout.toMillis()));
+        }
+
+        @Override
+        public void click(String selector, Duration timeout) {
+            delegate.click(selector, new Page.ClickOptions().setTimeout(timeout.toMillis()));
+        }
+
+        @Override
+        public void fill(String selector, String value, Duration timeout) {
+            delegate.fill(selector, value, new Page.FillOptions().setTimeout(timeout.toMillis()));
+        }
+
+        @Override
+        public boolean isVisible(String selector, Duration timeout) {
+            return delegate.isVisible(
+                    selector, new Page.IsVisibleOptions().setTimeout(timeout.toMillis()));
+        }
+
+        @Override
+        public String textContent(String selector, Duration timeout) {
+            return delegate.textContent(
+                    selector, new Page.TextContentOptions().setTimeout(timeout.toMillis()));
+        }
+
+        @Override
+        public String url() {
+            return delegate.url();
+        }
 
         @Override
         public void close() {
