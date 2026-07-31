@@ -30,25 +30,36 @@ public final class NonSecretVariableInterpolator {
 
     public String interpolate(String input) {
         if (input == null) throw invalid("INTERPOLATION_INVALID");
+        if (input.length() > MAX_EXPANDED_LENGTH) {
+            throw invalid("INTERPOLATION_LIMIT_EXCEEDED");
+        }
         Matcher matcher = TOKEN.matcher(input);
-        StringBuilder expanded = new StringBuilder();
+        StringBuilder expanded = new StringBuilder(input.length());
         int position = 0;
         while (matcher.find()) {
-            if (input.substring(position, matcher.start()).contains("${")) {
+            int malformed = input.indexOf("${", position);
+            if (malformed >= 0 && malformed < matcher.start()) {
                 throw invalid("INTERPOLATION_INVALID");
             }
-            expanded.append(input, position, matcher.start());
+            append(expanded, input, position, matcher.start());
             String value = variables.get(matcher.group(1));
             if (value == null) throw invalid("VARIABLE_UNRESOLVED");
-            expanded.append(value);
-            if (expanded.length() > MAX_EXPANDED_LENGTH) throw invalid("INTERPOLATION_LIMIT_EXCEEDED");
+            append(expanded, value, 0, value.length());
             position = matcher.end();
         }
-        expanded.append(input, position, input.length());
-        if (expanded.indexOf("${") >= 0 || expanded.length() > MAX_EXPANDED_LENGTH) {
+        if (input.indexOf("${", position) >= 0) {
             throw invalid("INTERPOLATION_INVALID");
         }
+        append(expanded, input, position, input.length());
         return expanded.toString();
+    }
+
+    private void append(StringBuilder target, String source, int start, int end) {
+        int segmentLength = end - start;
+        if (segmentLength > MAX_EXPANDED_LENGTH - target.length()) {
+            throw invalid("INTERPOLATION_LIMIT_EXCEEDED");
+        }
+        target.append(source, start, end);
     }
 
     private PlaywrightActionException invalid(String code) {

@@ -58,8 +58,9 @@ Add:
 Executors use an internal runtime façade rather than concrete Playwright page types. No central
 switch/case dispatcher or page-object framework.
 
-Status: implementation complete, pending re-review after remediation of the initial
-`CHANGES REQUIRED` verdict. AS-024F remains blocked until approval.
+Status: corrective implementation complete, pending re-review after two `CHANGES REQUIRED`
+verdicts. Commit `787a660` was pushed before approval; the current corrections remain uncommitted.
+AS-024F remains blocked until approval.
 
 ### AS-024F - ExecutionEngine Integration
 

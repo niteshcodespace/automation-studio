@@ -20,15 +20,28 @@ class PlaywrightActionSecurityComponentsTest {
 
     @Test
     void resolvesCssWithoutSemanticRewriting() {
-        assertThat(selectors.resolve(new PlaywrightSelector("[data-test='save'] > button")))
-                .isEqualTo("[data-test='save'] > button");
+        for (String value : new String[] {
+                "[data-test='save'] > button",
+                "[data-value=\"a>>b\"]",
+                "[data-value='internal:role=button']",
+                "[data-value=\"a\\\" >> b\"]",
+                "div::before",
+                "button:hover",
+                "input[type=\"text\"]",
+                "a[href*=\"example\"]",
+                "* > div"
+        }) {
+            assertThat(selectors.resolve(new PlaywrightSelector(value))).isEqualTo(value);
+        }
     }
 
     @Test
     void rejectsInvalidAndUnsupportedSelectorsWithoutLeakingContent() {
         for (String value : new String[] {
                 "", " xpath=//secret", "xpath=//secret", "//div", "..", "../div",
-                "text=secret", "role=button", "id=secret", "div >> text=secret",
+                "text=secret", "role=button", "id=secret", "css=div", "div >> text=secret",
+                "*css=div", "*xpath=//div", "**css=div", "internal:role=button",
+                "internal:text=\"Submit\"", "CsS=div", "\u00a0css=div", "css=div\u00a0",
                 "div[", "a\nsecret"
         }) {
             PlaywrightSelector selector = mock(PlaywrightSelector.class);
@@ -47,20 +60,26 @@ class PlaywrightActionSecurityComponentsTest {
 
     @Test
     void rejectedImplicitXpathNeverReachesRuntimeFacade() {
-        PlaywrightActionRuntime runtime = mock(PlaywrightActionRuntime.class);
-        PlaywrightActionExecutionContext context = mock(PlaywrightActionExecutionContext.class);
-        when(context.selectorResolver()).thenReturn(selectors);
-        when(context.runtime()).thenReturn(runtime);
-        PlaywrightStep step = new PlaywrightStep(
-                "step", PlaywrightActionType.CLICK, new PlaywrightSelector("//div"),
-                null, null, null, null);
+        for (String value : new String[] {
+                "//div", "../div", "*css=div", "*xpath=//div",
+                "internal:role=button", "internal:text=\"Submit\"", "div >> text=example"
+        }) {
+            PlaywrightActionRuntime runtime = mock(PlaywrightActionRuntime.class);
+            PlaywrightActionExecutionContext context = mock(PlaywrightActionExecutionContext.class);
+            when(context.selectorResolver()).thenReturn(selectors);
+            when(context.runtime()).thenReturn(runtime);
+            PlaywrightStep step = new PlaywrightStep(
+                    "step", PlaywrightActionType.CLICK, new PlaywrightSelector(value),
+                    null, null, null, null);
 
-        assertThatThrownBy(() -> new ClickActionExecutor().execute(step, context))
-                .isInstanceOfSatisfying(PlaywrightActionException.class, failure -> {
-                    assertThat(failure.code()).isEqualTo("SELECTOR_INVALID");
-                    assertThat(failure.getMessage()).isEqualTo("Manifest selector is invalid");
-                });
-        verifyNoInteractions(runtime);
+            assertThatThrownBy(() -> new ClickActionExecutor().execute(step, context))
+                    .isInstanceOfSatisfying(PlaywrightActionException.class, failure -> {
+                        assertThat(failure.code()).isEqualTo("SELECTOR_INVALID");
+                        assertThat(failure.getMessage()).isEqualTo("Manifest selector is invalid");
+                        assertThat(failure.getMessage()).doesNotContain(value);
+                    });
+            verifyNoInteractions(runtime);
+        }
     }
 
     @Test
@@ -116,6 +135,38 @@ class PlaywrightActionSecurityComponentsTest {
                 new NonSecretVariableInterpolator(Map.of("name", "safe"));
         assertThat(repeated.interpolate("${name}/${name}/${name}"))
                 .isEqualTo("safe/safe/safe");
+    }
+
+    @Test
+    void enforcesInterpolationLimitsBeforeEveryAppendPath() {
+        String oversizedLiteral = "s".repeat(NonSecretVariableInterpolator.MAX_EXPANDED_LENGTH + 1);
+        NonSecretVariableInterpolator empty = new NonSecretVariableInterpolator(Map.of());
+        assertInterpolationCode(empty, oversizedLiteral, "INTERPOLATION_LIMIT_EXCEEDED");
+        assertInterpolationCode(
+                new NonSecretVariableInterpolator(Map.of("v", "x")),
+                "s".repeat(NonSecretVariableInterpolator.MAX_EXPANDED_LENGTH) + "${v}",
+                "INTERPOLATION_LIMIT_EXCEEDED");
+
+        assertThat(empty.interpolate(
+                        "s".repeat(NonSecretVariableInterpolator.MAX_EXPANDED_LENGTH - 1)))
+                .hasSize(NonSecretVariableInterpolator.MAX_EXPANDED_LENGTH - 1);
+        NonSecretVariableInterpolator boundary =
+                new NonSecretVariableInterpolator(Map.of("v", "123456"));
+        assertThat(boundary.interpolate(
+                        "s".repeat(NonSecretVariableInterpolator.MAX_EXPANDED_LENGTH - 6) + "${v}"))
+                .hasSize(NonSecretVariableInterpolator.MAX_EXPANDED_LENGTH);
+        assertInterpolationCode(
+                new NonSecretVariableInterpolator(Map.of("v", "1234567")),
+                "s".repeat(NonSecretVariableInterpolator.MAX_EXPANDED_LENGTH - 6) + "${v}",
+                "INTERPOLATION_LIMIT_EXCEEDED");
+
+        String half = "x".repeat(NonSecretVariableInterpolator.MAX_EXPANDED_LENGTH / 2);
+        NonSecretVariableInterpolator segments =
+                new NonSecretVariableInterpolator(Map.of("a", half, "b", half));
+        assertInterpolationCode(segments, "${a}x${b}", "INTERPOLATION_LIMIT_EXCEEDED");
+        NonSecretVariableInterpolator repeated =
+                new NonSecretVariableInterpolator(Map.of("v", half));
+        assertInterpolationCode(repeated, "${v}${v}x", "INTERPOLATION_LIMIT_EXCEEDED");
     }
 
     @Test

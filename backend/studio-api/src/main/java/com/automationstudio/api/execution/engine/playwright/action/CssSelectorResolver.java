@@ -1,13 +1,8 @@
 package com.automationstudio.api.execution.engine.playwright.action;
 
 import com.automationstudio.api.execution.engine.playwright.manifest.PlaywrightSelector;
-import java.util.Locale;
-import java.util.regex.Pattern;
 
 public final class CssSelectorResolver implements SelectorResolver {
-    private static final Pattern SELECTOR_ENGINE =
-            Pattern.compile("[a-z][a-z0-9-]*=", Pattern.CASE_INSENSITIVE);
-
     @Override
     public String resolve(PlaywrightSelector selector) {
         if (selector == null) {
@@ -18,6 +13,7 @@ public final class CssSelectorResolver implements SelectorResolver {
                 || value.isBlank()
                 || value.length() > PlaywrightSelector.MAX_LENGTH
                 || !value.equals(value.trim())
+                || hasBoundaryWhitespace(value)
                 || value.codePoints().anyMatch(Character::isISOControl)
                 || unsupportedStrategy(value)
                 || !balanced(value)) {
@@ -27,16 +23,47 @@ public final class CssSelectorResolver implements SelectorResolver {
     }
 
     private boolean unsupportedStrategy(String value) {
-        String lower = value.toLowerCase(Locale.ROOT);
         return value.startsWith("//")
                 || value.startsWith("..")
-                || SELECTOR_ENGINE.matcher(lower).lookingAt()
-                || hasSelectorChain(value)
-                || lower.startsWith("xpath=")
-                || lower.startsWith("text=")
-                || lower.startsWith("role=")
-                || lower.startsWith("javascript=")
-                || lower.startsWith("css=");
+                || hasSelectorEnginePrefix(value)
+                || hasSelectorChain(value);
+    }
+
+    private boolean hasSelectorEnginePrefix(String value) {
+        int index = 0;
+        while (index < value.length() && value.charAt(index) == '*') {
+            index++;
+        }
+        int identifierStart = index;
+        if (index >= value.length() || !isEngineIdentifierStart(value.charAt(index))) {
+            return false;
+        }
+        index++;
+        while (index < value.length() && isEngineIdentifierPart(value.charAt(index))) {
+            index++;
+        }
+        return index > identifierStart && index < value.length() && value.charAt(index) == '=';
+    }
+
+    private boolean isEngineIdentifierStart(char value) {
+        return value >= 'A' && value <= 'Z' || value >= 'a' && value <= 'z';
+    }
+
+    private boolean isEngineIdentifierPart(char value) {
+        return isEngineIdentifierStart(value)
+                || value >= '0' && value <= '9'
+                || value == '-'
+                || value == '_'
+                || value == ':';
+    }
+
+    private boolean hasBoundaryWhitespace(String value) {
+        int first = value.codePointAt(0);
+        int last = value.codePointBefore(value.length());
+        return Character.isWhitespace(first)
+                || Character.isSpaceChar(first)
+                || Character.isWhitespace(last)
+                || Character.isSpaceChar(last);
     }
 
     private boolean hasSelectorChain(String value) {
