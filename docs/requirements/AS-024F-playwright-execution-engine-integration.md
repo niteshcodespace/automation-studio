@@ -2,7 +2,7 @@
 
 ## Status
 
-AS-024F — IMPLEMENTATION AND TESTS COMPLETE, PENDING FINAL REVIEW
+AS-024F — COMPLETED, APPROVED, COMMITTED, AND PUSHED
 
 The full focused lifecycle matrix is implemented in `PlaywrightExecutionEngineTest`: validation,
 ordered success and assertion mapping, stage isolation, cleanup precedence, deterministic timing
@@ -11,7 +11,14 @@ sanitization regression. Focused AS-024F verification is 28 total and 28 passed.
 verification is 53 total, 52 passed, and 1 skipped. Pre-lifecycle full-suite evidence is 1002 total,
 994 passed, 8 skipped, 0 failures, and 0 errors; the updated full suite is 1015 total, 1007 passed,
 8 skipped, 0 failures, and 0 errors. Tests use mocks only; no browser was launched.
-AS-024F is not approved, AS-024G remains blocked, and no commit or push occurred.
+
+Commit: `e6a9dc1`
+Commit message: `feat(engine): integrate Playwright execution engine (AS-024F)`
+Push: completed to `origin/feature/AS-024-playwright-execution-engine`
+Final review: `APPROVED FOR COMMIT`
+AS-024G is cleared to begin.
+AS-024G — READY TO IMPLEMENT
+AS-024H remains blocked until AS-024G is completed and approved.
 
 Lifecycle tests: 13 passed
 Sanitization tests: 14 passed
@@ -25,8 +32,8 @@ revision identity; manifests, variables, sessions, startup metrics, accumulators
 closures remain isolated. No production code changed.
 
 Production integration, Spring registration verification, exception sanitization/classification,
-startup-invariant handling, and the full focused lifecycle suite are complete locally. AS-024F is
-not approved, and this status does not authorize AS-024G work, a commit, or a push.
+startup-invariant handling, and the full focused lifecycle suite were completed, reviewed, committed,
+and pushed as AS-024F. AS-024G is cleared to begin.
 
 The full engine-test implementation was paused after production review found that typed lower-level
 exceptions could leave the engine with raw messages. The integration boundary now maps
@@ -42,7 +49,8 @@ post-start runtime failures used the startup classification. Catch ordering now 
 typed workspace-access failure to the engine boundary, and runtime startup and post-start execution
 use distinct fixed classifications. At that historical gate thirteen focused sanitization
 scenarios passed and lifecycle implementation was temporarily paused. That gate was later cleared,
-and the lifecycle matrix was implemented. AS-024G remains blocked and no commit or push occurred.
+and the lifecycle matrix was implemented. At that historical gate AS-024G was still blocked and no
+commit or push had occurred.
 
 The latest focused re-review returned `CHANGES REQUIRED` because a null session returned from the
 runtime-opening boundary was misclassified as a metrics failure. The boundary now validates the
@@ -51,7 +59,7 @@ Runner non-interaction assertions were strengthened for workspace-usage and post
 failures. Current evidence is 14 sanitization tests passed; manifest loader 53 total, 52 passed and
 1 skipped because Windows/platform link creation is unavailable; registration 1 passed. This was
 the final historical lifecycle pause; the gate was later cleared and the lifecycle suite was
-implemented. AS-024G remains blocked and no commit or push occurred.
+implemented. At that historical gate AS-024G was still blocked and no commit or push had occurred.
 
 ## Purpose
 

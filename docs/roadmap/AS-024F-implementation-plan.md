@@ -2,7 +2,7 @@
 
 ## Gate
 
-AS-024F — IMPLEMENTATION AND TESTS COMPLETE, PENDING FINAL REVIEW
+AS-024F — COMPLETED, APPROVED, COMMITTED, AND PUSHED
 
 The focused `PlaywrightExecutionEngineTest` lifecycle matrix is implemented, covering validation,
 success and assertion mapping, stage isolation, cleanup precedence, timing/identity, metrics and
@@ -10,7 +10,15 @@ action-context composition, concurrency isolation, and lifecycle sanitization. F
 verification is 28 total and 28 passed; manifest-loader verification is 53 total, 52 passed, and
 1 skipped. Pre-lifecycle full-suite evidence is 1002 total, 994 passed, 8 skipped, 0 failures, and
 0 errors; the updated full suite is 1015 total, 1007 passed, 8 skipped, 0 failures, and 0 errors.
-No browser activity, commit, or push occurred. AS-024G remains blocked.
+No browser activity occurred during AS-024F verification.
+
+Commit: `e6a9dc1`
+Commit message: `feat(engine): integrate Playwright execution engine (AS-024F)`
+Push: completed to `origin/feature/AS-024-playwright-execution-engine`
+Final review: `APPROVED FOR COMMIT`
+AS-024G is cleared to begin.
+AS-024G — READY TO IMPLEMENT
+AS-024H remains blocked until AS-024G is completed and approved.
 
 Lifecycle tests: 13 passed
 Sanitization tests: 14 passed
@@ -33,7 +41,8 @@ usage inside manifest resolution was misclassified and lost its cause, and post-
 failures used the startup classification. Catch ordering and stage-specific runtime translation are
 now corrected, and thirteen focused sanitization tests were complete at that historical gate.
 Lifecycle implementation was temporarily paused, then resumed after the gate cleared; the full
-lifecycle suite is now complete. AS-024G remains blocked. No commit or push is authorized.
+lifecycle suite was completed. At that historical gate AS-024G was blocked and no commit or push
+was authorized.
 
 The latest focused re-review returned `CHANGES REQUIRED` because a null runtime session bypassed
 startup classification and became a metrics failure. Validation now occurs inside the runtime-open
@@ -41,8 +50,8 @@ boundary, null maps to the fixed startup failure with an internal invariant caus
 runner non-interaction assertions are explicit. Current evidence: 14 sanitization tests passed;
 manifest loader 53 total, 52 passed and 1 skipped due to the Windows/platform link-creation
 limitation; registration 1 passed. That statement records the final historical pause. The gate was
-later cleared and lifecycle work is now complete. AS-024G remains blocked, and no commit or push is
-authorized.
+later cleared and lifecycle work was completed. At that historical gate AS-024G was blocked and no
+commit or push was authorized.
 
 ## Proposed Production Changes
 
@@ -120,7 +129,7 @@ orchestration/registry test fixtures should be reused; real provisioned Chromium
 
 Steps 1 through 9 are complete. Registration coverage, fourteen exception-sanitization tests, and
 the full focused lifecycle, timing, cleanup-precedence, and request-tuple concurrency matrix are
-implemented. Remaining AS-024F work is final independent review only.
+implemented. Final independent review approved AS-024F for commit; commit `e6a9dc1` was then pushed.
 
 ## Verification Gates
 

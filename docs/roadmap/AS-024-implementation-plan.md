@@ -58,20 +58,25 @@ Add:
 Executors use an internal runtime façade rather than concrete Playwright page types. No central
 switch/case dispatcher or page-object framework.
 
-Status: corrective implementation complete, pending re-review after two `CHANGES REQUIRED`
-verdicts. Commit `787a660` was pushed before approval; corrective commit `4c92ae0` is also committed
-and pushed. Architectural approval remains pending. AS-024F remains blocked until approval.
+Status: completed and architecture-approved. Commit `787a660` was followed by corrective commit
+`4c92ae0`; both were pushed before AS-024F began.
 
 ### AS-024F - ExecutionEngine Integration
 
-AS-024F — IMPLEMENTATION AND TESTS COMPLETE, PENDING FINAL REVIEW
+AS-024F — COMPLETED, APPROVED, COMMITTED, AND PUSHED
 
 `PlaywrightExecutionEngineTest` now provides the full focused lifecycle, timing, metrics,
 action-context, cleanup-precedence, and concurrency matrix. Focused AS-024F verification is
 28 total and 28 passed; manifest-loader verification is 53 total, 52 passed, and 1 skipped.
 Pre-lifecycle full-suite evidence is 1002 total, 994 passed, 8 skipped, 0 failures, and 0 errors;
 the updated full suite is 1015 total, 1007 passed, 8 skipped, 0 failures, and 0 errors.
-No browser was launched, no commit was created, and nothing was pushed. AS-024G remains blocked.
+No browser was launched during AS-024F verification.
+
+Status: completed, architecture-approved, committed, and pushed.
+Final review: `APPROVED FOR COMMIT`
+Commit: `e6a9dc1`
+Commit message: `feat(engine): integrate Playwright execution engine (AS-024F)`
+Push: completed to `origin/feature/AS-024-playwright-execution-engine`
 
 Lifecycle tests: 13 passed
 Sanitization tests: 14 passed
@@ -98,8 +103,8 @@ returned `CHANGES REQUIRED` because workspace-access usage during manifest resol
 misclassified as manifest failure and lost its original cause, while post-start runtime failures
 used the startup classification. Catch ordering and stage-specific runtime translation are now
 corrected, with thirteen focused sanitization tests at that gate. Lifecycle implementation was
-temporarily paused, then resumed after the gate cleared; the full suite is now complete. AS-024F is
-unapproved and AS-024G remains blocked. No commit or push has occurred. The
+temporarily paused, then resumed after the gate cleared; the full suite was completed and AS-024F
+was subsequently approved, committed, and pushed. The
 detailed contract and sequence are recorded in
 `docs/requirements/AS-024F-playwright-execution-engine-integration.md` and
 `docs/roadmap/AS-024F-implementation-plan.md`. The current contracts expose no cancellation input,
@@ -111,10 +116,13 @@ null to the fixed startup failure with a fixed internal cause, and runner non-in
 were strengthened. Current evidence: 14 sanitization tests passed; manifest loader 53 total, 52
 passed and 1 skipped due to the Windows/platform link-creation limitation; registration 1 passed.
 That was the final historical lifecycle pause. The gate was later cleared and the lifecycle matrix
-was implemented. AS-024F is pending final review, AS-024G remains blocked, and no commit or push has
-occurred.
+was implemented. AS-024F was subsequently approved, committed as `e6a9dc1`, and pushed.
 
-### AS-024G - Real-Browser Integration and Security Hardening
+### AS-024G - Real Browser Validation and End-to-End Runtime Verification
+
+AS-024G — READY TO IMPLEMENT
+
+Status: ready to implement.
 
 Verify successful and failed scenarios, timeout, missing browser, invalid manifest versions,
 unknown/duplicate actions, selector limits, path/link escape, same-origin policy, parallel
@@ -122,6 +130,8 @@ independent executions, context isolation, metrics consistency, and cleanup usin
 real Chromium.
 
 ### AS-024H - Production Readiness and Final Documentation
+
+Status: blocked until AS-024G is completed and approved.
 
 Complete threat review, dependency/browser provisioning guidance, supported-platform verification,
 focused/full Maven gates, operational failure guidance, architecture diagrams, and documentation
