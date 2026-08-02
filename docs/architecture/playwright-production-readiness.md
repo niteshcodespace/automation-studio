@@ -1,5 +1,20 @@
 # Playwright Execution Engine Production Readiness
 
+## Feature Delivery Status
+
+```text
+AS-024H — COMPLETED, APPROVED, COMMITTED, AND PUSHED
+Commit: 74d3ba9
+Final review: APPROVED FOR COMMIT
+AS-024 — COMPLETED, APPROVED, COMMITTED, AND PUSHED
+Feature branch: pending final feature-level review and merge into main
+Merge status: not merged
+```
+
+AS-024 implementation and its production-readiness guidance are finalized. Platform qualification,
+residual risks, and release controls below remain unchanged and must be applied to each target
+deployment. AS-024 is not considered merged until its pull request is approved and merged.
+
 ## Scope and Release Boundary
 
 This runbook covers the `playwright-java` engine at version `1.61.0`. It is the AS-024H
@@ -248,4 +263,4 @@ assumption and the invalid-path test continues to run. No verification command i
 - [ ] A rollback plan identifies the prior browser package and runner configuration.
 - [ ] Unsupported-platform/readiness claims are avoided and the target environment owner signs off.
 - [ ] No screenshot, trace, video, report, artifact, or persistent profile is enabled.
-- [ ] AS-024H receives independent review before AS-024 is declared complete.
+- [x] AS-024H independent review completed before feature delivery was recorded.

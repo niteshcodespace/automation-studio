@@ -1,5 +1,12 @@
 # AS-024 - Implementation Plan
 
+Feature status: implementation complete; pending final feature review and merge.
+
+```text
+AS-024 — COMPLETED, APPROVED, COMMITTED, AND PUSHED
+Feature branch: not yet merged into main
+```
+
 ## Delivery Principles
 
 - architecture and contracts precede browser implementation;
@@ -165,9 +172,14 @@ mvn -Dautomation.runner.playwright.executable-path="<absolute-operator-chromium-
 
 ### AS-024H - Production Readiness and Final Documentation
 
-AS-024H — IMPLEMENTATION AND TESTS COMPLETE, PENDING REVIEW
+AS-024H — COMPLETED, APPROVED, COMMITTED, AND PUSHED
 
-Status: implementation, documentation, and verification complete; pending independent review.
+Status: completed, approved, committed, and pushed.
+
+Final review: `APPROVED FOR COMMIT`
+Commit: `74d3ba9`
+Commit message: `docs(playwright): complete production readiness guidance (AS-024H)`
+Push: completed to `origin/feature/AS-024-playwright-execution-engine`
 
 Complete threat review, dependency/browser provisioning guidance, supported-platform verification,
 focused/full Maven gates, operational failure guidance, architecture diagrams, and documentation
@@ -183,8 +195,8 @@ compilation passed; the ordinary suite is 1023 total, 1008 passed, and 15 skippe
 or errors. The one focused skip is the established platform-dependent manifest symbolic-link test.
 AS-024G configured evidence remains 8 passed with no skips or failures; it was not repeated during
 AS-024H because no runtime, engine, manifest, action, or real-browser test contract changed. No
-browser activity occurred. AS-024 remains pending AS-024H independent review; no commit or push
-was performed.
+browser activity occurred. AS-024H was independently approved and delivered in commit `74d3ba9`.
+All A-H story gates are complete; the feature branch remains pending final feature review and merge.
 
 ## Implementation Order
 

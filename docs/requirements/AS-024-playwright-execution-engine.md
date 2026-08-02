@@ -296,7 +296,7 @@ AS-024G. Other runner hosts and images require the configured real-browser quali
 before support is claimed. This is an evidence boundary, not a new runtime restriction.
 
 ```text
-AS-024H — IMPLEMENTATION AND TESTS COMPLETE, PENDING REVIEW
+AS-024H — COMPLETED, APPROVED, COMMITTED, AND PUSHED
 Focused Playwright regression: 126 total, 125 passed, 1 skipped, 0 failures, 0 errors
 Focused skip: established platform-dependent manifest symbolic-link test
 Compilation: passed
@@ -305,6 +305,17 @@ AS-024G configured real-browser evidence reused: 8 passed, 0 skipped, 0 failures
 Real-browser rerun during AS-024H: not performed; relevant contracts were unchanged
 Browser activity during AS-024H: none
 Production/test source changes: none
-AS-024 completion: pending AS-024H independent review
-Commit/push: not performed
+Final review: APPROVED FOR COMMIT
+Commit: 74d3ba9
+Commit message: docs(playwright): complete production readiness guidance (AS-024H)
+Push: completed to origin/feature/AS-024-playwright-execution-engine
+AS-024 — COMPLETED, APPROVED, COMMITTED, AND PUSHED
+Feature branch: pending final feature-level review and pull-request merge into main
+Merge status: not merged
 ```
+
+All approved requirements through AS-024H are implemented and verified. Feature delivery does not
+expand deferred scope: Firefox, WebKit, browser auto-provisioning, screenshots, tracing, video,
+artifacts, retries, cancellation, metrics persistence, parallel scenarios, additional actions,
+broader platform qualification, and production load testing remain excluded. AS-024 is not
+considered merged until the feature pull request is approved and merged into `main`.
