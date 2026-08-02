@@ -262,8 +262,7 @@ Final review: APPROVED FOR COMMIT
 Commit: 7e92c9a
 Commit message: test(playwright): add real browser end-to-end validation (AS-024G)
 Push: completed to origin/feature/AS-024-playwright-execution-engine
-AS-024H — READY TO IMPLEMENT
-AS-024H — Production Readiness and Final Documentation is cleared to begin.
+AS-024H gate after AS-024G delivery: Production Readiness and Final Documentation was cleared to begin.
 ```
 
 Run all Maven commands from `backend/studio-api`. The executable path is supplied by the operator
@@ -278,4 +277,34 @@ mvn test
 ```powershell
 cd backend/studio-api
 mvn -Dautomation.runner.playwright.executable-path="<absolute-operator-chromium-path>" -Dtest=PlaywrightRealBrowserRuntimeTest,PlaywrightExecutionEngineEndToEndTest test
+```
+
+## 18. AS-024H Production Readiness and Final Documentation
+
+AS-024H introduces no production or test behavior. The expanded operator, threat, residual-risk,
+failure/logging, supported-platform,
+failure-response, architecture, verification, and release guidance is maintained in
+[Playwright Execution Engine Production Readiness](../architecture/playwright-production-readiness.md).
+
+The readiness baseline preserves all AS-024 boundaries: operator-provisioned Chromium only; no
+browser search, download, or installation; headless non-persistent execution; strict manifest,
+selector, interpolation, and same-origin enforcement; sanitized failures; internal-only metrics;
+provider-neutral results; and unchanged orchestration and physical-workspace-release ownership.
+
+Windows with operator-provisioned Google Chrome is the platform configuration demonstrated by
+AS-024G. Other runner hosts and images require the configured real-browser qualification command
+before support is claimed. This is an evidence boundary, not a new runtime restriction.
+
+```text
+AS-024H — IMPLEMENTATION AND TESTS COMPLETE, PENDING REVIEW
+Focused Playwright regression: 126 total, 125 passed, 1 skipped, 0 failures, 0 errors
+Focused skip: established platform-dependent manifest symbolic-link test
+Compilation: passed
+Ordinary full suite: 1023 total, 1008 passed, 15 skipped, 0 failures, 0 errors
+AS-024G configured real-browser evidence reused: 8 passed, 0 skipped, 0 failures, 0 errors
+Real-browser rerun during AS-024H: not performed; relevant contracts were unchanged
+Browser activity during AS-024H: none
+Production/test source changes: none
+AS-024 completion: pending AS-024H independent review
+Commit/push: not performed
 ```

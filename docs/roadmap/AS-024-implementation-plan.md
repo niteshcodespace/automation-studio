@@ -165,13 +165,26 @@ mvn -Dautomation.runner.playwright.executable-path="<absolute-operator-chromium-
 
 ### AS-024H - Production Readiness and Final Documentation
 
-AS-024H — READY TO IMPLEMENT
+AS-024H — IMPLEMENTATION AND TESTS COMPLETE, PENDING REVIEW
 
-Status: ready to implement.
+Status: implementation, documentation, and verification complete; pending independent review.
 
 Complete threat review, dependency/browser provisioning guidance, supported-platform verification,
 focused/full Maven gates, operational failure guidance, architecture diagrams, and documentation
 reconciliation.
+
+The production-readiness runbook is
+`docs/architecture/playwright-production-readiness.md`. It records operator provisioning and
+target-platform and Maven/browser supply-chain qualification, an explicit threat/residual-risk
+review, ownership and runtime topology, complete sanitized failure/logging response, the runner-owned
+deployment property, expanded focused/full/real-browser gates, and an auditable release checklist.
+AS-024H changes no production or test source. Focused verification is 126 total, 125 passed, and 1 skipped;
+compilation passed; the ordinary suite is 1023 total, 1008 passed, and 15 skipped with no failures
+or errors. The one focused skip is the established platform-dependent manifest symbolic-link test.
+AS-024G configured evidence remains 8 passed with no skips or failures; it was not repeated during
+AS-024H because no runtime, engine, manifest, action, or real-browser test contract changed. No
+browser activity occurred. AS-024 remains pending AS-024H independent review; no commit or push
+was performed.
 
 ## Implementation Order
 
