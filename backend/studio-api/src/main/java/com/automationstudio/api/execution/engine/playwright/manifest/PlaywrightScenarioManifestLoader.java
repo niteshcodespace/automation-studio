@@ -2,6 +2,7 @@ package com.automationstudio.api.execution.engine.playwright.manifest;
 
 import com.automationstudio.api.execution.ExecutionSuiteSnapshot;
 import com.automationstudio.api.execution.workspace.local.access.EngineWorkspaceAccess;
+import com.automationstudio.api.execution.workspace.local.access.EngineWorkspaceAccessException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -87,6 +88,8 @@ public final class PlaywrightScenarioManifestLoader {
                 throw unsafeLocation();
             }
             return candidate;
+        } catch (EngineWorkspaceAccessException exception) {
+            throw exception;
         } catch (PlaywrightManifestException exception) {
             throw exception;
         } catch (IOException | RuntimeException exception) {

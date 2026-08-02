@@ -59,15 +59,60 @@ Executors use an internal runtime façade rather than concrete Playwright page t
 switch/case dispatcher or page-object framework.
 
 Status: corrective implementation complete, pending re-review after two `CHANGES REQUIRED`
-verdicts. Commit `787a660` was pushed before approval; the current corrections remain uncommitted.
-AS-024F remains blocked until approval.
+verdicts. Commit `787a660` was pushed before approval; corrective commit `4c92ae0` is also committed
+and pushed. Architectural approval remains pending. AS-024F remains blocked until approval.
 
 ### AS-024F - ExecutionEngine Integration
 
+AS-024F — IMPLEMENTATION AND TESTS COMPLETE, PENDING FINAL REVIEW
+
+`PlaywrightExecutionEngineTest` now provides the full focused lifecycle, timing, metrics,
+action-context, cleanup-precedence, and concurrency matrix. Focused AS-024F verification is
+28 total and 28 passed; manifest-loader verification is 53 total, 52 passed, and 1 skipped.
+Pre-lifecycle full-suite evidence is 1002 total, 994 passed, 8 skipped, 0 failures, and 0 errors;
+the updated full suite is 1015 total, 1007 passed, 8 skipped, 0 failures, and 0 errors.
+No browser was launched, no commit was created, and nothing was pushed. AS-024G remains blocked.
+
+Lifecycle tests: 13 passed
+Sanitization tests: 14 passed
+Registration tests: 1 passed
+Focused AS-024F total: 28 passed
+
+Final-review remediation added runner-plus-workspace-cleanup precedence coverage, ordinary
+runner-failure reverse cleanup assertions, and request-consistent concurrent invocation tuples.
+Both result identities and per-request manifests, variables, sessions, metrics, and resource
+closures are now asserted. No production code changed.
+
 Add `PlaywrightExecutionEngine`, existing engine-registry integration, AS-023 workspace access,
-manifest/runtime composition, immutable result mapping, metrics finalization, valid
-SUCCEEDED/FAILED/CANCELLED handling, and deterministic resource cleanup. Workspace release remains
-outside the engine.
+manifest/runtime composition, immutable result mapping, metrics finalization, SUCCEEDED/FAILED
+mapping and explicit cancellation deferral, and deterministic resource cleanup. Workspace release
+remains outside the engine.
+
+Historical review record: the initial production review
+returned `CHANGES REQUIRED` because `@ConditionalOnBean` prevented engine discovery in a
+workspace-enabled context. Registration now uses the exact `automation.runner.workspace.root`
+property condition, and minimum focused registration verification is present. A subsequent review
+found that typed lower-level exceptions could retain sensitive public messages; engine translation
+now uses fixed engine-owned messages and sanitized suppressed wrappers. The sanitization re-review
+returned `CHANGES REQUIRED` because workspace-access usage during manifest resolution was
+misclassified as manifest failure and lost its original cause, while post-start runtime failures
+used the startup classification. Catch ordering and stage-specific runtime translation are now
+corrected, with thirteen focused sanitization tests at that gate. Lifecycle implementation was
+temporarily paused, then resumed after the gate cleared; the full suite is now complete. AS-024F is
+unapproved and AS-024G remains blocked. No commit or push has occurred. The
+detailed contract and sequence are recorded in
+`docs/requirements/AS-024F-playwright-execution-engine-integration.md` and
+`docs/roadmap/AS-024F-implementation-plan.md`. The current contracts expose no cancellation input,
+so AS-024F must not fabricate `CANCELLED` behavior.
+
+The latest focused re-review returned `CHANGES REQUIRED` because a null session returned from the
+runtime-opening boundary was misclassified as a metrics failure. Runtime-open validation now maps
+null to the fixed startup failure with a fixed internal cause, and runner non-interaction assertions
+were strengthened. Current evidence: 14 sanitization tests passed; manifest loader 53 total, 52
+passed and 1 skipped due to the Windows/platform link-creation limitation; registration 1 passed.
+That was the final historical lifecycle pause. The gate was later cleared and the lifecycle matrix
+was implemented. AS-024F is pending final review, AS-024G remains blocked, and no commit or push has
+occurred.
 
 ### AS-024G - Real-Browser Integration and Security Hardening
 

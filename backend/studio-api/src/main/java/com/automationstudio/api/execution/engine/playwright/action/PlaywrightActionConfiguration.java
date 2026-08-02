@@ -21,4 +21,10 @@ class PlaywrightActionConfiguration {
     SelectorResolver playwrightSelectorResolver() {
         return new CssSelectorResolver();
     }
+
+    @Bean
+    PlaywrightOrderedScenarioRunner playwrightOrderedScenarioRunner(
+            PlaywrightActionExecutorRegistry registry) {
+        return new PlaywrightOrderedScenarioRunner(registry);
+    }
 }
