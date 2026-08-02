@@ -120,9 +120,14 @@ was implemented. AS-024F was subsequently approved, committed as `e6a9dc1`, and 
 
 ### AS-024G - Real Browser Validation and End-to-End Runtime Verification
 
-AS-024G — IMPLEMENTATION AND TESTS COMPLETE, PENDING REVIEW
+AS-024G — COMPLETED, APPROVED, COMMITTED, AND PUSHED
 
-Status: implementation and tests complete, pending independent review.
+Status: completed, approved, committed, and pushed.
+
+Final review: `APPROVED FOR COMMIT`
+Commit: `7e92c9a`
+Commit message: `test(playwright): add real browser end-to-end validation (AS-024G)`
+Push: completed to `origin/feature/AS-024-playwright-execution-engine`
 
 Verify successful and failed scenarios, timeout, missing browser, invalid manifest versions,
 unknown/duplicate actions, selector limits, path/link escape, same-origin policy, parallel
@@ -137,7 +142,8 @@ cross-origin redirects, a bounded action timeout, successful and unresolved-vari
 internal metrics, result identity,
 and cleanup through unique local workspaces. No browser is downloaded, no external host is used,
 and no production code is changed. Focused verification is 8 passed; the ordinary suite is 1023
-total, 1008 passed, 15 skipped, with no failures or errors. AS-024H remains blocked pending review.
+total, 1008 passed, 15 skipped, with no failures or errors. Compilation and `git diff --check`
+passed. Seven skips are browser-dependent and eight are existing platform skips.
 
 Test classification is `@Tag("real-browser")`. The final correction explicitly verifies the `/form`
 redirect target before `/done`, and validates terminal assertion metrics as `3` planned, `1`
@@ -159,7 +165,9 @@ mvn -Dautomation.runner.playwright.executable-path="<absolute-operator-chromium-
 
 ### AS-024H - Production Readiness and Final Documentation
 
-Status: blocked until AS-024G is completed and approved.
+AS-024H — READY TO IMPLEMENT
+
+Status: ready to implement.
 
 Complete threat review, dependency/browser provisioning guidance, supported-platform verification,
 focused/full Maven gates, operational failure guidance, architecture diagrams, and documentation
