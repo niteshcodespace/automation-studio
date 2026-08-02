@@ -60,6 +60,15 @@ flowchart TB
 - Do not mount host filesystems or use privileged execution containers.
 - Generate signed, short-lived artifact access when an object-store adapter is introduced.
 
+The Playwright runner provisioning, threat, failure-response, supported-platform, and release
+checks are defined in [Playwright Execution Engine Production Readiness](playwright-production-readiness.md).
+The Automation Studio runner process owns browser configuration and must receive
+`automation.runner.playwright.executable-path=<absolute-path>` through the deployment environment
+or configuration system, together with the approved workspace-root configuration. The value must
+not appear in manifests or be committed as a machine-specific path. The runner does not discover,
+download, or install a browser, and every deployment host or image requires configured real-browser
+qualification.
+
 ## Operational Requirements
 
 All services should emit structured logs and include request, execution, attempt, and correlation identifiers where applicable. Useful initial metrics include execution queue depth, claim latency, runner health, execution duration, terminal outcomes, retry count, artifact volume, and database connection use.
