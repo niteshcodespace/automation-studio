@@ -120,14 +120,42 @@ was implemented. AS-024F was subsequently approved, committed as `e6a9dc1`, and 
 
 ### AS-024G - Real Browser Validation and End-to-End Runtime Verification
 
-AS-024G — READY TO IMPLEMENT
+AS-024G — IMPLEMENTATION AND TESTS COMPLETE, PENDING REVIEW
 
-Status: ready to implement.
+Status: implementation and tests complete, pending independent review.
 
 Verify successful and failed scenarios, timeout, missing browser, invalid manifest versions,
 unknown/duplicate actions, selector limits, path/link escape, same-origin policy, parallel
 independent executions, context isolation, metrics consistency, and cleanup using a provisioned
 real Chromium.
+
+The test-only implementation uses the explicit operator property
+`automation.runner.playwright.executable-path`. Seven browser-launching tests skip when it is absent;
+an invalid-path contract test remains active. When configured, eight focused tests validate real
+runtime startup, loopback navigation, all initial actions, assertion termination, same-origin and
+cross-origin redirects, a bounded action timeout, successful and unresolved-variable interpolation,
+internal metrics, result identity,
+and cleanup through unique local workspaces. No browser is downloaded, no external host is used,
+and no production code is changed. Focused verification is 8 passed; the ordinary suite is 1023
+total, 1008 passed, 15 skipped, with no failures or errors. AS-024H remains blocked pending review.
+
+Test classification is `@Tag("real-browser")`. The final correction explicitly verifies the `/form`
+redirect target before `/done`, and validates terminal assertion metrics as `3` planned, `1`
+successful, and `1` failed while proving the later action does not execute.
+
+Run all Maven commands from `backend/studio-api`. The absolute executable path is operator-supplied
+and must not be committed. Without it, seven browser-dependent tests skip through JUnit assumptions,
+the invalid-path test still executes, and no browser is downloaded or installed.
+
+```powershell
+cd backend/studio-api
+mvn test
+```
+
+```powershell
+cd backend/studio-api
+mvn -Dautomation.runner.playwright.executable-path="<absolute-operator-chromium-path>" -Dtest=PlaywrightRealBrowserRuntimeTest,PlaywrightExecutionEngineEndToEndTest test
+```
 
 ### AS-024H - Production Readiness and Final Documentation
 

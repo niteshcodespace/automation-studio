@@ -230,3 +230,44 @@ AS-024 is complete when:
 - assertion failures return `FAILED`, while infrastructure failures remain sanitized exceptions;
 - cleanup is deterministic and workspace release ownership remains unchanged; and
 - focused, real-browser, security, concurrency, and full Maven verification pass.
+
+## 17. AS-024G Real-Browser Verification
+
+AS-024G validates the approved architecture using an operator-provisioned Chromium executable
+supplied by `automation.runner.playwright.executable-path`. Tests never install or discover a
+browser implicitly. Browser-launching tests are tagged `real-browser` and use an explicit JUnit
+assumption so the ordinary suite skips them when the property is absent.
+Test classification: `@Tag("real-browser")`.
+
+The test application binds only to `127.0.0.1` on ephemeral ports. Real-browser coverage validates
+runtime creation and cleanup, same-origin direct/redirect navigation, cross-origin redirect denial,
+all six initial actions, successful and unresolved non-secret interpolation, assertion termination,
+a bounded missing-element timeout, internal startup/action metrics, provider-neutral result identity,
+and workspace retention.
+The terminal assertion metrics scenario verifies `3` planned, `1` successful, and `1` failed
+action, with the later action unexecuted. The success scenario explicitly asserts the redirect
+target `/form` before the final `/done` URL.
+No external website, persistent profile, browser download, artifact feature, or production behavior
+is introduced.
+
+```text
+AS-024G — IMPLEMENTATION AND TESTS COMPLETE, PENDING REVIEW
+Focused real-browser suite: 8 passed
+Ordinary full suite: 1023 total, 1008 passed, 15 skipped, 0 failures, 0 errors
+AS-024H: blocked pending AS-024G review
+Commit/push: not performed
+```
+
+Run all Maven commands from `backend/studio-api`. The executable path is supplied by the operator
+and must not be committed. Its absence skips seven browser-dependent tests through JUnit assumptions;
+invalid-path validation remains active. These commands do not download or install a browser.
+
+```powershell
+cd backend/studio-api
+mvn test
+```
+
+```powershell
+cd backend/studio-api
+mvn -Dautomation.runner.playwright.executable-path="<absolute-operator-chromium-path>" -Dtest=PlaywrightRealBrowserRuntimeTest,PlaywrightExecutionEngineEndToEndTest test
+```
