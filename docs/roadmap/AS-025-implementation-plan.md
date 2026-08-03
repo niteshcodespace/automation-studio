@@ -3,13 +3,12 @@
 ## Status
 
 ```text
-AS-025A - DOCUMENTATION COMPLETE, PENDING FINAL REVIEW
-AS-025B - BLOCKED
+AS-025A - COMPLETED, APPROVED, AND COMMITTED (09bc9d1)
+AS-025B - IMPLEMENTATION AND TESTS COMPLETE, PENDING FINAL REVIEW
 AS-025C through AS-025H - BLOCKED
 ```
 
-No implementation phase may begin until AS-025A receives final review approval. No phase may begin
-while its immediate predecessor is blocked.
+AS-025A's gate is cleared. No later phase may begin while its immediate predecessor is blocked.
 
 ## Delivery Strategy
 
@@ -83,6 +82,23 @@ AS-025B implementation review; this plan does not authorize parallel models.
 
 Focused secret tests, affected regression, compilation, and full ordinary suite pass. No browser,
 OrangeHRM, source materialization, schema change, endpoint, migration, commit, or push is included.
+
+### Current verification evidence
+
+```text
+AS-025B focused secret boundary: 21 passed, 0 failures, 0 errors, 0 skipped
+Relevant context/security/engine regression: 40 passed, 0 failures, 0 errors, 0 skipped
+Compilation: passed
+Full suite: 1,044 total, 1,029 passed, 15 skipped, 0 failures, 0 errors
+Browser launched or installed: no
+OrangeHRM or another external target contacted: no
+Real credential resolved: no
+Production secret lookup during tests: no
+Playwright/manifests/orchestrator/workspace/persistence/REST changes: none
+AS-025B commit: not created
+Push: not performed
+AS-025C status: blocked pending AS-025B final review
+```
 
 ## AS-025C - Manifest and Sensitive Fill Composition
 
