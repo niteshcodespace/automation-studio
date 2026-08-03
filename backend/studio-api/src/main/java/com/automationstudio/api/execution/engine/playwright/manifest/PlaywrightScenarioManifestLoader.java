@@ -34,6 +34,8 @@ public final class PlaywrightScenarioManifestLoader {
     private static final Set<String> SCENARIO_FIELDS = Set.of("id", "name", "steps");
     private static final Set<String> STEP_FIELDS =
             Set.of("id", "action", "selector", "url", "value", "expected", "timeoutMs");
+    private static final Set<String> VERSION_2_STEP_FIELDS =
+            Set.of("id", "action", "selector", "url", "value", "secretRef", "expected", "timeoutMs");
 
     private final ObjectMapper objectMapper;
 
@@ -154,7 +156,8 @@ public final class PlaywrightScenarioManifestLoader {
             }
             rejectUnknownFields(root, MANIFEST_FIELDS, "manifest");
             String version = requiredText(root, "schemaVersion", "manifest");
-            if (!PlaywrightScenarioManifest.SUPPORTED_SCHEMA_VERSION.equals(version)) {
+            if (!PlaywrightScenarioManifest.SCHEMA_VERSION_1.equals(version)
+                    && !PlaywrightScenarioManifest.SCHEMA_VERSION_2.equals(version)) {
                 throw failure(
                         "UNSUPPORTED_SCHEMA_VERSION",
                         "Manifest schema version is not supported");
@@ -163,7 +166,7 @@ public final class PlaywrightScenarioManifestLoader {
             JsonNode scenariosNode = requiredArray(root, "scenarios", "manifest");
             List<PlaywrightScenario> scenarios = new ArrayList<>();
             for (JsonNode scenario : scenariosNode) {
-                scenarios.add(parseScenario(scenario));
+                scenarios.add(parseScenario(scenario, version));
             }
             return new PlaywrightScenarioManifest(version, name, scenarios);
         } catch (PlaywrightManifestException exception) {
@@ -173,7 +176,7 @@ public final class PlaywrightScenarioManifestLoader {
         }
     }
 
-    private PlaywrightScenario parseScenario(JsonNode node) {
+    private PlaywrightScenario parseScenario(JsonNode node, String version) {
         if (!node.isObject()) {
             throw failure("INVALID_SCENARIO", "Manifest scenario must be an object");
         }
@@ -183,22 +186,28 @@ public final class PlaywrightScenarioManifestLoader {
         JsonNode stepsNode = requiredArray(node, "steps", "scenario");
         List<PlaywrightStep> steps = new ArrayList<>();
         for (JsonNode step : stepsNode) {
-            steps.add(parseStep(step));
+            steps.add(parseStep(step, version));
         }
         return new PlaywrightScenario(id, name, steps);
     }
 
-    private PlaywrightStep parseStep(JsonNode node) {
+    private PlaywrightStep parseStep(JsonNode node, String version) {
         if (!node.isObject()) {
             throw failure("INVALID_STEP", "Manifest step must be an object");
         }
-        rejectUnknownFields(node, STEP_FIELDS, "step");
+        rejectUnknownFields(
+                node,
+                PlaywrightScenarioManifest.SCHEMA_VERSION_2.equals(version)
+                        ? VERSION_2_STEP_FIELDS
+                        : STEP_FIELDS,
+                "step");
         String id = requiredText(node, "id", "step");
         PlaywrightActionType action =
                 PlaywrightActionType.fromManifestValue(requiredText(node, "action", "step"));
         String selector = optionalText(node, "selector", "step");
         String url = optionalText(node, "url", "step");
         String value = optionalText(node, "value", "step");
+        String secretRef = optionalText(node, "secretRef", "step");
         String expected = optionalText(node, "expected", "step");
         Duration timeout = optionalTimeout(node);
         return new PlaywrightStep(
@@ -207,6 +216,7 @@ public final class PlaywrightScenarioManifestLoader {
                 selector == null ? null : new PlaywrightSelector(selector),
                 url,
                 value,
+                secretRef,
                 expected,
                 timeout);
     }

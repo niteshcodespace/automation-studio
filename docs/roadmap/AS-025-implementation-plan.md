@@ -4,11 +4,13 @@
 
 ```text
 AS-025A - COMPLETED, APPROVED, AND COMMITTED (09bc9d1)
-AS-025B - IMPLEMENTATION AND TESTS COMPLETE, PENDING FINAL REVIEW
-AS-025C through AS-025H - BLOCKED
+AS-025B - COMPLETED, APPROVED, AND COMMITTED (e534237)
+AS-025C - IMPLEMENTATION AND TESTS COMPLETE, PENDING FINAL REVIEW
+AS-025D through AS-025H - BLOCKED
 ```
 
-AS-025A's gate is cleared. No later phase may begin while its immediate predecessor is blocked.
+AS-025A and AS-025B gates are cleared. No later phase may begin while its immediate predecessor is
+blocked.
 
 ## Delivery Strategy
 
@@ -95,9 +97,9 @@ OrangeHRM or another external target contacted: no
 Real credential resolved: no
 Production secret lookup during tests: no
 Playwright/manifests/orchestrator/workspace/persistence/REST changes: none
-AS-025B commit: not created
+AS-025B commit: e53423789e4c2163f9a7f85006b790e27954960b
 Push: not performed
-AS-025C status: blocked pending AS-025B final review
+AS-025C status: cleared to implement after AS-025B final approval
 ```
 
 ## AS-025C - Manifest and Sensitive Fill Composition
@@ -124,6 +126,26 @@ AS-025C status: blocked pending AS-025B final review
 
 Focused manifest/action/security tests and the ordinary full suite pass with no real provider,
 browser, or target use. AS-025D remains blocked until independent approval.
+
+### Current verification evidence
+
+```text
+Post-review combined AS-025C/AS-025B/Playwright regression: 116 total, 115 passed, 1 skipped,
+  0 failures, 0 errors
+Final compilation: passed
+Full suite: 1,064 total, 1,049 passed, 15 skipped, 0 failures, 0 errors
+Schema 1.0 compatibility: preserved and covered
+Schema 2.0 value/secretRef contract: covered
+Sensitive fill cleanup and non-disclosure: covered
+Independent review findings: 2 corrected, 0 unresolved
+Browser launched or installed: no
+OrangeHRM or another external target contacted: no
+Real credential resolved: no
+Orchestrator/EngineExecutionRequest integration: not changed; deferred to AS-025D
+Commit: not created
+Push: not performed
+AS-025D status: blocked pending AS-025C final review
+```
 
 ## AS-025D - Orchestrator Integration
 

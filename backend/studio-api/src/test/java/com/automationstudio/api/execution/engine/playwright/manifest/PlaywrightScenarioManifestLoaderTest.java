@@ -93,13 +93,75 @@ class PlaywrightScenarioManifestLoaderTest {
     void rejectsInvalidSchemaVersions(String versionJson) {
         assertFailure(
                 MINIMAL.replace("\"1.0\"", versionJson),
-                versionJson.equals("\"1.1\"") || versionJson.equals("\"2.0\"")
+                versionJson.equals("\"1.1\"") || versionJson.equals("\"3.0\"")
                         ? "UNSUPPORTED_SCHEMA_VERSION"
                         : null);
     }
 
     private static Stream<String> invalidVersions() {
-        return Stream.of("null", "\"\"", "1", "1.0", "\"1\"", "\"1.1\"", "\"2.0\"", "{}", "[]");
+        return Stream.of("null", "\"\"", "1", "1.0", "\"1\"", "\"1.1\"", "\"3.0\"", "{}", "[]");
+    }
+
+    @Test
+    void preservesSchemaOneFillAndDoesNotReinterpretSecretRef() throws IOException {
+        PlaywrightScenarioManifest manifest = load("schema-one.json", MINIMAL.replace(
+                "{\"id\": \"open\", \"action\": \"navigate\", \"url\": \"/\"}",
+                "{\"id\":\"fill\",\"action\":\"fill\",\"selector\":\"#name\","
+                        + "\"value\":\"${ordinary}\"}"));
+
+        PlaywrightStep step = manifest.scenarios().getFirst().steps().getFirst();
+        assertThat(step.value()).isEqualTo("${ordinary}");
+        assertThat(step.secretRef()).isNull();
+        assertFailure(MINIMAL.replace(
+                "{\"id\": \"open\", \"action\": \"navigate\", \"url\": \"/\"}",
+                "{\"id\":\"fill\",\"action\":\"fill\",\"selector\":\"#name\","
+                        + "\"secretRef\":\"login.name\"}"), "INVALID_STEP");
+    }
+
+    @Test
+    void loadsSchemaTwoNonSecretAndSecretFill() throws IOException {
+        PlaywrightScenarioManifest manifest = load("schema-two.json", MINIMAL
+                .replace("\"1.0\"", "\"2.0\"")
+                .replace(
+                        "{\"id\": \"open\", \"action\": \"navigate\", \"url\": \"/\"}",
+                        "{\"id\":\"ordinary\",\"action\":\"fill\",\"selector\":\"#a\","
+                                + "\"value\":\"text\"},"
+                                + "{\"id\":\"sensitive\",\"action\":\"fill\","
+                                + "\"selector\":\"#b\",\"secretRef\":\"login.password\"}"));
+
+        assertThat(manifest.schemaVersion()).isEqualTo("2.0");
+        assertThat(manifest.scenarios().getFirst().steps())
+                .extracting(PlaywrightStep::value)
+                .containsExactly("text", null);
+        assertThat(manifest.scenarios().getFirst().steps())
+                .extracting(PlaywrightStep::secretRef)
+                .containsExactly(null, "login.password");
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidSchemaTwoSecretShapes")
+    void rejectsInvalidSchemaTwoSecretShapes(String step) {
+        assertFailure(MINIMAL.replace("\"1.0\"", "\"2.0\"").replace(
+                "{\"id\": \"open\", \"action\": \"navigate\", \"url\": \"/\"}", step),
+                "INVALID_STEP");
+    }
+
+    private static Stream<String> invalidSchemaTwoSecretShapes() {
+        return Stream.of(
+                "{\"id\":\"x\",\"action\":\"fill\",\"selector\":\"#x\"}",
+                "{\"id\":\"x\",\"action\":\"fill\",\"selector\":\"#x\","
+                        + "\"value\":\"plain\",\"secretRef\":\"login.name\"}",
+                "{\"id\":\"x\",\"action\":\"click\",\"selector\":\"#x\","
+                        + "\"secretRef\":\"login.name\"}",
+                "{\"id\":\"x\",\"action\":\"fill\",\"selector\":\"#x\",\"secretRef\":\"\"}",
+                "{\"id\":\"x\",\"action\":\"fill\",\"selector\":\"#x\",\"secretRef\":\"bad name\"}",
+                "{\"id\":\"x\",\"action\":\"fill\",\"selector\":\"#x\",\"secretRef\":1}",
+                "{\"id\":\"x\",\"action\":\"fill\",\"selector\":\"#x\",\"secretRef\":\""
+                        + "a".repeat(129) + "\"}",
+                "{\"id\":\"x\",\"action\":\"fill\",\"selector\":\"#x\","
+                        + "\"secretRef\":{\"provider\":\"p\",\"key\":\"k\"}}",
+                "{\"id\":\"x\",\"action\":\"fill\",\"selector\":\"#x\","
+                        + "\"secretRef\":\"login.name\",\"unknown\":true}");
     }
 
     @Test
@@ -272,6 +334,24 @@ class PlaywrightScenarioManifestLoaderTest {
                 .isInstanceOf(UnsupportedOperationException.class);
         assertThatThrownBy(() -> manifest.scenarios().add(scenario))
                 .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void domainContractCannotRepresentSchemaOneWithSecretRef() {
+        PlaywrightStep sensitive = new PlaywrightStep(
+                "fill", PlaywrightActionType.FILL, new PlaywrightSelector("#field"),
+                null, null, "login.password", null, null);
+        PlaywrightScenario scenario =
+                new PlaywrightScenario("scenario", "Scenario", List.of(sensitive));
+
+        assertThatThrownBy(() -> new PlaywrightScenarioManifest(
+                        "1.0", "Invalid", List.of(scenario)))
+                .isInstanceOfSatisfying(
+                        PlaywrightManifestException.class,
+                        failure -> assertThat(failure.code()).isEqualTo("INVALID_MANIFEST"));
+        assertThat(new PlaywrightScenarioManifest("2.0", "Valid", List.of(scenario))
+                        .schemaVersion())
+                .isEqualTo("2.0");
     }
 
     private PlaywrightScenarioManifest load(String reference, String json) throws IOException {
