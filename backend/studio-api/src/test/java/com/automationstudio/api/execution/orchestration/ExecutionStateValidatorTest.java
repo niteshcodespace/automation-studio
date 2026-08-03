@@ -2,6 +2,7 @@ package com.automationstudio.api.execution.orchestration;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.automationstudio.api.domain.ExecutionStatus;
 import com.automationstudio.api.entity.Execution;
 import java.time.OffsetDateTime;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,7 @@ class ExecutionStateValidatorTest {
         running.claim();
         running.start(OffsetDateTime.parse("2026-07-29T10:00:00Z"));
         validator.validateCompletionPreparation(running);
+        validator.validateCompletion(running, ExecutionStatus.ERROR);
 
         assertThatThrownBy(() -> validator.validateStart(running))
                 .isInstanceOf(RunnerExecutionException.class);

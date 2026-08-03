@@ -248,6 +248,21 @@ class RunnerExecutionIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    void persistsFencedInfrastructureErrorAsDurableTerminalState() {
+        Fixture fixture = insertFixture("5 minutes");
+        var started = executionService.start(request(fixture));
+
+        var completed = executionService.complete(
+                completionRequest(fixture, started.executionVersion()),
+                ExecutionStatus.ERROR);
+
+        assertThat(completed.status()).isEqualTo(ExecutionStatus.ERROR);
+        assertThat(status(fixture.executionId())).isEqualTo("ERROR");
+        assertThat(finishedAt(fixture.executionId())).isNotNull();
+        assertThat(persistedError(fixture.executionId())).isNull();
+    }
+
+    @Test
     void concurrentCompletionsHaveExactlyOneWinner() throws Exception {
         Fixture fixture = insertFixture("5 minutes");
         var started = executionService.start(request(fixture));

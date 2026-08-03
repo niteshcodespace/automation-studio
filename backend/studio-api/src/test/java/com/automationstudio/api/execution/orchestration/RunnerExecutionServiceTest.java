@@ -147,16 +147,20 @@ class RunnerExecutionServiceTest {
     }
 
     @Test
-    void rejectsUnsupportedTerminalStatusWithoutMutation() {
+    void performsFencedInfrastructureErrorCompletion() {
         Execution execution = execution(ExecutionStatus.RUNNING);
         ExecutionLease lease = lease(execution);
         stubLocks(execution, lease);
+        when(executionRepository.saveAndFlush(execution)).thenAnswer(invocation -> {
+            execution.setVersion(6);
+            return execution;
+        });
 
-        assertThatThrownBy(() -> service.complete(request(5), ExecutionStatus.ERROR))
-                .isInstanceOf(RunnerExecutionException.class);
+        ExecutionCompletionResult result = service.complete(request(5), ExecutionStatus.ERROR);
 
-        assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.RUNNING);
-        verify(executionRepository, never()).saveAndFlush(execution);
+        assertThat(result.status()).isEqualTo(ExecutionStatus.ERROR);
+        assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.ERROR);
+        assertThat(execution.getFinishedAt()).isEqualTo(NOW);
     }
 
     @Test

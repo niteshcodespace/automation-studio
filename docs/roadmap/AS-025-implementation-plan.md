@@ -7,11 +7,12 @@ AS-025A - COMPLETED, APPROVED, AND COMMITTED (09bc9d1)
 AS-025B - COMPLETED, APPROVED, AND COMMITTED (e534237)
 AS-025C - COMPLETED, APPROVED, AND COMMITTED (9f7765a)
 AS-025D - COMPLETED, APPROVED, AND COMMITTED (05d0229)
-AS-025E - IMPLEMENTATION, VERIFICATION, AND INDEPENDENT REVIEW COMPLETE; PENDING APPROVAL
-AS-025F through AS-025H - BLOCKED
+AS-025E - COMPLETED, APPROVED, AND COMMITTED (65b9f5e)
+AS-025F - IMPLEMENTED, VERIFIED, AND INDEPENDENTLY REVIEWED; AWAITING APPROVAL
+AS-025G through AS-025H - BLOCKED
 ```
 
-AS-025A through AS-025D gates are cleared. No later phase may begin while its immediate predecessor
+AS-025A through AS-025E gates are cleared. No later phase may begin while its immediate predecessor
 is blocked.
 
 ## Delivery Strategy
@@ -263,11 +264,25 @@ AS-025F status: not started
 
 ### Responsibilities
 
+- add one provider-neutral runner-side coordinator composing fenced start/context loading,
+  immutable admitted source-snapshot mapping, `ExecutionOrchestrator`, normalized terminal mapping,
+  and fenced completion;
+- extend fenced completion and `ExecutionStateValidator` to accept durable `ERROR` alongside
+  `PASSED` and `FAILED`;
+- make `ExecutionLifecycleServiceImpl` delegate to that coordinator or remove it from the
+  controlled runner path while preserving required compatibility, leaving one authority;
 - create an integration fixture that enters through execution admission and existing scheduling;
 - prove claim/lease, context, preparation, materialization, scoped secret resolution, engine
   invocation, normalized persistence, and all cleanup using controlled adapters;
 - cover `PASSED`, `FAILED`, and secret/infrastructure `ERROR`; and
 - prove immutable snapshots and deterministic source revision are authoritative.
+
+The coordinator must use only the admitted `source_snapshot`, perform orchestration outside
+lifecycle transactions, remain engine-neutral, and contain no manifest, Playwright, OrangeHRM,
+provider-selection, or eager-resolution logic. `ExecutionOrchestrator` retains preparation,
+materialization, engine, secret, and cleanup ownership. Lost ownership prevents terminal writes.
+Existing accepted cancellation remains a separate fenced lifecycle outcome and is not remapped or
+extended by AS-025F.
 
 ### Verification constraints
 
@@ -279,6 +294,32 @@ scheduler by directly invoking the Playwright engine for feature acceptance.
 
 The complete controlled vertical slice, focused regressions, and full ordinary suite pass with no
 leakage or resource residue. AS-025G remains blocked until independent approval.
+
+### Implementation evidence
+
+One `RunnerPipelineCoordinator` now composes admitted execution ownership, immutable context and
+source snapshot, `ExecutionOrchestrator`, normalized outcomes, and fenced terminal persistence.
+The established lifecycle service delegates to this coordinator when controlled orchestration is
+available and retains its source-independent compatibility fallback otherwise. Admission time is
+normalized to PostgreSQL microsecond precision so its immutable request snapshot remains exactly
+schedulable after persistence.
+
+The connected controlled integration runs the same real admission, scheduling/atomic claim,
+fenced start/context, admitted-source mapping, local workspace/materialization, lazy logical-name
+secret access, controlled engine, fenced terminal persistence, and cleanup path for `PASSED`,
+`FAILED`, and secret-provider `ERROR`. Catalog mutation after admission does not change the exact
+revision. Focused ownership/lifecycle tests cover lost ownership and cancellation separation.
+
+```text
+Focused AS-025F and lifecycle regression selection: 44 passed
+Compilation: passed
+Full suite: 1,088 total, 1,073 passed, 15 skipped, 0 failures, 0 errors
+git diff --check: passed
+Independent implementation review: passed after findings were corrected
+Browser/network/real-secret activity: none
+Commit/push: not performed
+AS-025G: not started
+```
 
 ## AS-025G - Real Browser and OrangeHRM Validation
 

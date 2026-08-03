@@ -176,6 +176,35 @@ A secret-scope cleanup failure is an infrastructure failure and prevents a succe
 outcome. Any earlier failure remains internal suppressed context. Lost ownership still prevents the
 runner from making an authoritative terminal write.
 
+### AS-025F authoritative runner composition
+
+The authoritative controlled runner path uses one provider-neutral coordinator between fenced
+lifecycle operations and `ExecutionOrchestrator`. It performs fenced start, receives the immutable
+`ExecutionContext`, maps the immutable admitted `source_snapshot` to an
+`ExecutionSourceReference`, constructs the planned preparation request, invokes
+`ExecutionOrchestrator` outside lifecycle transactions, maps the normalized outcome, and requests
+one fenced terminal completion.
+
+`ExecutionOrchestrator` continues to own workspace preparation, exact source materialization,
+engine selection/invocation, lazy secret access, and resource cleanup. `RunnerExecutionService`
+continues to own locks, ownership validation, state transitions, and persistence. The coordinator
+does not inspect manifests, resolve secrets, select providers, or contain Playwright or OrangeHRM
+logic.
+
+Fenced completion accepts `PASSED`, `FAILED`, and `ERROR`. Successful engine completion maps to
+`PASSED`; a completed assertion outcome maps to `FAILED`; orchestration, secret, source, workspace,
+runtime, startup, or unexpected infrastructure failure maps to `ERROR`. An ownership failure is
+never converted into a terminal outcome and therefore cannot perform a stale write.
+
+Accepted cancellation continues through the existing separate fenced cancellation lifecycle. It
+is not an allowed status for this coordinator's completion operation, is not remapped to `ERROR`,
+and is not one of AS-025F's three required controlled outcomes. This clarification preserves the
+existing cancellation decision without adding a second completion authority.
+
+The pre-existing context-only `ExecutionLifecycleService` may remain only as a compatibility
+facade that delegates to the coordinator, or it must be removed from the controlled runner path.
+It is not a second authoritative execution flow.
+
 ## Result and Failure Decision
 
 AS-025 adds no provider-neutral result field. Existing mappings remain:

@@ -323,6 +323,41 @@ execution-scoped runtime capability. It is not a field of `ExecutionContext`, is
 `ExecutionContext.variables()`, and is not an execution snapshot. ADR-015 shall make this ownership
 and lifetime decision explicit.
 
+### 8.2 AS-025F runner lifecycle composition clarification
+
+AS-025F owns the smallest provider-neutral runner-side coordinator that composes the authoritative
+fenced lifecycle with the AS-023/AS-025 execution orchestrator. There is one controlled runner
+flow:
+
+```text
+fenced start and immutable context
+    -> admitted source_snapshot mapping
+    -> ExecutionOrchestrator
+    -> normalized terminal mapping
+    -> fenced completion
+```
+
+The coordinator maps only the immutable admitted `source_snapshot`; it must not reread mutable
+Project or Automation Suite source configuration. `ExecutionOrchestrator` remains responsible for
+workspace preparation, source materialization, exact engine invocation, lazy secret access, engine
+and resource cleanup, and its provider-neutral result. `RunnerExecutionService` remains
+responsible for ownership validation, fenced start, and fenced terminal persistence.
+
+Durable terminal mapping is fixed as follows: a successful engine outcome becomes `PASSED`, a
+completed assertion failure becomes `FAILED`, and secret, source, workspace, runtime, startup, or
+unexpected infrastructure failure becomes `ERROR`. Fenced completion therefore accepts exactly
+`PASSED`, `FAILED`, and `ERROR`. Lost ownership prevents a stale terminal write.
+
+Accepted cancellation remains governed by the existing separate cancellation lifecycle and is not
+remapped by this coordinator completion path. AS-025F neither adds a cancellation transition nor
+maps an engine `CANCELLED` result to `ERROR`; cancellation-path integration is outside the three
+required controlled outcomes for this phase.
+
+The existing `ExecutionLifecycleService` must delegate to this authoritative coordinator or cease
+to be the controlled runner execution path while retaining required compatibility. AS-025F must
+not leave two competing authoritative flows, parse Playwright manifests in the coordinator, add
+engine-specific lifecycle logic, or perform external work inside lifecycle transactions.
+
 ## 9. Acceptance Criteria
 
 AS-025 is accepted only when all of the following are evidenced:
@@ -381,7 +416,7 @@ Implementation proceeds only after each prior phase is reviewed and its gate is 
 | AS-025C | Versioned manifest secret-reference contract and approved `fill.value` composition | Existing schema semantics remain unchanged; prohibited sinks fail closed |
 | AS-025D | Runner/orchestrator composition of required-reference discovery, scoped resolution, engine invocation, and cleanup | Lease, transaction, result, and ownership boundaries remain intact |
 | AS-025E | OrangeHRM scenario source and non-secret execution configuration | No credential, machine path, or target-specific platform branch is committed |
-| AS-025F | Complete deterministic pipeline integration tests using controlled adapters | Scheduling through terminal persistence and cleanup is proven without external target access |
+| AS-025F | Provider-neutral runner lifecycle bridge and complete deterministic pipeline integration tests using controlled adapters | Scheduling through fenced PASSED/FAILED/ERROR persistence and cleanup is proven without external target access |
 | AS-025G | Opt-in real-browser OrangeHRM validation on an approved target | Qualified run passes with secret-safe evidence and reviewed environment details |
 | AS-025H | Production-readiness, operational guidance, residual-risk review, and final feature documentation | Feature-level independent review approves delivery |
 
