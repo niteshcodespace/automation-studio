@@ -6,11 +6,12 @@
 AS-025A - COMPLETED, APPROVED, AND COMMITTED (09bc9d1)
 AS-025B - COMPLETED, APPROVED, AND COMMITTED (e534237)
 AS-025C - COMPLETED, APPROVED, AND COMMITTED (9f7765a)
-AS-025D - IMPLEMENTATION, TESTS, AND INDEPENDENT REVIEW COMPLETE; PENDING APPROVAL
-AS-025E through AS-025H - BLOCKED
+AS-025D - COMPLETED, APPROVED, AND COMMITTED (05d0229)
+AS-025E - IMPLEMENTATION, VERIFICATION, AND INDEPENDENT REVIEW COMPLETE; PENDING APPROVAL
+AS-025F through AS-025H - BLOCKED
 ```
 
-AS-025A through AS-025C gates are cleared. No later phase may begin while its immediate predecessor
+AS-025A through AS-025D gates are cleared. No later phase may begin while its immediate predecessor
 is blocked.
 
 ## Delivery Strategy
@@ -217,6 +218,46 @@ machine path, provider value, cookie, or token. No Java branch may identify Oran
 
 Static manifest validation and controlled fake-runtime tests pass. External target access and real
 browser launch remain deferred to AS-025G.
+
+### Implemented source contract
+
+- canonical source: `demo-projects/orangehrm-login-smoke`;
+- suite reference: `demo-projects/orangehrm-login-smoke/scenario.json`;
+- manifest: schema `"2.0"`, one ordered declarative scenario, and existing actions only;
+- runtime inputs: non-secret `${baseUrl}` plus `orangehrm.username` and
+  `orangehrm.password` logical references;
+- engine identity: exact `playwright-java` / `1.61.0`;
+- source identity: synthetic `GIT_HTTPS` repository identity and fixed immutable revision in the
+  test-only execution fixture; and
+- package contents: `README.md` and `scenario.json` only, with no script, build file, executable,
+  provider location, credential value, browser setup, or target-access command.
+
+The focused contract loads the repository manifest through `PlaywrightScenarioManifestLoader`
+from a prepared temporary workspace. It builds the existing immutable `ExecutionContext` from
+deterministic synthetic snapshot/request data without resolving secrets or executing the scenario.
+
+Independent review found no issue. It confirmed the package is fully declarative, both credentials
+are logical references only, the fixture is synthetic and immutable, no production Java or
+platform-specific branch changed, verification stayed offline and did not execute the scenario,
+and AS-025F remains absent.
+
+### Current verification evidence
+
+```text
+Focused AS-025E source/fixture contract: 3 passed, 0 failures, 0 errors, 0 skipped
+Playwright manifest regression: 65 total, 64 passed, 1 skipped, 0 failures, 0 errors
+AS-025B regression: 21 passed, 0 failures, 0 errors, 0 skipped
+AS-025C/Playwright regression: 89 total, 88 passed, 1 skipped, 0 failures, 0 errors
+AS-025D regression: 54 passed, 0 failures, 0 errors, 0 skipped
+Compilation: passed
+Full suite: 1,076 total, 1,061 passed, 15 skipped, 0 failures, 0 errors
+Maven verification mode: offline
+Browser launched or installed: no
+OrangeHRM or another external target contacted: no
+Real credential resolved: no
+Scenario executed: no
+AS-025F status: not started
+```
 
 ## AS-025F - Complete Controlled Pipeline Verification
 

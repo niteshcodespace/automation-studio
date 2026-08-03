@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "2.0",
+  "name": "OrangeHRM login smoke",
+  "scenarios": [
+    {
+      "id": "orangehrm-login-smoke",
+      "name": "Authorized user reaches the dashboard",
+      "steps": [
+        {
+          "id": "open-login",
+          "action": "navigate",
+          "url": "${baseUrl}/web/index.php/auth/login"
+        },
+        {
+          "id": "login-form-visible",
+          "action": "assert-visible",
+          "selector": "form.oxd-form"
+        },
+        {
+          "id": "enter-username",
+          "action": "fill",
+          "selector": "input[name='username']",
+          "secretRef": "orangehrm.username"
+        },
+        {
+          "id": "enter-password",
+          "action": "fill",
+          "selector": "input[name='password']",
+          "secretRef": "orangehrm.password"
+        },
+        {
+          "id": "submit-login",
+          "action": "click",
+          "selector": "button[type='submit']"
+        },
+        {
+          "id": "dashboard-url",
+          "action": "assert-url",
+          "expected": "${baseUrl}/web/index.php/dashboard/index"
+        },
+        {
+          "id": "dashboard-visible",
+          "action": "assert-visible",
+          "selector": "header h6"
+        }
+      ]
+    }
+  ]
+}
