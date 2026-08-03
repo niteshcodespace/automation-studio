@@ -3,11 +3,18 @@
 ## 1. Document Status
 
 ```text
-AS-025A - REQUIREMENTS COMPLETE, ARCHITECTURE REVIEW PASSED
+AS-025A - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (09bc9d12208c3a6c0092ef524b7b7803faf7153d)
+AS-025B - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (e53423789e4c2163f9a7f85006b790e27954960b)
+AS-025C - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (9f7765a9ab7afb47d18ce2211e0b22b544d573b5)
+AS-025D - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (05d0229d870ca2cec2bf63605cf4fc10d7b5a058)
+AS-025E - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (65b9f5ea2a7118751c4fdcb89166b7e08fc30d05)
+AS-025F - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (654bdcc025ff738738f9346a2896adab59103650)
+AS-025G - NEXT ACTIVE PHASE, NOT STARTED
+AS-025H - BLOCKED BY AS-025G
 ```
 
-AS-025A is documentation only. No production code, test code, database migration, REST contract,
-Playwright behavior, commit, or push is authorized by this document.
+This document continues to define requirements only. This status reconciliation does not authorize
+AS-025G or AS-025H implementation, a commit, or a push.
 
 ## 2. Feature Objective
 

@@ -3,16 +3,17 @@
 ## Status
 
 ```text
-AS-025A - COMPLETED, APPROVED, AND COMMITTED (09bc9d1)
-AS-025B - COMPLETED, APPROVED, AND COMMITTED (e534237)
-AS-025C - COMPLETED, APPROVED, AND COMMITTED (9f7765a)
-AS-025D - COMPLETED, APPROVED, AND COMMITTED (05d0229)
-AS-025E - COMPLETED, APPROVED, AND COMMITTED (65b9f5e)
-AS-025F - IMPLEMENTED, VERIFIED, AND INDEPENDENTLY REVIEWED; AWAITING APPROVAL
-AS-025G through AS-025H - BLOCKED
+AS-025A - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (09bc9d12208c3a6c0092ef524b7b7803faf7153d)
+AS-025B - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (e53423789e4c2163f9a7f85006b790e27954960b)
+AS-025C - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (9f7765a9ab7afb47d18ce2211e0b22b544d573b5)
+AS-025D - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (05d0229d870ca2cec2bf63605cf4fc10d7b5a058)
+AS-025E - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (65b9f5ea2a7118751c4fdcb89166b7e08fc30d05)
+AS-025F - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (654bdcc025ff738738f9346a2896adab59103650)
+AS-025G - NEXT ACTIVE PHASE, NOT STARTED
+AS-025H - BLOCKED BY AS-025G
 ```
 
-AS-025A through AS-025E gates are cleared. No later phase may begin while its immediate predecessor
+AS-025A through AS-025F gates are cleared. No later phase may begin while its immediate predecessor
 is blocked.
 
 ## Delivery Strategy
@@ -320,6 +321,12 @@ Browser/network/real-secret activity: none
 Commit/push: not performed
 AS-025G: not started
 ```
+
+### AS-025F checkpoint reconciliation
+
+AS-025F was subsequently approved and committed as
+`654bdcc025ff738738f9346a2896adab59103650`. No push was performed. That checkpoint makes AS-025G
+the next active phase but does not start it; AS-025H remains blocked by AS-025G.
 
 ## AS-025G - Real Browser and OrangeHRM Validation
 

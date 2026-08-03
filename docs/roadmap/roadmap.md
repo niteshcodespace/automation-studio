@@ -24,14 +24,14 @@ initial OrangeHRM login smoke scenario is scenario and environment data, not a t
 engine or orchestration path.
 
 ```text
-AS-025A Requirements and Architecture - documentation complete, pending final review
-AS-025B Secret Resolution Boundary - blocked
-AS-025C Manifest and Sensitive Fill Composition - blocked
-AS-025D Orchestrator Integration - blocked
-AS-025E OrangeHRM Scenario Source - blocked
-AS-025F Complete Controlled Pipeline Verification - blocked
-AS-025G Real OrangeHRM Runtime Validation - blocked
-AS-025H Production Readiness and Final Documentation - blocked
+AS-025A Requirements and Architecture - completed, reviewed, approved, and committed (09bc9d12208c3a6c0092ef524b7b7803faf7153d)
+AS-025B Secret Resolution Boundary - completed, reviewed, approved, and committed (e53423789e4c2163f9a7f85006b790e27954960b)
+AS-025C Manifest and Sensitive Fill Composition - completed, reviewed, approved, and committed (9f7765a9ab7afb47d18ce2211e0b22b544d573b5)
+AS-025D Orchestrator Integration - completed, reviewed, approved, and committed (05d0229d870ca2cec2bf63605cf4fc10d7b5a058)
+AS-025E OrangeHRM Scenario Source - completed, reviewed, approved, and committed (65b9f5ea2a7118751c4fdcb89166b7e08fc30d05)
+AS-025F Complete Controlled Pipeline Verification - completed, reviewed, approved, and committed (654bdcc025ff738738f9346a2896adab59103650)
+AS-025G Real OrangeHRM Runtime Validation - next active phase, not started
+AS-025H Production Readiness and Final Documentation - blocked by AS-025G
 ```
 
 The approved sequence preserves immutable execution snapshots, keeps resolved values outside
