@@ -132,7 +132,8 @@ public final class PlaywrightExecutionEngine implements ExecutionEngine {
                     configuration,
                     selectorResolver,
                     interpolator,
-                    navigationPolicy);
+                    navigationPolicy,
+                    validatedRequest.secretAccess()::resolve);
             PlaywrightScenarioExecutionOutcome outcome = scenarioRunner.execute(
                     manifest.scenarios(), actionContext, metrics);
             state = mapOutcome(outcome);

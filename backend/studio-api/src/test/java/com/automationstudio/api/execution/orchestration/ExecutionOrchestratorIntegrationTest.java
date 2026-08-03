@@ -15,6 +15,8 @@ import com.automationstudio.api.execution.engine.ExecutionEngine;
 import com.automationstudio.api.execution.engine.ExecutionEngineDescriptor;
 import com.automationstudio.api.execution.engine.ExecutionEngineRegistryImpl;
 import com.automationstudio.api.execution.preparation.SourcePreparationRequest;
+import com.automationstudio.api.execution.secret.ExecutionSecretProviderRegistry;
+import com.automationstudio.api.execution.secret.ExecutionSecretScopeFactory;
 import com.automationstudio.api.execution.preparation.SourcePreparationServiceImpl;
 import com.automationstudio.api.execution.workspace.WorkspaceDescriptor;
 import com.automationstudio.api.execution.workspace.WorkspaceId;
@@ -79,6 +81,8 @@ class ExecutionOrchestratorIntegrationTest {
                 preparationService,
                 new ExecutionEngineRegistryImpl(List.of(engine)),
                 manager,
+                new ExecutionSecretScopeFactory(
+                        new ExecutionSecretProviderRegistry(List.of())),
                 CLOCK);
         UUID executionId = UUID.randomUUID();
         WorkspaceDescriptor planned = WorkspaceDescriptor.planned(

@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-public final class ExecutionSecretScope implements AutoCloseable {
+public final class ExecutionSecretScope implements ExecutionSecretAccess, AutoCloseable {
 
     private static final int MAX_REFERENCES = 64;
     private static final int MAX_LOGICAL_NAME_LENGTH = 128;
@@ -31,10 +31,12 @@ public final class ExecutionSecretScope implements AutoCloseable {
                 providers, "Secret provider registry must not be null");
     }
 
+    @Override
     public UUID executionId() {
         return executionId;
     }
 
+    @Override
     public synchronized ResolvedSecret resolve(String logicalName) {
         ensureOpen();
         String name = requireLogicalName(logicalName);

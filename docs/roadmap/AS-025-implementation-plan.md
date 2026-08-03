@@ -5,12 +5,13 @@
 ```text
 AS-025A - COMPLETED, APPROVED, AND COMMITTED (09bc9d1)
 AS-025B - COMPLETED, APPROVED, AND COMMITTED (e534237)
-AS-025C - IMPLEMENTATION AND TESTS COMPLETE, PENDING FINAL REVIEW
-AS-025D through AS-025H - BLOCKED
+AS-025C - COMPLETED, APPROVED, AND COMMITTED (9f7765a)
+AS-025D - IMPLEMENTATION, TESTS, AND INDEPENDENT REVIEW COMPLETE; PENDING APPROVAL
+AS-025E through AS-025H - BLOCKED
 ```
 
-AS-025A and AS-025B gates are cleared. No later phase may begin while its immediate predecessor is
-blocked.
+AS-025A through AS-025C gates are cleared. No later phase may begin while its immediate predecessor
+is blocked.
 
 ## Delivery Strategy
 
@@ -142,9 +143,9 @@ Browser launched or installed: no
 OrangeHRM or another external target contacted: no
 Real credential resolved: no
 Orchestrator/EngineExecutionRequest integration: not changed; deferred to AS-025D
-Commit: not created
+Commit: 9f7765a9ab7afb47d18ce2211e0b22b544d573b5
 Push: not performed
-AS-025D status: blocked pending AS-025C final review
+AS-025D status: cleared to implement after AS-025C final approval
 ```
 
 ## AS-025D - Orchestrator Integration
@@ -172,6 +173,31 @@ AS-025D status: blocked pending AS-025C final review
 
 Focused orchestration and engine integration tests plus the full suite pass. No OrangeHRM target,
 real browser, migration, REST surface, commit, or push is included.
+
+### Current verification evidence
+
+```text
+Focused AS-025D engine contract/orchestration/Playwright adaptation: 54 passed,
+  0 failures, 0 errors, 0 skipped
+AS-025B regression: 21 passed, 0 failures, 0 errors, 0 skipped
+AS-025C regression: 76 total, 75 passed, 1 skipped, 0 failures, 0 errors
+Relevant Builtin/engine/orchestration/Playwright regression: 83 passed,
+  0 failures, 0 errors, 0 skipped
+Final compilation: passed
+Full suite: 1,073 total, 1,058 passed, 15 skipped, 0 failures, 0 errors
+Secret resolution timing: lazy during validated sensitive fill only
+Browser launched or installed: no
+OrangeHRM or another external target contacted: no
+Real credential resolved: no
+Manifest parsing in orchestrator: none
+Persistence/Flyway/REST/scheduling changes: none
+Commit: not created
+Push: not performed
+AS-025E status: blocked pending AS-025D approval
+```
+
+Independent AS-025D review: 1 representation-sanitization finding corrected, 0 unresolved.
+AS-025D remains uncommitted and awaits explicit approval; AS-025E has not started.
 
 ## AS-025E - OrangeHRM Scenario Source
 

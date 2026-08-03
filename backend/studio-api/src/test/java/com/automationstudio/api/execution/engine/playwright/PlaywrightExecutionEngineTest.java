@@ -12,6 +12,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.clearInvocations;
 
 import com.automationstudio.api.execution.ExecutionContext;
 import com.automationstudio.api.execution.ExecutionEnvironmentSnapshot;
@@ -50,6 +51,8 @@ import com.automationstudio.api.execution.engine.playwright.runtime.PlaywrightRu
 import com.automationstudio.api.execution.engine.playwright.runtime.PlaywrightRuntimeSession;
 import com.automationstudio.api.execution.preparation.SourcePreparationResult;
 import com.automationstudio.api.execution.preparation.SourcePreparationState;
+import com.automationstudio.api.execution.secret.ExecutionSecretAccess;
+import com.automationstudio.api.execution.secret.ResolvedSecret;
 import com.automationstudio.api.execution.workspace.WorkspaceDescriptor;
 import com.automationstudio.api.execution.workspace.WorkspaceId;
 import com.automationstudio.api.execution.workspace.WorkspaceMetadata;
@@ -205,6 +208,35 @@ class PlaywrightExecutionEngineTest {
         order.verify(session).close();
         order.verify(workspace).close();
         order.verify(clock).instant();
+    }
+
+    @Test
+    void adaptsRequestSecretAccessLazilyOnlyDuringScenarioExecution() {
+        ExecutionSecretAccess access = mock(ExecutionSecretAccess.class);
+        when(access.executionId()).thenReturn(request.executionId());
+        ResolvedSecret resolved = ResolvedSecret.from("controlled-canary".toCharArray());
+        when(access.resolve("login.password")).thenReturn(resolved);
+        EngineExecutionRequest secretRequest = new EngineExecutionRequest(
+                request.context(), request.preparation(), access);
+        clearInvocations(access);
+        when(runner.execute(any(), any(), any())).thenAnswer(invocation -> {
+            verify(access, never()).resolve(any());
+            PlaywrightActionExecutionContext context = invocation.getArgument(1);
+            try (ResolvedSecret secret = context.sensitiveFillValueResolver()
+                    .resolve("login.password")) {
+                assertThat(secret).isSameAs(resolved);
+            }
+            return new PlaywrightScenarioExecutionOutcome(
+                    PlaywrightScenarioExecutionOutcome.Status.SUCCEEDED,
+                    null,
+                    new PlaywrightRuntimeMetrics(
+                            3, 3, 0, Duration.ZERO, Duration.ofMillis(25)));
+        });
+
+        engine.execute(secretRequest);
+
+        verify(access).resolve("login.password");
+        assertThat(resolved.isClosed()).isTrue();
     }
 
     @Test

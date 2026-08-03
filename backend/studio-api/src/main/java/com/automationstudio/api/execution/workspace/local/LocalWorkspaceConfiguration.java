@@ -5,6 +5,7 @@ import com.automationstudio.api.execution.workspace.WorkspaceProvider;
 import com.automationstudio.api.execution.preparation.SourcePreparationService;
 import com.automationstudio.api.execution.preparation.SourcePreparationServiceImpl;
 import com.automationstudio.api.execution.engine.ExecutionEngineRegistry;
+import com.automationstudio.api.execution.secret.ExecutionSecretScopeFactory;
 import com.automationstudio.api.execution.orchestration.ExecutionOrchestrator;
 import com.automationstudio.api.execution.orchestration.ExecutionOrchestratorImpl;
 import com.automationstudio.api.execution.workspace.local.access.EngineWorkspaceAccessResolver;
@@ -68,8 +69,13 @@ public class LocalWorkspaceConfiguration {
             SourcePreparationService sourcePreparationService,
             ExecutionEngineRegistry engineRegistry,
             WorkspaceManager workspaceManager,
+            ExecutionSecretScopeFactory secretScopeFactory,
             Clock clock) {
         return new ExecutionOrchestratorImpl(
-                sourcePreparationService, engineRegistry, workspaceManager, clock);
+                sourcePreparationService,
+                engineRegistry,
+                workspaceManager,
+                secretScopeFactory,
+                clock);
     }
 }
