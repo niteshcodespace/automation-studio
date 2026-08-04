@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -14,6 +15,7 @@ import com.automationstudio.api.execution.ExecutionEnvironmentSnapshot;
 import com.automationstudio.api.execution.ExecutionMetadata;
 import com.automationstudio.api.execution.ExecutionRetryPolicy;
 import com.automationstudio.api.execution.ExecutionRunnerContext;
+import com.automationstudio.api.execution.ExecutionSecretReference;
 import com.automationstudio.api.execution.ExecutionSuiteSnapshot;
 import com.automationstudio.api.execution.engine.EngineExecutionRequest;
 import com.automationstudio.api.execution.engine.EngineExecutionResult;
@@ -28,6 +30,8 @@ import com.automationstudio.api.execution.preparation.SourcePreparationRequest;
 import com.automationstudio.api.execution.preparation.SourcePreparationResult;
 import com.automationstudio.api.execution.preparation.SourcePreparationService;
 import com.automationstudio.api.execution.preparation.SourcePreparationState;
+import com.automationstudio.api.execution.secret.ExecutionSecretScope;
+import com.automationstudio.api.execution.secret.ExecutionSecretScopeFactory;
 import com.automationstudio.api.execution.workspace.WorkspaceDescriptor;
 import com.automationstudio.api.execution.workspace.WorkspaceId;
 import com.automationstudio.api.execution.workspace.WorkspaceManager;
@@ -67,6 +71,8 @@ class ExecutionOrchestratorImplTest {
     private SourcePreparationService preparationService;
     private ExecutionEngineRegistry registry;
     private WorkspaceManager workspaceManager;
+    private ExecutionSecretScopeFactory secretScopeFactory;
+    private ExecutionSecretScope secretScope;
     private ExecutionEngine engine;
     private ExecutionOrchestrator orchestrator;
     private ExecutionOrchestrationRequest request;
@@ -78,10 +84,16 @@ class ExecutionOrchestratorImplTest {
         preparationService = mock(SourcePreparationService.class);
         registry = mock(ExecutionEngineRegistry.class);
         workspaceManager = mock(WorkspaceManager.class);
+        secretScopeFactory = mock(ExecutionSecretScopeFactory.class);
+        secretScope = mock(ExecutionSecretScope.class);
         engine = mock(ExecutionEngine.class);
-        orchestrator = new ExecutionOrchestratorImpl(
-                preparationService, registry, workspaceManager, CLOCK);
         request = request();
+        when(secretScopeFactory.create(
+                        request.executionId(), request.context().secretReferences()))
+                .thenReturn(secretScope);
+        when(secretScope.executionId()).thenReturn(request.executionId());
+        orchestrator = new ExecutionOrchestratorImpl(
+                preparationService, registry, workspaceManager, secretScopeFactory, CLOCK);
         preparation = preparation(request);
         ExecutionEngineDescriptor descriptor = new ExecutionEngineDescriptor(
                 "dummy", "1.0", "Dummy", Set.of(), Set.of());
@@ -100,11 +112,49 @@ class ExecutionOrchestratorImplTest {
 
         assertThat(result.engineResult()).isEqualTo(engineResult);
         assertThat(result.completedAt().toInstant()).isEqualTo(CLOCK.instant());
-        InOrder order = inOrder(preparationService, registry, engine, workspaceManager);
+        InOrder order = inOrder(
+                secretScopeFactory,
+                preparationService,
+                registry,
+                engine,
+                secretScope,
+                workspaceManager);
+        order.verify(secretScopeFactory).create(
+                request.executionId(), request.context().secretReferences());
         order.verify(preparationService).prepare(request.preparationRequest());
         order.verify(registry).resolve("dummy", "1.0");
-        order.verify(engine).execute(new EngineExecutionRequest(request.context(), preparation));
+        order.verify(engine).execute(new EngineExecutionRequest(
+                request.context(), preparation, secretScope));
+        order.verify(secretScope).close();
         order.verify(workspaceManager).release(preparation.workspace());
+    }
+
+    @Test
+    void admittedReferencesCreateUnresolvedScopePassedNarrowlyToEngine() {
+        ExecutionSecretReference reference = new ExecutionSecretReference(
+                "login.password",
+                Map.of("provider", "test-provider", "key", "opaque-reference"));
+        request = request(List.of(reference));
+        preparation = preparation(request);
+        when(secretScopeFactory.create(
+                        request.executionId(), request.context().secretReferences()))
+                .thenReturn(secretScope);
+        when(secretScope.executionId()).thenReturn(request.executionId());
+        when(preparationService.prepare(request.preparationRequest())).thenReturn(preparation);
+        when(engine.execute(any(EngineExecutionRequest.class)))
+                .thenReturn(result(EngineExecutionState.SUCCEEDED));
+        when(workspaceManager.release(preparation.workspace())).thenReturn(released());
+
+        orchestrator.execute(request);
+
+        org.mockito.ArgumentCaptor<EngineExecutionRequest> invocation =
+                org.mockito.ArgumentCaptor.forClass(EngineExecutionRequest.class);
+        verify(engine).execute(invocation.capture());
+        assertThat(invocation.getValue().secretAccess()).isSameAs(secretScope);
+        verify(secretScope, never()).resolve(any());
+        verify(secretScope).close();
+        assertThat(request.context().variables()).isEmpty();
+        assertThat(request.context().secretReferences()).containsExactly(reference);
     }
 
     @Test
@@ -119,6 +169,7 @@ class ExecutionOrchestratorImplTest {
         verify(registry, never()).resolve(any(), any());
         verify(engine, never()).execute(any(EngineExecutionRequest.class));
         verify(workspaceManager, never()).release(any());
+        verify(secretScope).close();
     }
 
     @Test
@@ -129,6 +180,7 @@ class ExecutionOrchestratorImplTest {
         assertFailure("ENGINE_NOT_FOUND", "Execution engine was not found");
         verify(workspaceManager).release(preparation.workspace());
         verify(engine, never()).execute(any(EngineExecutionRequest.class));
+        verify(secretScope).close();
     }
 
     @Test
@@ -140,6 +192,7 @@ class ExecutionOrchestratorImplTest {
                 .hasCause(cause)
                 .hasMessageNotContaining("private");
         verify(workspaceManager).release(preparation.workspace());
+        verify(secretScope).close();
     }
 
     @ParameterizedTest
@@ -149,6 +202,7 @@ class ExecutionOrchestratorImplTest {
 
         assertThat(orchestrator.execute(request).engineResult().state()).isEqualTo(state);
         verify(workspaceManager).release(preparation.workspace());
+        verify(secretScope).close();
     }
 
     @Test
@@ -266,6 +320,57 @@ class ExecutionOrchestratorImplTest {
                 });
     }
 
+    @Test
+    void secretScopeCreationFailureIsSanitizedBeforePreparation() {
+        when(secretScopeFactory.create(any(), any()))
+                .thenThrow(new IllegalStateException("provider-reference-canary"));
+
+        assertFailure(
+                "SECRET_SCOPE_CREATION_FAILED",
+                "Execution secret scope could not be created")
+                .hasNoCause()
+                .hasMessageNotContaining("canary");
+        verify(preparationService, never()).prepare(any());
+        verify(registry, never()).resolve(any(), any());
+    }
+
+    @Test
+    void secretScopeCleanupFailureIsSanitizedAndPrecedesEngineFailure() {
+        RuntimeException engineFailure = new IllegalStateException("engine detail");
+        doThrow(new IllegalStateException("secret-value-canary"))
+                .when(secretScope).close();
+        when(engine.execute(any(EngineExecutionRequest.class))).thenThrow(engineFailure);
+
+        assertFailure(
+                "SECRET_SCOPE_CLEANUP_FAILED",
+                "Execution secret scope cleanup failed")
+                .hasNoCause()
+                .hasMessageNotContaining("canary")
+                .satisfies(failure -> assertThat(failure.getSuppressed())
+                        .singleElement()
+                        .isInstanceOf(ExecutionOrchestrationException.class));
+        verify(workspaceManager).release(preparation.workspace());
+    }
+
+    @Test
+    void workspaceCleanupRetainsExistingFinalPrecedenceAfterScopeCleanup() {
+        RuntimeException workspaceFailure = new IllegalStateException("workspace detail");
+        doThrow(new IllegalStateException("secret cleanup detail"))
+                .when(secretScope).close();
+        when(engine.execute(any(EngineExecutionRequest.class)))
+                .thenReturn(result(EngineExecutionState.SUCCEEDED));
+        when(workspaceManager.release(preparation.workspace())).thenThrow(workspaceFailure);
+
+        assertFailure("WORKSPACE_CLEANUP_FAILED", "Workspace cleanup failed")
+                .hasCause(workspaceFailure)
+                .satisfies(failure -> assertThat(workspaceFailure.getSuppressed())
+                        .singleElement()
+                        .isInstanceOf(ExecutionOrchestrationException.class)
+                        .satisfies(suppressed -> assertThat(
+                                ((ExecutionOrchestrationException) suppressed).code())
+                                .isEqualTo("SECRET_SCOPE_CLEANUP_FAILED")));
+    }
+
     @ParameterizedTest
     @EnumSource(value = EngineExecutionState.class, names = {"SUCCEEDED", "FAILED"})
     void cleanupFailurePreventsReturningValidEngineResult(EngineExecutionState state) {
@@ -319,6 +424,12 @@ class ExecutionOrchestratorImplTest {
     void independentExecutionsShareNoMutableOrchestratorState() throws Exception {
         ExecutionOrchestrationRequest first = request();
         ExecutionOrchestrationRequest second = request();
+        when(secretScopeFactory.create(any(), any())).thenAnswer(invocation -> {
+            UUID executionId = invocation.getArgument(0);
+            ExecutionSecretScope isolated = mock(ExecutionSecretScope.class);
+            when(isolated.executionId()).thenReturn(executionId);
+            return isolated;
+        });
         when(preparationService.prepare(any())).thenAnswer(invocation -> {
             SourcePreparationRequest requested = invocation.getArgument(0);
             return preparation(new ExecutionOrchestrationRequest(
@@ -392,6 +503,11 @@ class ExecutionOrchestratorImplTest {
     }
 
     private ExecutionOrchestrationRequest request() {
+        return request(List.of());
+    }
+
+    private ExecutionOrchestrationRequest request(
+            List<ExecutionSecretReference> secretReferences) {
         UUID executionId = UUID.randomUUID();
         ExecutionSourceReference source = new ExecutionSourceReference(
                 SourceType.GIT_HTTPS,
@@ -403,7 +519,7 @@ class ExecutionOrchestratorImplTest {
                 executionId,
                 new WorkspaceProviderId("local"));
         return new ExecutionOrchestrationRequest(
-                context(executionId),
+                context(executionId, secretReferences),
                 new SourcePreparationRequest(planned, source));
     }
 
@@ -431,6 +547,12 @@ class ExecutionOrchestratorImplTest {
     }
 
     private ExecutionContext context(UUID executionId) {
+        return context(executionId, List.of());
+    }
+
+    private ExecutionContext context(
+            UUID executionId,
+            List<ExecutionSecretReference> secretReferences) {
         return new ExecutionContext(
                 executionId,
                 UUID.randomUUID(),
@@ -441,7 +563,7 @@ class ExecutionOrchestratorImplTest {
                 new ExecutionEnvironmentSnapshot(
                         UUID.randomUUID(), "QA", "TEST", "https://example.invalid",
                         Map.of(), Map.of()),
-                List.of(),
+                secretReferences,
                 Map.of(),
                 new ExecutionRunnerContext(
                         UUID.randomUUID(), "runner", "1", "windows", "amd64",

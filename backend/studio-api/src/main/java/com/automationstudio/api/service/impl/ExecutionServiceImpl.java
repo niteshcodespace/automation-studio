@@ -29,6 +29,7 @@ import com.automationstudio.api.service.command.CancelExecutionCommand;
 import jakarta.persistence.OptimisticLockException;
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -102,7 +103,7 @@ public class ExecutionServiceImpl implements ExecutionService {
                 command.selectionMode(), command.testCaseIds());
         List<AutomationTestCase> selectedCases =
                 loadAndValidateSelectedCases(projectId, suite, selection);
-        OffsetDateTime requestedAt = OffsetDateTime.now(clock);
+        OffsetDateTime requestedAt = OffsetDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
 
         Execution execution = new Execution();
         execution.setProject(project);

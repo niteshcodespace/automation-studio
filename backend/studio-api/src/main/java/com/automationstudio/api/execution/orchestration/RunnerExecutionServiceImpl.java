@@ -61,7 +61,8 @@ public class RunnerExecutionServiceImpl implements RunnerExecutionService {
                 ownership.lease().getVersion(),
                 started.getStartedAt(),
                 context,
-                engine.descriptor());
+                engine.descriptor(),
+                started.getSourceSnapshot());
     }
 
     @Override
@@ -84,10 +85,12 @@ public class RunnerExecutionServiceImpl implements RunnerExecutionService {
             RunnerExecutionRequest request, ExecutionStatus terminalStatus) {
         LockedOwnership ownership = lockAndValidate(request);
         stateValidator.validateCompletion(ownership.execution(), terminalStatus);
-        if (terminalStatus == ExecutionStatus.PASSED) {
-            ownership.execution().markPassed(ownership.databaseTime());
-        } else {
-            ownership.execution().markFailed(ownership.databaseTime());
+        switch (terminalStatus) {
+            case PASSED -> ownership.execution().markPassed(ownership.databaseTime());
+            case FAILED -> ownership.execution().markFailed(ownership.databaseTime());
+            case ERROR -> ownership.execution().markError(ownership.databaseTime());
+            default -> throw new RunnerExecutionException(
+                    "Execution terminal status must be PASSED, FAILED, or ERROR");
         }
         Execution completed = executionRepository.saveAndFlush(ownership.execution());
         return new ExecutionCompletionResult(

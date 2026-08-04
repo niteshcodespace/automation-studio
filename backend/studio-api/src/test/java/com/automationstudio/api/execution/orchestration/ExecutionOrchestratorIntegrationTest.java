@@ -2,6 +2,7 @@ package com.automationstudio.api.execution.orchestration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.automationstudio.api.domain.ExecutionStatus;
 import com.automationstudio.api.execution.ExecutionContext;
 import com.automationstudio.api.execution.ExecutionEnvironmentSnapshot;
 import com.automationstudio.api.execution.ExecutionMetadata;
@@ -15,6 +16,8 @@ import com.automationstudio.api.execution.engine.ExecutionEngine;
 import com.automationstudio.api.execution.engine.ExecutionEngineDescriptor;
 import com.automationstudio.api.execution.engine.ExecutionEngineRegistryImpl;
 import com.automationstudio.api.execution.preparation.SourcePreparationRequest;
+import com.automationstudio.api.execution.secret.ExecutionSecretProviderRegistry;
+import com.automationstudio.api.execution.secret.ExecutionSecretScopeFactory;
 import com.automationstudio.api.execution.preparation.SourcePreparationServiceImpl;
 import com.automationstudio.api.execution.workspace.WorkspaceDescriptor;
 import com.automationstudio.api.execution.workspace.WorkspaceId;
@@ -24,6 +27,8 @@ import com.automationstudio.api.execution.workspace.local.WorkspaceRootPropertie
 import com.automationstudio.api.source.ExecutionSourceReference;
 import com.automationstudio.api.source.SourceConfigurationValidator;
 import com.automationstudio.api.source.SourceType;
+import com.automationstudio.api.source.materialization.SourceMaterializationResult;
+import com.automationstudio.api.source.materialization.SourceMaterializationState;
 import com.automationstudio.api.source.materialization.git.GitMaterializationProperties;
 import com.automationstudio.api.source.materialization.git.GitSourceMaterializer;
 import java.nio.charset.StandardCharsets;
@@ -79,6 +84,8 @@ class ExecutionOrchestratorIntegrationTest {
                 preparationService,
                 new ExecutionEngineRegistryImpl(List.of(engine)),
                 manager,
+                new ExecutionSecretScopeFactory(
+                        new ExecutionSecretProviderRegistry(List.of())),
                 CLOCK);
         UUID executionId = UUID.randomUUID();
         WorkspaceDescriptor planned = WorkspaceDescriptor.planned(
@@ -102,6 +109,67 @@ class ExecutionOrchestratorIntegrationTest {
         assertThat(result.completedAt().toInstant()).isEqualTo(CLOCK.instant());
         assertThat(workspaceRoot.resolve(planned.workspaceId().value().toString()))
                 .doesNotExist();
+    }
+
+    @Test
+    void controlledCoordinatorUsesAdmittedRevisionAndPersistsNormalizedOutcome() throws Exception {
+        String admittedRevision = "0123456789abcdef0123456789abcdef01234567";
+        Path workspaceRoot = temporaryDirectory.resolve("controlled-workspaces");
+        LocalWorkspaceProvider provider = new LocalWorkspaceProvider(
+                new WorkspaceRootProperties(workspaceRoot.toString()), CLOCK);
+        WorkspaceManager manager = new WorkspaceManager(provider);
+        SourcePreparationServiceImpl preparationService = new SourcePreparationServiceImpl(
+                manager,
+                request -> {
+                    Path sourceDirectory = workspaceRoot
+                            .resolve(request.workspaceId().value().toString())
+                            .resolve("source");
+                    try {
+                        Files.writeString(sourceDirectory.resolve("scenario.json"), "{}");
+                    } catch (java.io.IOException failure) {
+                        throw new IllegalStateException(failure);
+                    }
+                    return new SourceMaterializationResult(
+                            request.workspaceId(),
+                            request.sourceReference().sourceType(),
+                            request.sourceReference().revision(),
+                            SourceMaterializationState.MATERIALIZED,
+                            CLOCK.instant().atOffset(ZoneOffset.UTC));
+                },
+                CLOCK);
+        AtomicBoolean invoked = new AtomicBoolean();
+        ExecutionOrchestrator orchestrator = new ExecutionOrchestratorImpl(
+                preparationService,
+                new ExecutionEngineRegistryImpl(List.of(dummyEngine(admittedRevision, invoked))),
+                manager,
+                new ExecutionSecretScopeFactory(
+                        new ExecutionSecretProviderRegistry(List.of())),
+                CLOCK);
+        UUID executionId = UUID.randomUUID();
+        ExecutionContext executionContext = context(executionId);
+        ExecutionSourceReference admittedSource = new ExecutionSourceReference(
+                SourceType.GIT_HTTPS,
+                "https://example.test/controlled.git",
+                admittedRevision,
+                null);
+        Map<String, Object> admittedSnapshot = admittedSource.toSnapshot();
+        RecordingRunnerExecutionService lifecycle = new RecordingRunnerExecutionService(
+                executionContext, admittedSnapshot);
+        RunnerPipelineCoordinator coordinator = new RunnerPipelineCoordinatorImpl(
+                lifecycle,
+                orchestrator,
+                new AdmittedSourceSnapshotMapper(new SourceConfigurationValidator()),
+                LocalWorkspaceProvider.PROVIDER_ID);
+        RunnerExecutionRequest request = new RunnerExecutionRequest(
+                executionId, "controlled-runner", UUID.randomUUID(), 1, 2, 3);
+
+        RunnerPipelineResult result = coordinator.execute(request);
+
+        assertThat(invoked).isTrue();
+        assertThat(result.completion().status()).isEqualTo(ExecutionStatus.PASSED);
+        assertThat(lifecycle.terminalStatus).isEqualTo(ExecutionStatus.PASSED);
+        assertThat(lifecycle.completionRequest.expectedExecutionVersion()).isEqualTo(4);
+        assertThat(workspaceRoot.resolve(executionId.toString())).doesNotExist();
     }
 
     private ExecutionEngine dummyEngine(String revision, AtomicBoolean invoked) {
@@ -201,6 +269,50 @@ class ExecutionOrchestratorIntegrationTest {
         Process process = new ProcessBuilder("git", "--version").start();
         if (!process.waitFor(5, TimeUnit.SECONDS) || process.exitValue() != 0) {
             Assumptions.abort("Git executable is unavailable");
+        }
+    }
+
+    private static final class RecordingRunnerExecutionService
+            implements RunnerExecutionService {
+
+        private final ExecutionContext context;
+        private final Map<String, Object> sourceSnapshot;
+        private RunnerExecutionRequest completionRequest;
+        private ExecutionStatus terminalStatus;
+
+        private RecordingRunnerExecutionService(
+                ExecutionContext context, Map<String, Object> sourceSnapshot) {
+            this.context = context;
+            this.sourceSnapshot = sourceSnapshot;
+        }
+
+        @Override
+        public ExecutionStartResult start(RunnerExecutionRequest request) {
+            return new ExecutionStartResult(
+                    request.executionId(),
+                    ExecutionStatus.RUNNING,
+                    4,
+                    1,
+                    3,
+                    ENGINE_START,
+                    context,
+                    new ExecutionEngineDescriptor(
+                            "dummy", "1.0", "Dummy Test Engine", Set.of(), Set.of()),
+                    sourceSnapshot);
+        }
+
+        @Override
+        public ExecutionCompletionResult prepareCompletion(RunnerExecutionRequest request) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ExecutionCompletionResult complete(
+                RunnerExecutionRequest request, ExecutionStatus status) {
+            completionRequest = request;
+            terminalStatus = status;
+            return new ExecutionCompletionResult(
+                    request.executionId(), status, 5, 1, 4, CLOCK.instant().atOffset(ZoneOffset.UTC));
         }
     }
 }

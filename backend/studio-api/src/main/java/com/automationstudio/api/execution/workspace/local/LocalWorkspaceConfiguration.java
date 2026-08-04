@@ -5,8 +5,13 @@ import com.automationstudio.api.execution.workspace.WorkspaceProvider;
 import com.automationstudio.api.execution.preparation.SourcePreparationService;
 import com.automationstudio.api.execution.preparation.SourcePreparationServiceImpl;
 import com.automationstudio.api.execution.engine.ExecutionEngineRegistry;
+import com.automationstudio.api.execution.orchestration.AdmittedSourceSnapshotMapper;
 import com.automationstudio.api.execution.orchestration.ExecutionOrchestrator;
 import com.automationstudio.api.execution.orchestration.ExecutionOrchestratorImpl;
+import com.automationstudio.api.execution.orchestration.RunnerPipelineCoordinator;
+import com.automationstudio.api.execution.orchestration.RunnerPipelineCoordinatorImpl;
+import com.automationstudio.api.execution.orchestration.RunnerExecutionService;
+import com.automationstudio.api.execution.secret.ExecutionSecretScopeFactory;
 import com.automationstudio.api.execution.workspace.local.access.EngineWorkspaceAccessResolver;
 import com.automationstudio.api.execution.workspace.local.access.LocalEngineWorkspaceAccessResolver;
 import com.automationstudio.api.source.SourceConfigurationValidator;
@@ -14,6 +19,7 @@ import com.automationstudio.api.source.materialization.SourceMaterializer;
 import com.automationstudio.api.source.materialization.git.GitMaterializationProperties;
 import com.automationstudio.api.source.materialization.git.GitSourceMaterializer;
 import java.time.Clock;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -68,8 +74,26 @@ public class LocalWorkspaceConfiguration {
             SourcePreparationService sourcePreparationService,
             ExecutionEngineRegistry engineRegistry,
             WorkspaceManager workspaceManager,
+            ExecutionSecretScopeFactory secretScopeFactory,
             Clock clock) {
         return new ExecutionOrchestratorImpl(
-                sourcePreparationService, engineRegistry, workspaceManager, clock);
+                sourcePreparationService,
+                engineRegistry,
+                workspaceManager,
+                secretScopeFactory,
+                clock);
+    }
+
+    @Bean
+    @ConditionalOnBean({RunnerExecutionService.class, ExecutionOrchestrator.class})
+    RunnerPipelineCoordinator runnerPipelineCoordinator(
+            RunnerExecutionService runnerExecutionService,
+            ExecutionOrchestrator executionOrchestrator,
+            WorkspaceProvider workspaceProvider) {
+        return new RunnerPipelineCoordinatorImpl(
+                runnerExecutionService,
+                executionOrchestrator,
+                new AdmittedSourceSnapshotMapper(new SourceConfigurationValidator()),
+                workspaceProvider.providerId());
     }
 }

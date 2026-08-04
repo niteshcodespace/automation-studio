@@ -6,12 +6,16 @@ import com.automationstudio.api.execution.engine.ExecutionEngineRegistry;
 import com.automationstudio.api.execution.evidence.ExecutionEvidenceCollector;
 import com.automationstudio.api.execution.evidence.ExecutionEvidenceException;
 import com.automationstudio.api.execution.orchestration.ExecutionStartResult;
+import com.automationstudio.api.execution.orchestration.RunnerPipelineCoordinator;
+import com.automationstudio.api.execution.orchestration.RunnerPipelineResult;
 import com.automationstudio.api.execution.orchestration.RunnerExecutionRequest;
 import com.automationstudio.api.execution.orchestration.RunnerExecutionService;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.Map;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -23,6 +27,25 @@ public class ExecutionLifecycleServiceImpl implements ExecutionLifecycleService 
     private final ExecutionLifecycleValidator lifecycleValidator;
     private final ExecutionEvidenceCollector evidenceCollector;
     private final Clock clock;
+    private final RunnerPipelineCoordinator pipelineCoordinator;
+
+    @Autowired
+    public ExecutionLifecycleServiceImpl(
+            RunnerExecutionService runnerExecutionService,
+            ExecutionEngineRegistry engineRegistry,
+            ExecutionEngineInvoker engineInvoker,
+            ExecutionLifecycleValidator lifecycleValidator,
+            ExecutionEvidenceCollector evidenceCollector,
+            Clock clock,
+            ObjectProvider<RunnerPipelineCoordinator> pipelineCoordinator) {
+        this.runnerExecutionService = runnerExecutionService;
+        this.engineRegistry = engineRegistry;
+        this.engineInvoker = engineInvoker;
+        this.lifecycleValidator = lifecycleValidator;
+        this.evidenceCollector = evidenceCollector;
+        this.clock = clock;
+        this.pipelineCoordinator = pipelineCoordinator.getIfAvailable();
+    }
 
     public ExecutionLifecycleServiceImpl(
             RunnerExecutionService runnerExecutionService,
@@ -37,10 +60,14 @@ public class ExecutionLifecycleServiceImpl implements ExecutionLifecycleService 
         this.lifecycleValidator = lifecycleValidator;
         this.evidenceCollector = evidenceCollector;
         this.clock = clock;
+        this.pipelineCoordinator = null;
     }
 
     @Override
     public ExecutionResult execute(RunnerExecutionRequest request) {
+        if (pipelineCoordinator != null) {
+            return controlledResult(pipelineCoordinator.execute(request));
+        }
         ExecutionStartResult start = runnerExecutionService.start(request);
         ExecutionContext context = start.context();
         ExecutionEngine engine = engineRegistry
@@ -71,6 +98,25 @@ public class ExecutionLifecycleServiceImpl implements ExecutionLifecycleService 
                         : com.automationstudio.api.domain.ExecutionStatus.FAILED;
         runnerExecutionService.complete(completionRequest, terminalStatus);
         return result;
+    }
+
+    private static ExecutionResult controlledResult(RunnerPipelineResult pipeline) {
+        var completion = pipeline.completion();
+        OffsetDateTime finishedAt = completion.preparedAt();
+        Duration duration = Duration.between(pipeline.startedAt(), finishedAt);
+        boolean passed = completion.status()
+                == com.automationstudio.api.domain.ExecutionStatus.PASSED;
+        return new ExecutionResult(
+                completion.executionId(),
+                pipeline.context().runner().runnerId(),
+                passed ? ExecutionStatus.SUCCEEDED : ExecutionStatus.FAILED,
+                pipeline.startedAt(),
+                finishedAt,
+                duration,
+                passed ? ExecutionTerminationReason.COMPLETED
+                        : ExecutionTerminationReason.ENGINE_FAILURE,
+                passed ? ExecutionFailureReason.NONE : ExecutionFailureReason.ENGINE_EXCEPTION,
+                Map.of());
     }
 
     private ExecutionResult failedResult(

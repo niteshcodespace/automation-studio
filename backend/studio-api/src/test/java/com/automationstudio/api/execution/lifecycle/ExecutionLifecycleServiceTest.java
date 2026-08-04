@@ -19,7 +19,10 @@ import com.automationstudio.api.execution.evidence.ExecutionEvidenceValidator;
 import com.automationstudio.api.execution.evidence.ExecutionEvidence;
 import com.automationstudio.api.execution.evidence.ExecutionEvidenceSummary;
 import com.automationstudio.api.execution.orchestration.ExecutionOwnershipException;
+import com.automationstudio.api.execution.orchestration.ExecutionCompletionResult;
 import com.automationstudio.api.execution.orchestration.ExecutionStartResult;
+import com.automationstudio.api.execution.orchestration.RunnerPipelineCoordinator;
+import com.automationstudio.api.execution.orchestration.RunnerPipelineResult;
 import com.automationstudio.api.execution.orchestration.RunnerExecutionRequest;
 import com.automationstudio.api.execution.orchestration.RunnerExecutionService;
 import java.time.Clock;
@@ -33,6 +36,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 
 class ExecutionLifecycleServiceTest {
 
@@ -85,6 +89,38 @@ class ExecutionLifecycleServiceTest {
         verify(runnerService).complete(
                 eq(completionRequest()),
                 eq(com.automationstudio.api.domain.ExecutionStatus.PASSED));
+    }
+
+    @Test
+    void delegatesEstablishedContractToControlledCoordinatorWhenAvailable() {
+        RunnerPipelineCoordinator coordinator = mock(RunnerPipelineCoordinator.class);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<RunnerPipelineCoordinator> provider = mock(ObjectProvider.class);
+        when(provider.getIfAvailable()).thenReturn(coordinator);
+        when(coordinator.execute(request)).thenReturn(new RunnerPipelineResult(
+                new ExecutionCompletionResult(
+                        executionId,
+                        com.automationstudio.api.domain.ExecutionStatus.PASSED,
+                        8, 2, 5, FINISHED_AT),
+                context,
+                STARTED_AT));
+        service = new ExecutionLifecycleServiceImpl(
+                runnerService,
+                registry,
+                new ExecutionEngineInvoker(),
+                new ExecutionLifecycleValidator(),
+                new ExecutionEvidenceCollectorImpl(new ExecutionEvidenceValidator()),
+                Clock.systemUTC(),
+                provider);
+
+        ExecutionResult result = service.execute(request);
+
+        assertThat(result.status()).isEqualTo(ExecutionStatus.SUCCEEDED);
+        assertThat(result.startedAt()).isEqualTo(STARTED_AT);
+        assertThat(result.finishedAt()).isEqualTo(FINISHED_AT);
+        verify(coordinator).execute(request);
+        verify(runnerService, never()).start(request);
+        verify(registry, never()).resolve("fake", "1");
     }
 
     @Test

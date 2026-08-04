@@ -8,6 +8,8 @@ import com.automationstudio.api.execution.engine.ExecutionEngineSupport;
 import com.automationstudio.api.execution.preparation.SourcePreparationResult;
 import com.automationstudio.api.execution.preparation.SourcePreparationService;
 import com.automationstudio.api.execution.preparation.SourcePreparationState;
+import com.automationstudio.api.execution.secret.ExecutionSecretScope;
+import com.automationstudio.api.execution.secret.ExecutionSecretScopeFactory;
 import com.automationstudio.api.execution.workspace.WorkspaceDescriptor;
 import com.automationstudio.api.execution.workspace.WorkspaceManager;
 import com.automationstudio.api.execution.workspace.WorkspaceState;
@@ -21,12 +23,14 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
     private final SourcePreparationService preparationService;
     private final ExecutionEngineRegistry engineRegistry;
     private final WorkspaceManager workspaceManager;
+    private final ExecutionSecretScopeFactory secretScopeFactory;
     private final Clock clock;
 
     public ExecutionOrchestratorImpl(
             SourcePreparationService preparationService,
             ExecutionEngineRegistry engineRegistry,
             WorkspaceManager workspaceManager,
+            ExecutionSecretScopeFactory secretScopeFactory,
             Clock clock) {
         this.preparationService = Objects.requireNonNull(
                 preparationService, "Source preparation service must not be null");
@@ -34,6 +38,8 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
                 engineRegistry, "Execution engine registry must not be null");
         this.workspaceManager = Objects.requireNonNull(
                 workspaceManager, "Workspace manager must not be null");
+        this.secretScopeFactory = Objects.requireNonNull(
+                secretScopeFactory, "Execution secret scope factory must not be null");
         this.clock = Objects.requireNonNull(clock, "Clock must not be null");
     }
 
@@ -44,20 +50,27 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
                     "INVALID_EXECUTION_REQUEST", "Execution request must not be null");
         }
 
+        ExecutionSecretScope secretScope = createSecretScope(request);
         SourcePreparationResult preparation;
         try {
             preparation = preparationService.prepare(request.preparationRequest());
         } catch (RuntimeException failure) {
-            throw failure(
-                    "SOURCE_PREPARATION_FAILED",
-                    "Source preparation failed",
-                    failure);
+            throw cleanup(
+                    secretScope,
+                    null,
+                    failure(
+                            "SOURCE_PREPARATION_FAILED",
+                            "Source preparation failed",
+                            failure));
         }
 
         ExecutionOrchestrationException preparationViolation =
                 validatePreparation(request, preparation);
         if (preparationViolation != null) {
-            throw cleanup(trustedWorkspace(request, preparation), preparationViolation);
+            throw cleanup(
+                    secretScope,
+                    trustedWorkspace(request, preparation),
+                    preparationViolation);
         }
 
         ExecutionEngineSupport support;
@@ -65,6 +78,7 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
             support = engineRegistry.resolve(request.engineName(), request.engineVersion());
         } catch (RuntimeException failure) {
             throw cleanup(
+                    secretScope,
                     preparation.workspace(),
                     failure("ENGINE_NOT_FOUND", "Execution engine was not found", failure));
         }
@@ -73,16 +87,18 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
                 || support.descriptor() == null
                 || !request.engineName().equals(support.descriptor().engineName())
                 || !request.engineVersion().equals(support.descriptor().engineVersion())) {
-            throw cleanup(preparation.workspace(), engineInvariant());
+            throw cleanup(secretScope, preparation.workspace(), engineInvariant());
         }
 
         EngineExecutionResult engineResult;
         try {
             ExecutionEngine engine = support.engine();
             engineResult = engine.execute(
-                    new EngineExecutionRequest(request.context(), preparation));
+                    new EngineExecutionRequest(
+                            request.context(), preparation, secretScope));
         } catch (RuntimeException failure) {
             throw cleanup(
+                    secretScope,
                     preparation.workspace(),
                     failure(
                             "ENGINE_EXECUTION_FAILED",
@@ -93,11 +109,11 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
         ExecutionOrchestrationException resultViolation =
                 validateEngineResult(request, preparation, support, engineResult);
         if (resultViolation != null) {
-            throw cleanup(preparation.workspace(), resultViolation);
+            throw cleanup(secretScope, preparation.workspace(), resultViolation);
         }
 
-        ExecutionOrchestrationException cleanupFailure =
-                release(preparation.workspace(), null);
+        ExecutionOrchestrationException cleanupFailure = cleanup(
+                secretScope, preparation.workspace(), null);
         if (cleanupFailure != null) {
             throw cleanupFailure;
         }
@@ -168,11 +184,53 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
                 : null;
     }
 
+    private ExecutionSecretScope createSecretScope(
+            ExecutionOrchestrationRequest request) {
+        try {
+            ExecutionSecretScope scope = secretScopeFactory.create(
+                    request.executionId(), request.context().secretReferences());
+            if (scope == null || !request.executionId().equals(scope.executionId())) {
+                if (scope != null) {
+                    scope.close();
+                }
+                throw new IllegalStateException("Secret scope factory returned invalid scope");
+            }
+            return scope;
+        } catch (RuntimeException failure) {
+            throw failure(
+                    "SECRET_SCOPE_CREATION_FAILED",
+                    "Execution secret scope could not be created",
+                    null);
+        }
+    }
+
     private ExecutionOrchestrationException cleanup(
+            ExecutionSecretScope secretScope,
             WorkspaceDescriptor workspace,
             ExecutionOrchestrationException original) {
-        ExecutionOrchestrationException cleanupFailure = release(workspace, original);
-        return cleanupFailure == null ? original : cleanupFailure;
+        ExecutionOrchestrationException afterSecretScope =
+                closeSecretScope(secretScope, original);
+        ExecutionOrchestrationException workspaceFailure =
+                release(workspace, afterSecretScope);
+        return workspaceFailure == null ? afterSecretScope : workspaceFailure;
+    }
+
+    private ExecutionOrchestrationException closeSecretScope(
+            ExecutionSecretScope secretScope,
+            ExecutionOrchestrationException original) {
+        try {
+            secretScope.close();
+            return original;
+        } catch (RuntimeException cleanupFailure) {
+            ExecutionOrchestrationException sanitized = failure(
+                    "SECRET_SCOPE_CLEANUP_FAILED",
+                    "Execution secret scope cleanup failed",
+                    null);
+            if (original != null) {
+                sanitized.addSuppressed(original);
+            }
+            return sanitized;
+        }
     }
 
     private ExecutionOrchestrationException release(

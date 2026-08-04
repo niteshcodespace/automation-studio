@@ -17,11 +17,26 @@ public class ExecutionStateValidator {
 
     public void validateCompletion(
             Execution execution, ExecutionStatus terminalStatus) {
+        if (terminalStatus == ExecutionStatus.ERROR) {
+            validateErrorCompletion(execution);
+            return;
+        }
         validate(execution, ExecutionStatus.RUNNING, "complete");
-        if (terminalStatus != ExecutionStatus.PASSED
-                && terminalStatus != ExecutionStatus.FAILED) {
+        if (terminalStatus != ExecutionStatus.PASSED && terminalStatus != ExecutionStatus.FAILED) {
             throw new RunnerExecutionException(
-                    "Execution terminal status must be PASSED or FAILED");
+                    "Execution terminal status must be PASSED, FAILED, or ERROR");
+        }
+    }
+
+    private static void validateErrorCompletion(Execution execution) {
+        if (execution == null) {
+            throw new RunnerExecutionException("Execution must not be null");
+        }
+        if (execution.getStatus() != ExecutionStatus.CLAIMED
+                && execution.getStatus() != ExecutionStatus.RUNNING
+                && execution.getStatus() != ExecutionStatus.CANCEL_REQUESTED) {
+            throw new RunnerExecutionException(
+                    "Execution must be CLAIMED, RUNNING, or CANCEL_REQUESTED to complete as ERROR");
         }
     }
 

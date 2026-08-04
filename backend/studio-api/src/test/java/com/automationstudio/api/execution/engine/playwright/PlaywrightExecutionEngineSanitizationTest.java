@@ -396,6 +396,8 @@ class PlaywrightExecutionEngineSanitizationTest {
                 1, 1, 0, Duration.ofMillis(50), Duration.ofMillis(25));
         when(configurationParser.parse(any())).thenReturn(configuration);
         when(workspaceResolver.open(any())).thenReturn(workspaceAccess);
+        when(workspaceAccess.workspaceId())
+                .thenReturn(request.preparation().workspace().workspaceId());
         when(manifestLoader.load(any(), eq(workspaceAccess))).thenReturn(manifest);
         when(runtime.open(configuration)).thenReturn(session);
         when(session.result()).thenReturn(new PlaywrightRuntimeResult(startup));
@@ -436,7 +438,7 @@ class PlaywrightExecutionEngineSanitizationTest {
         ExecutionContext context = new ExecutionContext(
                 executionId,
                 UUID.randomUUID(),
-                workspaceUuid,
+                UUID.randomUUID(),
                 new ExecutionSuiteSnapshot(
                         UUID.randomUUID(),
                         "Suite",

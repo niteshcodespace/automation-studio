@@ -5,8 +5,11 @@ import com.automationstudio.api.execution.engine.playwright.configuration.Playwr
 import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.BrowserType;
+import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
+import com.microsoft.playwright.TimeoutError;
+import com.microsoft.playwright.options.WaitForSelectorState;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -79,7 +82,7 @@ final class ChromiumPlaywrightSdk implements PlaywrightSdk {
         }
     }
 
-    private record PageHandle(Page delegate) implements SdkPage {
+    record PageHandle(Page delegate) implements SdkPage {
 
         @Override
         public void navigate(String uri, Duration timeout) {
@@ -98,8 +101,14 @@ final class ChromiumPlaywrightSdk implements PlaywrightSdk {
 
         @Override
         public boolean isVisible(String selector, Duration timeout) {
-            return delegate.isVisible(
-                    selector, new Page.IsVisibleOptions().setTimeout(timeout.toMillis()));
+            try {
+                delegate.locator(selector).waitFor(new Locator.WaitForOptions()
+                        .setState(WaitForSelectorState.VISIBLE)
+                        .setTimeout(timeout.toMillis()));
+                return true;
+            } catch (TimeoutError timeoutFailure) {
+                return false;
+            }
         }
 
         @Override
