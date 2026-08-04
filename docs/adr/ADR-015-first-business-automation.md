@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted - AS-025A through AS-025F completed, reviewed, approved, and committed
+Accepted - AS-025A through AS-025G completed and reviewed; AS-025H is next
 
 ```text
 AS-025A - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (09bc9d12208c3a6c0092ef524b7b7803faf7153d)
@@ -11,8 +11,8 @@ AS-025C - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (9f7765a9ab7afb47d18ce221
 AS-025D - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (05d0229d870ca2cec2bf63605cf4fc10d7b5a058)
 AS-025E - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (65b9f5ea2a7118751c4fdcb89166b7e08fc30d05)
 AS-025F - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (654bdcc025ff738738f9346a2896adab59103650)
-AS-025G - NEXT ACTIVE PHASE, NOT STARTED
-AS-025H - BLOCKED BY AS-025G
+AS-025G - COMPLETED, REVIEWED, AND QUALIFIED
+AS-025H - NEXT ACTIVE PHASE, NOT STARTED
 ```
 
 ## Context
@@ -237,12 +237,21 @@ OrangeHRM-specific content is limited to:
 - the admitted environment base URL;
 - the schema `"2.0"` scenario manifest and CSS selectors in source;
 - logical references for username and password;
-- dedicated least-privilege target test data; and
+- operator-injected credentials for the approved public demo, without repository persistence; and
 - opt-in operator validation instructions.
 
 No OrangeHRM package, execution engine, scheduler, queue, endpoint, entity, migration, or special
 result is introduced. Ordinary Maven verification uses controlled fakes and loopback resources and
 does not contact OrangeHRM or resolve operator credentials.
+
+For AS-025G only, the approved non-production target is exactly
+`https://opensource-demo.orangehrmlive.com`. This portfolio/learning exception authorizes only the
+existing read-only login-and-dashboard smoke scenario, manually and explicitly opted in. It does
+not authorize CI, recurring execution, retries, scanning, probing, or any creation, modification,
+or deletion of employee, account, role, configuration, password, or business data. External demo
+availability, rate limiting, resets, and changes remain environmental risks rather than platform
+defects. Secret isolation, lazy resolution, sanitized evidence, no-download behavior, and cleanup
+ownership are unchanged.
 
 ## Alternatives Considered
 

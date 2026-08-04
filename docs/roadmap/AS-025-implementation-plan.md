@@ -9,12 +9,11 @@ AS-025C - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (9f7765a9ab7afb47d18ce221
 AS-025D - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (05d0229d870ca2cec2bf63605cf4fc10d7b5a058)
 AS-025E - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (65b9f5ea2a7118751c4fdcb89166b7e08fc30d05)
 AS-025F - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (654bdcc025ff738738f9346a2896adab59103650)
-AS-025G - NEXT ACTIVE PHASE, NOT STARTED
-AS-025H - BLOCKED BY AS-025G
+AS-025G - COMPLETED, REVIEWED, AND QUALIFIED
+AS-025H - NEXT ACTIVE PHASE, NOT STARTED
 ```
 
-AS-025A through AS-025F gates are cleared. No later phase may begin while its immediate predecessor
-is blocked.
+AS-025A through AS-025G gates are cleared. AS-025H is next but has not started.
 
 ## Delivery Strategy
 
@@ -334,8 +333,8 @@ the next active phase but does not start it; AS-025H remains blocked by AS-025G.
 
 - run the admitted schema `"2.0"` scenario through the complete pipeline;
 - use an explicitly configured, operator-provisioned Chromium executable;
-- use an explicitly enabled provider and operator-injected dedicated OrangeHRM credentials;
-- target only an approved non-production OrangeHRM tenant;
+- use an explicitly enabled provider and operator-injected public-demo credentials;
+- target only the approved canonical official OrangeHRM public-demo origin;
 - record runner OS/architecture, Java version, Playwright version, browser product/build/source,
   target classification, manifest revision, and sanitized result counts; and
 - verify cleanup and absence of secret-bearing evidence.
@@ -346,10 +345,60 @@ Real-target validation is manual/opt-in and requires target-owner authorization.
 provider enablement, target configuration, or credentials skips or blocks the opt-in test with a
 sanitized reason; it never falls back or downloads dependencies at runtime.
 
+The repository entry point is the `real-browser`-tagged
+`SourceAdmissionIntegrationTest#optInOrangeHrmQualificationUsesTheAuthoritativeControlledPipeline`.
+It is inert unless every prerequisite below is supplied explicitly:
+
+```powershell
+$env:AUTOMATION_SECRET_ORANGEHRM_USERNAME = '<operator-injected value>'
+$env:AUTOMATION_SECRET_ORANGEHRM_PASSWORD = '<operator-injected value>'
+mvn -o `
+  '-Dtest=SourceAdmissionIntegrationTest#optInOrangeHrmQualificationUsesTheAuthoritativeControlledPipeline' `
+  -Dautomation.as025g.enabled=true `
+  -Dautomation.runner.playwright.executable-path='<absolute operator Chromium path>' `
+  -Dautomation.runner.secrets.operator-environment.enabled=true `
+  -Dautomation.as025g.target-url='https://opensource-demo.orangehrmlive.com' `
+  -Dautomation.as025g.target-classification=NON_PRODUCTION `
+  -Dautomation.as025g.browser-product=Chromium `
+  -Dautomation.as025g.browser-build='<operator-qualified build>' test
+```
+
+For this portfolio and learning qualification only, the exact approved target is the canonical,
+pathless origin `https://opensource-demo.orangehrmlive.com`. Publicly displayed demo credentials
+may be operator-injected but never committed, documented as values, passed in Maven arguments, or
+emitted. Authorization is limited to one manual, bounded execution of the existing non-destructive
+login-and-dashboard smoke scenario. CI, recurring execution, retries, aggressive repetition, and
+all employee/account/role/configuration/password/business-data mutation are prohibited. Demo
+unavailability, rate limiting, reset, or change is recorded as external instability, separately
+from platform defects. All other domains and every production or non-canonical target remain
+rejected. The test admits and schedules the committed source revision, claims it,
+enters through `RunnerPipelineCoordinator`, uses the existing orchestrator, Playwright engine,
+lazy environment-provider secret scope, fenced completion, and established cleanup owners. It
+prints only the bounded qualification evidence fields approved for AS-025G.
+
 ### Exit gate
 
 The configured execution passes, ordinary verification remains unaffected, environment evidence is
 recorded without secrets, and an independent review approves the runtime result.
+
+Exit gate satisfied. The manual qualification completed with terminal `PASSED` through admission,
+scheduling and atomic claim, fenced start, `RunnerPipelineCoordinator`, provider-neutral
+`ExecutionOrchestrator`, the admitted schema `"2.0"` manifest, the Playwright engine, fenced
+terminal persistence, and established cleanup ownership. Reviewed sanitized evidence:
+
+- runner: Windows 11, amd64, Java 21.0.5;
+- Playwright: 1.61.0;
+- browser: Google Chrome 150.0.7871.126, operator-provisioned with download fallback disabled;
+- target classification: `NON_PRODUCTION`;
+- manifest revision: `65b9f5ea2a7118751c4fdcb89166b7e08fc30d05`;
+- normalized results: 1 passed, 0 failed, 0 errors; and
+- cleanup: browser/session, resolved-secret handles, secret scope, workspace access, and physical
+  workspace completed without a stale terminal write.
+
+Evidence review confirmed that only the two approved logical secret references were admitted and
+that no credential value entered snapshots, `ExecutionContext`, variables, persistence, results,
+logs, reports, evidence, or diagnostics. AS-025G is complete; AS-025H is the next active phase and
+has not started.
 
 ## AS-025H - Production Readiness and Final Documentation
 

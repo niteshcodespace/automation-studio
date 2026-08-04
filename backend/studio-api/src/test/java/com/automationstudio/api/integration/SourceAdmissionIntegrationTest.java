@@ -29,6 +29,24 @@ import com.automationstudio.api.execution.engine.EngineExecutionState;
 import com.automationstudio.api.execution.engine.ExecutionEngine;
 import com.automationstudio.api.execution.engine.ExecutionEngineDescriptor;
 import com.automationstudio.api.execution.engine.ExecutionEngineRegistryImpl;
+import com.automationstudio.api.execution.business.OrangeHrmQualificationEvidence;
+import com.automationstudio.api.execution.business.OrangeHrmQualificationDiagnosticProbe;
+import com.automationstudio.api.execution.business.OrangeHrmQualificationExecutionEngine;
+import com.automationstudio.api.execution.business.OrangeHrmQualificationPrerequisites;
+import com.automationstudio.api.execution.engine.playwright.PlaywrightExecutionEngine;
+import com.automationstudio.api.execution.engine.playwright.action.AssertTextActionExecutor;
+import com.automationstudio.api.execution.engine.playwright.action.AssertUrlActionExecutor;
+import com.automationstudio.api.execution.engine.playwright.action.AssertVisibleActionExecutor;
+import com.automationstudio.api.execution.engine.playwright.action.ClickActionExecutor;
+import com.automationstudio.api.execution.engine.playwright.action.CssSelectorResolver;
+import com.automationstudio.api.execution.engine.playwright.action.FillActionExecutor;
+import com.automationstudio.api.execution.engine.playwright.action.NavigateActionExecutor;
+import com.automationstudio.api.execution.engine.playwright.action.PlaywrightActionExecutorRegistry;
+import com.automationstudio.api.execution.engine.playwright.action.PlaywrightOrderedScenarioRunner;
+import com.automationstudio.api.execution.engine.playwright.configuration.PlaywrightConfigurationParser;
+import com.automationstudio.api.execution.engine.playwright.configuration.PlaywrightRuntimeProperties;
+import com.automationstudio.api.execution.engine.playwright.manifest.PlaywrightScenarioManifestLoader;
+import com.automationstudio.api.execution.engine.playwright.runtime.DefaultPlaywrightRuntime;
 import com.automationstudio.api.execution.orchestration.AdmittedSourceSnapshotMapper;
 import com.automationstudio.api.execution.orchestration.ExecutionOrchestratorImpl;
 import com.automationstudio.api.execution.orchestration.RunnerExecutionRequest;
@@ -39,9 +57,12 @@ import com.automationstudio.api.execution.secret.ExecutionSecretProvider;
 import com.automationstudio.api.execution.secret.ExecutionSecretProviderRegistry;
 import com.automationstudio.api.execution.secret.ExecutionSecretScopeFactory;
 import com.automationstudio.api.execution.secret.ResolvedSecret;
+import com.automationstudio.api.execution.secret.provider.environment.OperatorEnvironmentSecretProvider;
 import com.automationstudio.api.execution.workspace.WorkspaceManager;
 import com.automationstudio.api.execution.workspace.local.LocalWorkspaceProvider;
 import com.automationstudio.api.execution.workspace.local.WorkspaceRootProperties;
+import com.automationstudio.api.execution.workspace.local.access.LocalEngineWorkspaceAccessResolver;
+import com.automationstudio.api.security.SensitiveKeyDetector;
 import com.automationstudio.api.source.SourceConfigurationValidator;
 import com.automationstudio.api.source.materialization.SourceMaterializationResult;
 import com.automationstudio.api.source.materialization.SourceMaterializationState;
@@ -61,6 +82,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -115,9 +137,12 @@ class SourceAdmissionIntegrationTest extends IntegrationTestBase {
     @Autowired private RunnerSchedulingService schedulingService;
     @Autowired private RunnerExecutionService runnerExecutionService;
     @Autowired private ControlledEngine controlledEngine;
+    @Autowired private ExecutionEngineRegistryImpl executionEngineRegistry;
+    @Autowired private OrangeHrmQualificationExecutionEngine qualificationExecutionEngine;
 
     @AfterEach
     void cleanDatabase() {
+        qualificationExecutionEngine.clear();
         jdbcTemplate.update("""
                 DELETE FROM execution_lease
                 WHERE execution_id IN (
@@ -263,6 +288,98 @@ class SourceAdmissionIntegrationTest extends IntegrationTestBase {
         assertThat(root.resolve(admitted.getId().toString())).doesNotExist();
     }
 
+    @Test
+    @Tag("real-browser")
+    void optInOrangeHrmQualificationUsesTheAuthoritativeControlledPipeline(@TempDir Path root)
+            throws Exception {
+        var qualification = OrangeHrmQualificationPrerequisites.configuredOrSkip();
+        Fixture fixture = fixture(
+                true, "PLAYWRIGHT", "playwright-java",
+                "demo-projects/orangehrm-login-smoke");
+        fixture.project().setSourceRevision(
+                "65b9f5ea2a7118751c4fdcb89166b7e08fc30d05");
+        fixture.suite().setSuiteReference("scenario.json");
+        fixture.environment().setBaseUrl(qualification.target().toString());
+        fixture.environment().setSecretReferences(Map.of(
+                "orangehrm.username", Map.of(
+                        "provider", "operator-environment", "key", qualification.usernameKey()),
+                "orangehrm.password", Map.of(
+                        "provider", "operator-environment", "key", qualification.passwordKey())));
+        projectRepository.saveAndFlush(fixture.project());
+        suiteRepository.saveAndFlush(fixture.suite());
+        environmentRepository.saveAndFlush(fixture.environment());
+        Execution admitted = create(fixture);
+        String runnerKey = insertQualificationRunner();
+        var claimed = schedulingService.scheduleNext(
+                new ScheduleExecutionCommand(runnerKey, Duration.ofMinutes(2)))
+                .scheduledExecution().orElseThrow();
+
+        Clock clock = Clock.systemUTC();
+        LocalWorkspaceProvider provider = new LocalWorkspaceProvider(
+                new WorkspaceRootProperties(root.toString()), clock);
+        WorkspaceManager workspaceManager = new WorkspaceManager(provider);
+        var preparation = new SourcePreparationServiceImpl(
+                workspaceManager,
+                request -> {
+                    Path destination = root.resolve(request.workspaceId().value().toString())
+                            .resolve("source").resolve("scenario.json");
+                    Path committedManifest = Path.of("..", "..", "demo-projects",
+                            "orangehrm-login-smoke", "scenario.json").toAbsolutePath().normalize();
+                    try {
+                        Files.copy(committedManifest, destination);
+                    } catch (java.io.IOException failure) {
+                        throw new IllegalStateException("Qualification source is unavailable", failure);
+                    }
+                    return new SourceMaterializationResult(
+                            request.workspaceId(), request.sourceReference().sourceType(),
+                            request.sourceReference().revision(),
+                            SourceMaterializationState.MATERIALIZED, OffsetDateTime.now(clock));
+                },
+                clock);
+        PlaywrightActionExecutorRegistry actions = new PlaywrightActionExecutorRegistry(List.of(
+                new NavigateActionExecutor(), new ClickActionExecutor(), new FillActionExecutor(),
+                new AssertVisibleActionExecutor(), new AssertTextActionExecutor(),
+                new AssertUrlActionExecutor()));
+        PlaywrightExecutionEngine engine = new PlaywrightExecutionEngine(
+                new PlaywrightConfigurationParser(new SensitiveKeyDetector()),
+                new LocalEngineWorkspaceAccessResolver(provider),
+                new PlaywrightScenarioManifestLoader(),
+                new DefaultPlaywrightRuntime(new PlaywrightRuntimeProperties(
+                        qualification.browserExecutable().toString(), Duration.ofSeconds(30))),
+                new PlaywrightOrderedScenarioRunner(actions), new CssSelectorResolver(), clock);
+        qualificationExecutionEngine.bind(engine);
+        var orchestrator = new ExecutionOrchestratorImpl(
+                preparation,
+                executionEngineRegistry,
+                workspaceManager,
+                new ExecutionSecretScopeFactory(new ExecutionSecretProviderRegistry(List.of(
+                        new OperatorEnvironmentSecretProvider(true, System::getenv)))),
+                clock);
+        var diagnosticProbe = new OrangeHrmQualificationDiagnosticProbe(orchestrator);
+        var coordinator = new RunnerPipelineCoordinatorImpl(
+                runnerExecutionService, diagnosticProbe,
+                new AdmittedSourceSnapshotMapper(new SourceConfigurationValidator()),
+                provider.providerId());
+
+        var result = coordinator.execute(new RunnerExecutionRequest(
+                claimed.executionId(), claimed.runnerId(), claimed.claimToken(),
+                claimed.leaseGeneration(), claimed.leaseVersion(), claimed.executionVersion()));
+
+        diagnosticProbe.diagnostic().ifPresent(diagnostic ->
+                System.out.println("AS-025G sanitized diagnostic: " + diagnostic));
+        assertThat(result.completion().status()).isEqualTo(ExecutionStatus.PASSED);
+        assertThat(executionRepository.findById(admitted.getId()).orElseThrow().getStatus())
+                .isEqualTo(ExecutionStatus.PASSED);
+        assertThat(root.resolve(admitted.getId().toString())).doesNotExist();
+        OrangeHrmQualificationEvidence evidence = new OrangeHrmQualificationEvidence(
+                System.getProperty("os.name"), System.getProperty("os.arch"),
+                System.getProperty("java.version"), "1.61.0",
+                qualification.browserProduct(), qualification.browserBuild(),
+                "operator-provisioned", qualification.targetClassification(),
+                admitted.getSourceSnapshot().get("revision").toString(), 1, 0, 0);
+        System.out.println("AS-025G qualification evidence: " + evidence);
+    }
+
     private static Stream<Arguments> controlledOutcomes() {
         return Stream.of(
                 Arguments.of(EngineExecutionState.SUCCEEDED, false, ExecutionStatus.PASSED),
@@ -366,6 +483,29 @@ class SourceAdmissionIntegrationTest extends IntegrationTestBase {
                     clock_timestamp(), clock_timestamp())
                 """, id, key, json(Map.of(
                         "engines", Map.of("controlled-pipeline", "1.0"))));
+        jdbcTemplate.update("""
+                INSERT INTO runner_runtime (
+                    runner_id, last_seen_at, heartbeat_count, version, created_at, updated_at)
+                VALUES (?, clock_timestamp(), 1, 0, clock_timestamp(), clock_timestamp())
+                """, id);
+        return key;
+    }
+
+    private String insertQualificationRunner() {
+        UUID id = UUID.randomUUID();
+        String key = PREFIX + "runner-" + id;
+        jdbcTemplate.update("""
+                INSERT INTO runner (
+                    id, runner_key, name, agent_version, hostname,
+                    operating_system, architecture, max_concurrency,
+                    capabilities, labels, status, registered_at,
+                    last_registered_at, version, created_at, updated_at
+                ) VALUES (?, ?, 'AS-025G', '0.1.0', 'qualified.runner',
+                    ?, ?, 1, ?::jsonb, '{}'::jsonb, 'ACTIVE',
+                    clock_timestamp(), clock_timestamp(), 0,
+                    clock_timestamp(), clock_timestamp())
+                """, id, key, System.getProperty("os.name"), System.getProperty("os.arch"),
+                json(Map.of("engines", Map.of("playwright-java", "1.61.0"))));
         jdbcTemplate.update("""
                 INSERT INTO runner_runtime (
                     runner_id, last_seen_at, heartbeat_count, version, created_at, updated_at)
@@ -502,6 +642,11 @@ class SourceAdmissionIntegrationTest extends IntegrationTestBase {
         @Bean
         ControlledEngine controlledEngine() {
             return new ControlledEngine();
+        }
+
+        @Bean
+        OrangeHrmQualificationExecutionEngine qualificationExecutionEngine() {
+            return new OrangeHrmQualificationExecutionEngine();
         }
     }
 }

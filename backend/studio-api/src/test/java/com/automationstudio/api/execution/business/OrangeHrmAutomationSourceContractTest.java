@@ -62,13 +62,13 @@ class OrangeHrmAutomationSourceContractTest {
                 assertThat(step.selector().value()).isNotBlank();
             }
         });
-        assertThat(steps.get(0).url()).isEqualTo("${baseUrl}/web/index.php/auth/login");
+        assertThat(steps.get(0).url()).isEqualTo("/web/index.php/auth/login");
         assertThat(steps.get(2).secretRef()).isEqualTo(OrangeHrmExecutionFixture.USERNAME_SECRET);
         assertThat(steps.get(3).secretRef()).isEqualTo(OrangeHrmExecutionFixture.PASSWORD_SECRET);
         assertThat(steps.get(2).value()).isNull();
         assertThat(steps.get(3).value()).isNull();
         assertThat(steps.get(5).expected())
-                .isEqualTo("${baseUrl}/web/index.php/dashboard/index");
+                .isEqualTo("/web/index.php/dashboard/index");
     }
 
     @Test
@@ -130,6 +130,7 @@ class OrangeHrmAutomationSourceContractTest {
                 .doesNotContain("AS025E_ORANGEHRM_PASSWORD")
                 .doesNotContain("operator-environment")
                 .doesNotContain("http://", "https://")
+                .doesNotContain("${baseUrl}")
                 .doesNotContain("<script", "javascript:");
     }
 

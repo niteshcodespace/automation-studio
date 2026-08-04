@@ -113,6 +113,7 @@ public final class PlaywrightExecutionEngine implements ExecutionEngine {
             SourcePreparationResult preparation = validatedRequest.preparation();
             workspaceAccess = workspaceAccessResolver.open(
                     EngineWorkspaceAccessRequest.from(preparation));
+            validateWorkspaceAccess(preparation, workspaceAccess);
             PlaywrightScenarioManifest manifest = manifestLoader.load(
                     validatedRequest.context().suite(), workspaceAccess);
             Map<String, String> variables = projectVariables(validatedRequest.context());
@@ -179,8 +180,25 @@ public final class PlaywrightExecutionEngine implements ExecutionEngine {
     private void validatePreparationIdentity(EngineExecutionRequest request) {
         SourcePreparationResult preparation = request.preparation();
         if (!request.context().executionId().equals(preparation.executionId())
-                || !request.context().workspaceId().equals(
-                        preparation.workspace().workspaceId().value())) {
+                || preparation.workspace() == null
+                || preparation.workspace().workspaceId() == null
+                || preparation.source() == null
+                || !preparation.workspace().workspaceId().equals(
+                        preparation.source().workspaceId())
+                || preparation.workspace().metadata() == null
+                || preparation.workspace().metadata().sourceReference() == null
+                || preparation.workspace().metadata().sourceReference().sourceType()
+                        != preparation.source().sourceType()
+                || !preparation.workspace().metadata().sourceReference().revision()
+                        .equals(preparation.source().resolvedRevision())) {
+            throw invalidRequest();
+        }
+    }
+
+    private void validateWorkspaceAccess(
+            SourcePreparationResult preparation, EngineWorkspaceAccess workspaceAccess) {
+        if (workspaceAccess == null
+                || !preparation.workspace().workspaceId().equals(workspaceAccess.workspaceId())) {
             throw invalidRequest();
         }
     }

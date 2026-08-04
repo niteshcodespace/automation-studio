@@ -155,14 +155,72 @@ class PlaywrightExecutionEngineTest {
     }
 
     @Test
-    void workspaceIdentityMismatchIsRejectedBeforeStartAndAcquisition() {
-        EngineExecutionRequest mismatched = new EngineExecutionRequest(
-                context(request, "playwright-java", "1.61.0", UUID.randomUUID()),
-                request.preparation());
+    void catalogWorkspaceMayDifferFromPreparedExecutionWorkspace() {
+        assertThat(request.context().workspaceId())
+                .isNotEqualTo(request.preparation().workspace().workspaceId().value());
 
-        assertFailure(() -> engine.execute(mismatched), "INVALID_PLAYWRIGHT_EXECUTION_REQUEST",
+        EngineExecutionResult result = engine.execute(request);
+
+        assertThat(result.workspaceId()).isEqualTo(request.preparation().workspace().workspaceId());
+        verify(runtime).open(configuration);
+    }
+
+    @Test
+    void malformedPreparationIdentityIsRejectedBeforeWorkspaceAcquisition() {
+        SourcePreparationResult malformed = mock(SourcePreparationResult.class);
+        when(malformed.state()).thenReturn(SourcePreparationState.PREPARED);
+        when(malformed.executionId()).thenReturn(request.executionId());
+        when(malformed.workspace()).thenReturn(request.preparation().workspace());
+        when(malformed.source()).thenReturn(new SourceMaterializationResult(
+                new WorkspaceId(UUID.randomUUID()), SourceType.GIT_HTTPS, REVISION,
+                SourceMaterializationState.MATERIALIZED,
+                request.preparation().preparedAt()));
+        EngineExecutionRequest malformedRequest = new EngineExecutionRequest(
+                request.context(), malformed);
+
+        assertFailure(() -> engine.execute(malformedRequest),
+                "INVALID_PLAYWRIGHT_EXECUTION_REQUEST",
                 "Playwright execution request is invalid");
         verifyNoInteractions(resolver, loader, runtime, runner, clock);
+    }
+
+    @Test
+    void malformedPreparedSourceIdentityOrMismatchedRevisionIsRejectedBeforeWorkspaceAcquisition() {
+        SourceMaterializationResult missingIdentity = mock(SourceMaterializationResult.class);
+        when(missingIdentity.workspaceId())
+                .thenReturn(request.preparation().workspace().workspaceId());
+        when(missingIdentity.resolvedRevision()).thenReturn(REVISION);
+        for (SourceMaterializationResult source : List.of(
+                missingIdentity,
+                new SourceMaterializationResult(
+                        request.preparation().workspace().workspaceId(), SourceType.GIT_HTTPS,
+                        "different-revision", SourceMaterializationState.MATERIALIZED,
+                        request.preparation().preparedAt()))) {
+            SourcePreparationResult malformed = mock(SourcePreparationResult.class);
+            when(malformed.state()).thenReturn(SourcePreparationState.PREPARED);
+            when(malformed.executionId()).thenReturn(request.executionId());
+            when(malformed.workspace()).thenReturn(request.preparation().workspace());
+            when(malformed.source()).thenReturn(source);
+
+            assertFailure(() -> engine.execute(new EngineExecutionRequest(
+                            request.context(), malformed)),
+                    "INVALID_PLAYWRIGHT_EXECUTION_REQUEST",
+                    "Playwright execution request is invalid");
+        }
+        verifyNoInteractions(resolver, loader, runtime, runner, clock);
+    }
+
+    @Test
+    void workspaceAccessMustIdentifyThePreparedPhysicalWorkspace() {
+        EngineWorkspaceAccess mismatchedAccess = mock(EngineWorkspaceAccess.class);
+        when(mismatchedAccess.workspaceId()).thenReturn(new WorkspaceId(UUID.randomUUID()));
+        when(resolver.open(any())).thenReturn(mismatchedAccess);
+
+        assertFailure(() -> engine.execute(request), "INVALID_PLAYWRIGHT_EXECUTION_REQUEST",
+                "Playwright execution request is invalid");
+
+        verify(mismatchedAccess).close();
+        verifyNoInteractions(loader, runtime, runner);
     }
 
     @Test
@@ -365,6 +423,8 @@ class PlaywrightExecutionEngineTest {
                 1280, 720, "en-US", PlaywrightNavigationPolicy.SAME_ORIGIN);
         when(parser.parse(request.context())).thenReturn(configuration);
         when(parser.parse(request2.context())).thenReturn(configuration2);
+        when(workspace2.workspaceId())
+                .thenReturn(request2.preparation().workspace().workspaceId());
         when(resolver.open(any())).thenAnswer(invocation -> {
             EngineWorkspaceAccessRequest accessRequest = invocation.getArgument(0);
             return accessRequest.executionId().equals(execution2) ? workspace2 : workspace;
@@ -472,6 +532,7 @@ class PlaywrightExecutionEngineTest {
             PlaywrightRuntimeSession currentSession, PlaywrightScenarioManifest currentManifest) {
         when(parser.parse(any())).thenReturn(configuration);
         when(resolver.open(any())).thenReturn(access);
+        when(access.workspaceId()).thenReturn(current.preparation().workspace().workspaceId());
         when(loader.load(eq(current.context().suite()), eq(access))).thenReturn(currentManifest);
         when(runtime.open(configuration)).thenReturn(currentSession);
         when(currentSession.result()).thenReturn(new PlaywrightRuntimeResult(
@@ -517,7 +578,7 @@ class PlaywrightExecutionEngineTest {
                 new SourceMaterializationResult(workspaceId, SourceType.GIT_HTTPS, revision,
                         SourceMaterializationState.MATERIALIZED, now),
                 SourcePreparationState.PREPARED, now);
-        ExecutionContext context = baseContext(executionId, workspaceUuid,
+        ExecutionContext context = baseContext(executionId, UUID.randomUUID(),
                 PlaywrightEngineDescriptor.ENGINE_NAME, PlaywrightEngineDescriptor.ENGINE_VERSION,
                 variableValue);
         return new EngineExecutionRequest(context, preparation);

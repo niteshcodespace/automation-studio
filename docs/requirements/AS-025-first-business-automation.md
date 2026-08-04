@@ -9,12 +9,12 @@ AS-025C - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (9f7765a9ab7afb47d18ce221
 AS-025D - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (05d0229d870ca2cec2bf63605cf4fc10d7b5a058)
 AS-025E - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (65b9f5ea2a7118751c4fdcb89166b7e08fc30d05)
 AS-025F - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (654bdcc025ff738738f9346a2896adab59103650)
-AS-025G - NEXT ACTIVE PHASE, NOT STARTED
-AS-025H - BLOCKED BY AS-025G
+AS-025G - COMPLETED, REVIEWED, AND QUALIFIED
+AS-025H - NEXT ACTIVE PHASE, NOT STARTED
 ```
 
-This document continues to define requirements only. This status reconciliation does not authorize
-AS-025G or AS-025H implementation, a commit, or a push.
+AS-025G satisfied its real-browser qualification gate. AS-025H is now the next active phase but has
+not started.
 
 ## 2. Feature Objective
 
@@ -297,10 +297,17 @@ diagnostics, but redaction is not permission to emit them. The primary rule is n
 
 ### SR-10 - External target controls
 
-Real OrangeHRM validation requires explicit operator opt-in, an approved target, a dedicated
-least-privilege account, authorized test data, and documented cleanup. It must not run against an
-unapproved production tenant or rely on public demonstration credentials committed to the
-repository.
+For AS-025G portfolio and learning qualification only, the sole approved target is the official
+OrangeHRM public demonstration origin `https://opensource-demo.orangehrmlive.com`. The existing
+login-and-dashboard smoke scenario is the entire authorization: it must be manual, bounded,
+explicitly opted in, non-destructive, and excluded from CI and recurring execution. No employee,
+account, role, configuration, password, or business data may be created, modified, or deleted.
+Publicly displayed demonstration credentials may be injected only through the existing
+operator-environment provider and must never be committed or emitted in source, examples, Maven
+arguments, logs, results, diagnostics, or evidence. All other public targets, every production
+target, and every non-canonical target remain prohibited. Demo unavailability, rate limiting,
+reset, or external change must be reported separately from platform defects; no retry or aggressive
+repeat policy is authorized.
 
 ## 8. Architecture Constraints
 

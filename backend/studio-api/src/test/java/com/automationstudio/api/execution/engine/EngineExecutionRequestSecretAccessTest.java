@@ -45,6 +45,19 @@ class EngineExecutionRequestSecretAccessTest {
     }
 
     @Test
+    void rejectsPreparationBelongingToAnotherExecution() {
+        Fixture fixture = fixture();
+        SourcePreparationResult mismatched = mock(SourcePreparationResult.class);
+        when(mismatched.state()).thenReturn(SourcePreparationState.PREPARED);
+        when(mismatched.executionId()).thenReturn(UUID.randomUUID());
+
+        assertThatThrownBy(() -> new EngineExecutionRequest(
+                        fixture.context(), mismatched))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Execution context and preparation must identify the same execution");
+    }
+
+    @Test
     void legacyConstructorProvidesFixedFailClosedCapability() {
         Fixture fixture = fixture();
         EngineExecutionRequest request = new EngineExecutionRequest(

@@ -68,6 +68,7 @@ class PlaywrightActionExecutorsTest {
                     assertThat(outcome.status()).isEqualTo(PlaywrightActionOutcome.Status.ASSERTION_FAILED);
                     assertThat(outcome.toString()).doesNotContain("secret");
                 });
+        assertThat(visible.reasonCode()).isEqualTo("VISIBLE_ASSERTION_FAILED");
     }
 
     @Test

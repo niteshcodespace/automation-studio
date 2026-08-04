@@ -9,7 +9,7 @@
         {
           "id": "open-login",
           "action": "navigate",
-          "url": "${baseUrl}/web/index.php/auth/login"
+          "url": "/web/index.php/auth/login"
         },
         {
           "id": "login-form-visible",
@@ -36,7 +36,7 @@
         {
           "id": "dashboard-url",
           "action": "assert-url",
-          "expected": "${baseUrl}/web/index.php/dashboard/index"
+          "expected": "/web/index.php/dashboard/index"
         },
         {
           "id": "dashboard-visible",

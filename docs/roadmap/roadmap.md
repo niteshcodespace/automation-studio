@@ -30,14 +30,20 @@ AS-025C Manifest and Sensitive Fill Composition - completed, reviewed, approved,
 AS-025D Orchestrator Integration - completed, reviewed, approved, and committed (05d0229d870ca2cec2bf63605cf4fc10d7b5a058)
 AS-025E OrangeHRM Scenario Source - completed, reviewed, approved, and committed (65b9f5ea2a7118751c4fdcb89166b7e08fc30d05)
 AS-025F Complete Controlled Pipeline Verification - completed, reviewed, approved, and committed (654bdcc025ff738738f9346a2896adab59103650)
-AS-025G Real OrangeHRM Runtime Validation - next active phase, not started
-AS-025H Production Readiness and Final Documentation - blocked by AS-025G
+AS-025G Real OrangeHRM Runtime Validation - completed, reviewed, and qualified
+AS-025H Production Readiness and Final Documentation - next active phase, not started
 ```
 
 The approved sequence preserves immutable execution snapshots, keeps resolved values outside
 `ExecutionContext` and normal variables, adds secret use only through an explicit versioned
 sensitive sink, reuses scheduling/claim/workspace/engine/result/cleanup ownership, and keeps
 ordinary verification isolated from external targets and operator secrets.
+
+AS-025G's manual portfolio/learning qualification may use only the official canonical OrangeHRM
+public-demo origin `https://opensource-demo.orangehrmlive.com`, only for the existing
+non-destructive login-and-dashboard smoke scenario. It remains prohibited in CI and recurring
+execution; public credentials remain operator-injected secrets, and external demo instability is
+reported separately from platform defects.
 
 ## Phase 2
 
