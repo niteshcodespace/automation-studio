@@ -9,11 +9,16 @@ AS-025C - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (9f7765a9ab7afb47d18ce221
 AS-025D - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (05d0229d870ca2cec2bf63605cf4fc10d7b5a058)
 AS-025E - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (65b9f5ea2a7118751c4fdcb89166b7e08fc30d05)
 AS-025F - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (654bdcc025ff738738f9346a2896adab59103650)
-AS-025G - COMPLETED, REVIEWED, AND QUALIFIED
-AS-025H - NEXT ACTIVE PHASE, NOT STARTED
+AS-025G - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (d82593ec520a7416c49f1315e2881665a5f96647)
+AS-025H-A - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (195abf95f31eb2564abdbb7f7ac2e18ed7959f67)
+AS-025H-B - COMPLETED, REVIEWED, APPROVED, AND COMMITTED
+AS-025H-C - NEXT ACTIVE PHASE, NOT STARTED
+AS-025H - INCOMPLETE
 ```
 
-AS-025A through AS-025G gates are cleared. AS-025H is next but has not started.
+AS-025A through AS-025G gates are cleared. AS-025H-A delivered the reviewed production-readiness
+runbook. AS-025H-B documentation reconciliation is complete and added no runtime functionality;
+AS-025H-C final verification and feature-level review are next but have not started.
 
 ## Delivery Strategy
 
@@ -225,8 +230,9 @@ browser launch remain deferred to AS-025G.
 - canonical source: `demo-projects/orangehrm-login-smoke`;
 - suite reference: `demo-projects/orangehrm-login-smoke/scenario.json`;
 - manifest: schema `"2.0"`, one ordered declarative scenario, and existing actions only;
-- runtime inputs: non-secret `${baseUrl}` plus `orangehrm.username` and
-  `orangehrm.password` logical references;
+- runtime inputs: authoritative `ExecutionEnvironmentSnapshot.baseUrl()`, same-origin relative
+  manifest paths, and the `orangehrm.username` and `orangehrm.password` logical references; no
+  `${baseUrl}` execution variable;
 - engine identity: exact `playwright-java` / `1.61.0`;
 - source identity: synthetic `GIT_HTTPS` repository identity and fixed immutable revision in the
   test-only execution fixture; and
@@ -410,6 +416,16 @@ has not started.
   observability, incident response, cleanup failure, rollback, and credential-rotation guidance;
 - final requirements, ADR, plan, roadmap, and development-log reconciliation; and
 - feature-level independent review.
+
+### Incremental checkpoint status
+
+- AS-025H-A, Production Readiness Runbook: completed, reviewed, approved, and committed as
+  `195abf95f31eb2564abdbb7f7ac2e18ed7959f67`.
+- AS-025H-B, Documentation Reconciliation: completed, reviewed, approved, and committed;
+  documentation-only with no runtime behavior.
+- AS-025H-C, Final Verification and Feature-Level Review: next active phase, not started.
+
+AS-025H remains incomplete until AS-025H-C satisfies the existing exit gate.
 
 ### Exit gate
 

@@ -9,12 +9,16 @@ AS-025C - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (9f7765a9ab7afb47d18ce221
 AS-025D - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (05d0229d870ca2cec2bf63605cf4fc10d7b5a058)
 AS-025E - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (65b9f5ea2a7118751c4fdcb89166b7e08fc30d05)
 AS-025F - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (654bdcc025ff738738f9346a2896adab59103650)
-AS-025G - COMPLETED, REVIEWED, AND QUALIFIED
-AS-025H - NEXT ACTIVE PHASE, NOT STARTED
+AS-025G - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (d82593ec520a7416c49f1315e2881665a5f96647)
+AS-025H-A - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (195abf95f31eb2564abdbb7f7ac2e18ed7959f67)
+AS-025H-B - COMPLETED, REVIEWED, APPROVED, AND COMMITTED
+AS-025H-C - NEXT ACTIVE PHASE, NOT STARTED
+AS-025H - INCOMPLETE
 ```
 
-AS-025G satisfied its real-browser qualification gate. AS-025H is now the next active phase but has
-not started.
+AS-025G satisfied its real-browser qualification gate. AS-025H-A delivered the production-readiness
+runbook. AS-025H-B reconciled documentation only and added no runtime behavior. AS-025H-C final
+verification and feature-level review are now the next active phase but have not started.
 
 ## 2. Feature Objective
 

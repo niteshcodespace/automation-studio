@@ -54,8 +54,10 @@ flowchart TB
 - Use TLS for externally exposed services and production dependency connections where supported.
 - Obtain user identities through an OIDC-compatible identity provider when authentication is introduced.
 - Use scoped service identities for runners and future AI/MCP services.
-- Store secret references in environment configuration, never secret values.
-- Resolve a secret immediately before use, redact it from logs and artifacts, and remove it during workspace cleanup.
+- Store only secret references in platform-managed and durable configuration; never persist resolved
+  secret values there.
+- Resolve a secret lazily within one execution scope, keep it out of logs and artifacts, and release
+  its owned value during deterministic scope cleanup.
 - Run execution workers without root privileges and with bounded workspace, CPU, memory, process, disk, and timeout limits.
 - Do not mount host filesystems or use privileged execution containers.
 - Generate signed, short-lived artifact access when an object-store adapter is introduced.
@@ -68,6 +70,22 @@ or configuration system, together with the approved workspace-root configuration
 not appear in manifests or be committed as a machine-specific path. The runner does not discover,
 download, or install a browser, and every deployment host or image requires configured real-browser
 qualification.
+
+The AS-025 `operator-environment` adapter is disabled by default and is available only when
+`automation.runner.secrets.operator-environment.enabled=true` is supplied explicitly. Platform
+snapshots and configuration continue to store references only. When this adapter is enabled, the
+operator injects the referenced values into the runner process environment for execution-time lazy
+resolution; this transient exposure depends on the host's process isolation, access controls, and
+diagnostic hygiene. Injected values must not be committed, persisted, logged, copied into Maven
+arguments, or included in results or evidence.
+
+The operator-environment adapter is the bounded initial provider, not a general secret-manager
+implementation. Production-grade external providers, provider administration, renewable leases,
+and automated rotation remain deferred. After suspected exposure, remove or replace the affected
+process environment, rotate the values through the operator-owned source, quarantine the runner as
+needed, and requalify before returning it to service. AS-025 operator, threat, incident-response,
+rollback, rotation, and release guidance is defined in the
+[AS-025 Production Readiness Runbook](as-025-production-readiness-runbook.md).
 
 ## Operational Requirements
 

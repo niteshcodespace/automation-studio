@@ -30,8 +30,11 @@ AS-025C Manifest and Sensitive Fill Composition - completed, reviewed, approved,
 AS-025D Orchestrator Integration - completed, reviewed, approved, and committed (05d0229d870ca2cec2bf63605cf4fc10d7b5a058)
 AS-025E OrangeHRM Scenario Source - completed, reviewed, approved, and committed (65b9f5ea2a7118751c4fdcb89166b7e08fc30d05)
 AS-025F Complete Controlled Pipeline Verification - completed, reviewed, approved, and committed (654bdcc025ff738738f9346a2896adab59103650)
-AS-025G Real OrangeHRM Runtime Validation - completed, reviewed, and qualified
-AS-025H Production Readiness and Final Documentation - next active phase, not started
+AS-025G Real OrangeHRM Runtime Validation - completed, reviewed, approved, and committed (d82593ec520a7416c49f1315e2881665a5f96647)
+AS-025H-A Production Readiness Runbook - completed, reviewed, approved, and committed (195abf95f31eb2564abdbb7f7ac2e18ed7959f67)
+AS-025H-B Documentation Reconciliation - completed, reviewed, approved, and committed; no runtime functionality
+AS-025H-C Final Verification and Feature-Level Review - next active phase, not started
+AS-025H Production Readiness and Final Documentation - incomplete
 ```
 
 The approved sequence preserves immutable execution snapshots, keeps resolved values outside
@@ -44,6 +47,10 @@ public-demo origin `https://opensource-demo.orangehrmlive.com`, only for the exi
 non-destructive login-and-dashboard smoke scenario. It remains prohibited in CI and recurring
 execution; public credentials remain operator-injected secrets, and external demo instability is
 reported separately from platform defects.
+
+AS-025H-A recorded the production-readiness runbook. AS-025H-B reconciled supporting and governing
+documentation only. AS-025H remains incomplete until AS-025H-C completes final inert
+verification and the feature-level independent review approves delivery.
 
 ## Phase 2
 
