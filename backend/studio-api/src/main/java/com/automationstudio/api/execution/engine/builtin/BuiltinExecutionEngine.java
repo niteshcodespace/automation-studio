@@ -27,12 +27,16 @@ import org.springframework.stereotype.Component;
 @Component
 public class BuiltinExecutionEngine implements ExecutionEngine {
 
-    public static final String ENGINE_NAME = "BUILTIN";
-    public static final String ENGINE_VERSION = "1.0.0";
+    public static final String ENGINE_ID = "BUILTIN";
+    public static final String IMPLEMENTATION_VERSION = "1.0.0";
+    @Deprecated(forRemoval = false)
+    public static final String ENGINE_NAME = ENGINE_ID;
+    @Deprecated(forRemoval = false)
+    public static final String ENGINE_VERSION = IMPLEMENTATION_VERSION;
     private static final ExecutionEngineDescriptor DESCRIPTOR =
             new ExecutionEngineDescriptor(
-                    ENGINE_NAME,
-                    ENGINE_VERSION,
+                    ENGINE_ID,
+                    IMPLEMENTATION_VERSION,
                     "Built-in Deterministic Engine",
                     Set.of("deterministic"),
                     Set.of("evidence"));

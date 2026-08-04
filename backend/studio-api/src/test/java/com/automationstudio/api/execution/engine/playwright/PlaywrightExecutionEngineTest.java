@@ -121,8 +121,8 @@ class PlaywrightExecutionEngineTest {
 
     @Test
     void exposesExactDescriptorAndValidatesWithoutLifecycleSideEffects() {
-        assertThat(engine.descriptor().engineName()).isEqualTo("playwright-java");
-        assertThat(engine.descriptor().engineVersion()).isEqualTo("1.61.0");
+        assertThat(engine.descriptor().engineId()).isEqualTo("playwright-java");
+        assertThat(engine.descriptor().implementationVersion()).isEqualTo("1.61.0");
 
         engine.validate(request.context());
 

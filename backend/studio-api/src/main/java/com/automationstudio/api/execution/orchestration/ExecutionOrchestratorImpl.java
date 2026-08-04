@@ -85,8 +85,8 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
         if (support == null
                 || support.engine() == null
                 || support.descriptor() == null
-                || !request.engineName().equals(support.descriptor().engineName())
-                || !request.engineVersion().equals(support.descriptor().engineVersion())) {
+                || !request.engineName().equals(support.descriptor().engineId())
+                || !request.engineVersion().equals(support.descriptor().implementationVersion())) {
             throw cleanup(secretScope, preparation.workspace(), engineInvariant());
         }
 
@@ -150,8 +150,8 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
             EngineExecutionResult result) {
         if (result == null
                 || !request.executionId().equals(result.executionId())
-                || !support.descriptor().engineName().equals(result.engineName())
-                || !support.descriptor().engineVersion().equals(result.engineVersion())
+                || !support.descriptor().engineId().equals(result.engineName())
+                || !support.descriptor().implementationVersion().equals(result.engineVersion())
                 || !preparation.workspace().workspaceId().equals(result.workspaceId())
                 || !preparation.source().resolvedRevision().equals(result.resolvedRevision())
                 || result.state() == null

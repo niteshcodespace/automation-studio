@@ -72,8 +72,8 @@ public class ExecutionLifecycleServiceImpl implements ExecutionLifecycleService 
         ExecutionContext context = start.context();
         ExecutionEngine engine = engineRegistry
                 .resolve(
-                        start.engineDescriptor().engineName(),
-                        start.engineDescriptor().engineVersion())
+                        start.engineDescriptor().engineId(),
+                        start.engineDescriptor().implementationVersion())
                 .engine();
 
         ExecutionResult result;

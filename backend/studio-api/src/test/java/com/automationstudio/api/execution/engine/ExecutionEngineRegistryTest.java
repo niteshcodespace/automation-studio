@@ -21,7 +21,7 @@ class ExecutionEngineRegistryTest {
         assertThat(registry.resolve("playwright").engine()).isSameAs(first);
         assertThat(registry.resolve("selenium", "4").engine()).isSameAs(second);
         assertThat(registry.supportedEngines())
-                .extracting(ExecutionEngineDescriptor::engineName)
+                .extracting(ExecutionEngineDescriptor::engineId)
                 .containsExactly("playwright", "selenium");
         assertThatThrownBy(() -> registry.supportedEngines().clear())
                 .isInstanceOf(UnsupportedOperationException.class);
@@ -83,6 +83,23 @@ class ExecutionEngineRegistryTest {
     }
 
     @Test
+    void treatsEngineIdentityAndImplementationVersionAsExactCaseSensitiveValues() {
+        ExecutionEngine lowerCase = engine("playwright", "Release-1");
+        ExecutionEngine upperCase = engine("PLAYWRIGHT", "release-1");
+        ExecutionEngineRegistry registry =
+                new ExecutionEngineRegistryImpl(List.of(upperCase, lowerCase));
+
+        assertThat(registry.resolve("playwright", "Release-1").engine())
+                .isSameAs(lowerCase);
+        assertThat(registry.resolve("PLAYWRIGHT", "release-1").engine())
+                .isSameAs(upperCase);
+        assertThatThrownBy(() -> registry.resolve("playwright", "release-1"))
+                .isInstanceOf(ExecutionEngineCompatibilityException.class);
+        assertThatThrownBy(() -> registry.resolve("Playwright", "Release-1"))
+                .isInstanceOf(ExecutionEngineNotFoundException.class);
+    }
+
+    @Test
     void safelyServesConcurrentLookups() throws Exception {
         ExecutionEngineRegistry registry =
                 new ExecutionEngineRegistryImpl(List.of(engine("playwright", "1")));
@@ -93,7 +110,7 @@ class ExecutionEngineRegistryTest {
                                     () -> registry.resolve("playwright", "1"))
                             .toList();
             assertThat(executor.invokeAll(calls))
-                    .allSatisfy(future -> assertThat(future.get().descriptor().engineName())
+                    .allSatisfy(future -> assertThat(future.get().descriptor().engineId())
                             .isEqualTo("playwright"));
         }
     }

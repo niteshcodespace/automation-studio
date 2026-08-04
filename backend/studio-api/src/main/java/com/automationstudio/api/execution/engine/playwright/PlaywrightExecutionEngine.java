@@ -156,8 +156,8 @@ public final class PlaywrightExecutionEngine implements ExecutionEngine {
         if (context == null || context.suite() == null) {
             throw invalidRequest();
         }
-        if (!PlaywrightEngineDescriptor.ENGINE_NAME.equals(context.suite().engineId())
-                || !PlaywrightEngineDescriptor.ENGINE_VERSION.equals(
+        if (!PlaywrightEngineDescriptor.ENGINE_ID.equals(context.suite().engineId())
+                || !PlaywrightEngineDescriptor.IMPLEMENTATION_VERSION.equals(
                         context.suite().engineVersion())) {
             throw new PlaywrightExecutionException(
                     "UNSUPPORTED_PLAYWRIGHT_ENGINE",
@@ -396,8 +396,8 @@ public final class PlaywrightExecutionEngine implements ExecutionEngine {
         try {
             return new EngineExecutionResult(
                     request.executionId(),
-                    descriptor().engineName(),
-                    descriptor().engineVersion(),
+                    descriptor().engineId(),
+                    descriptor().implementationVersion(),
                     request.preparation().workspace().workspaceId(),
                     request.preparation().source().resolvedRevision(),
                     state,

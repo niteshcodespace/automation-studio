@@ -18,8 +18,8 @@ public interface ExecutionEngine {
         ExecutionResult result = execute(request.context());
         return new EngineExecutionResult(
                 result.executionId(),
-                descriptor().engineName(),
-                descriptor().engineVersion(),
+                descriptor().engineId(),
+                descriptor().implementationVersion(),
                 request.preparation().workspace().workspaceId(),
                 request.preparation().source().resolvedRevision(),
                 result.status() == ExecutionStatus.SUCCEEDED

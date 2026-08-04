@@ -17,6 +17,8 @@ class ExecutionEngineDescriptorTest {
 
         capabilities.add("mobile");
 
+        assertThat(descriptor.engineId()).isEqualTo("engine");
+        assertThat(descriptor.implementationVersion()).isEqualTo("1.0");
         assertThat(descriptor.supportedCapabilities()).containsExactly("web");
         assertThatThrownBy(() -> descriptor.supportedFeatures().add("video"))
                 .isInstanceOf(UnsupportedOperationException.class);
@@ -33,5 +35,33 @@ class ExecutionEngineDescriptorTest {
         assertThatThrownBy(() -> new ExecutionEngineDescriptor(
                 "engine", "1", "Engine", null, Set.of()))
                 .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> new ExecutionEngineDescriptor(
+                "engine", "1", " ", Set.of(), Set.of()))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new ExecutionEngineDescriptor(
+                "engine", "1", "Engine", Set.of(" "), Set.of()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void hasDeterministicValueEqualityAndInspectionOrder() {
+        ExecutionEngineDescriptor first = new ExecutionEngineDescriptor(
+                "engine", "1.0", "Engine", Set.of("web", "api"), Set.of("trace", "report"));
+        ExecutionEngineDescriptor second = new ExecutionEngineDescriptor(
+                "engine", "1.0", "Engine", Set.of("api", "web"), Set.of("report", "trace"));
+
+        assertThat(first).isEqualTo(second).hasSameHashCodeAs(second);
+        assertThat(first.supportedCapabilities()).containsExactly("api", "web");
+        assertThat(first.supportedFeatures()).containsExactly("report", "trace");
+    }
+
+    @SuppressWarnings("deprecation")
+    @Test
+    void retainsReadOnlyCompatibilityAliases() {
+        ExecutionEngineDescriptor descriptor = new ExecutionEngineDescriptor(
+                "engine", "1.0", "Engine", Set.of(), Set.of());
+
+        assertThat(descriptor.engineName()).isEqualTo(descriptor.engineId());
+        assertThat(descriptor.engineVersion()).isEqualTo(descriptor.implementationVersion());
     }
 }

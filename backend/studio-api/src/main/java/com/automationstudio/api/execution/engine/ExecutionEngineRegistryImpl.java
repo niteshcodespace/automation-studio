@@ -28,9 +28,10 @@ public class ExecutionEngineRegistryImpl implements ExecutionEngineRegistry {
                         "Execution engine descriptor must not be null");
             }
             Map<String, ExecutionEngineSupport> versions = registrations.computeIfAbsent(
-                    descriptor.engineName(), ignored -> new LinkedHashMap<>());
+                    descriptor.engineId(), ignored -> new LinkedHashMap<>());
             ExecutionEngineSupport prior = versions.putIfAbsent(
-                    descriptor.engineVersion(), new ExecutionEngineSupport(engine, descriptor));
+                    descriptor.implementationVersion(),
+                    new ExecutionEngineSupport(engine, descriptor));
             if (prior != null) {
                 throw new ExecutionEngineRegistrationException(
                         "Duplicate execution engine registration");
@@ -42,8 +43,8 @@ public class ExecutionEngineRegistryImpl implements ExecutionEngineRegistry {
         descriptors = engines.values().stream()
                 .flatMap(versions -> versions.values().stream())
                 .map(ExecutionEngineSupport::descriptor)
-                .sorted(Comparator.comparing(ExecutionEngineDescriptor::engineName)
-                        .thenComparing(ExecutionEngineDescriptor::engineVersion))
+                .sorted(Comparator.comparing(ExecutionEngineDescriptor::engineId)
+                        .thenComparing(ExecutionEngineDescriptor::implementationVersion))
                 .toList();
     }
 

@@ -40,8 +40,8 @@ class BuiltinExecutionEngineTest {
 
     @Test
     void exposesImmutableDescriptorAndRegistersByExactIdentity() {
-        assertThat(engine.descriptor().engineName()).isEqualTo("BUILTIN");
-        assertThat(engine.descriptor().engineVersion()).isEqualTo("1.0.0");
+        assertThat(engine.descriptor().engineId()).isEqualTo("BUILTIN");
+        assertThat(engine.descriptor().implementationVersion()).isEqualTo("1.0.0");
         assertThat(engine.descriptor().displayName())
                 .isEqualTo("Built-in Deterministic Engine");
         assertThatThrownBy(() -> engine.descriptor().supportedFeatures().clear())
