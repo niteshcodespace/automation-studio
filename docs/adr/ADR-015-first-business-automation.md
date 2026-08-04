@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted - AS-025A through AS-025H-B completed and committed; AS-025H-C is next
+Accepted - AS-025 completed and approved; AS-026 not started
 
 ```text
 AS-025A - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (09bc9d12208c3a6c0092ef524b7b7803faf7153d)
@@ -13,13 +13,16 @@ AS-025E - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (65b9f5ea2a7118751c4fdcb8
 AS-025F - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (654bdcc025ff738738f9346a2896adab59103650)
 AS-025G - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (d82593ec520a7416c49f1315e2881665a5f96647)
 AS-025H-A - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (195abf95f31eb2564abdbb7f7ac2e18ed7959f67)
-AS-025H-B - COMPLETED, REVIEWED, APPROVED, AND COMMITTED
-AS-025H-C - NEXT ACTIVE PHASE, NOT STARTED
-AS-025H - INCOMPLETE
+AS-025H-B - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (67055700ecd8eb8da48c8e484209d5808fb45f38)
+AS-025H-C - COMPLETED, REVIEWED, AND APPROVED
+AS-025H - COMPLETED, REVIEWED, AND APPROVED
+AS-026 - NOT STARTED
 ```
 
 AS-025H-B reconciled documentation only and introduced no runtime functionality. AS-025H-C final
-verification and feature-level review are next but have not started.
+verification and feature-level architecture, security, lifecycle, qualification, operations, and
+deferred-scope review passed without a production defect. AS-025 is complete; AS-026 has not
+started.
 
 ## Context
 

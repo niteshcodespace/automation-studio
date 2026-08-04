@@ -11,14 +11,16 @@ AS-025E - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (65b9f5ea2a7118751c4fdcb8
 AS-025F - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (654bdcc025ff738738f9346a2896adab59103650)
 AS-025G - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (d82593ec520a7416c49f1315e2881665a5f96647)
 AS-025H-A - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (195abf95f31eb2564abdbb7f7ac2e18ed7959f67)
-AS-025H-B - COMPLETED, REVIEWED, APPROVED, AND COMMITTED
-AS-025H-C - NEXT ACTIVE PHASE, NOT STARTED
-AS-025H - INCOMPLETE
+AS-025H-B - COMPLETED, REVIEWED, APPROVED, AND COMMITTED (67055700ecd8eb8da48c8e484209d5808fb45f38)
+AS-025H-C - COMPLETED, REVIEWED, AND APPROVED
+AS-025H - COMPLETED, REVIEWED, AND APPROVED
+AS-026 - NOT STARTED
 ```
 
 AS-025A through AS-025G gates are cleared. AS-025H-A delivered the reviewed production-readiness
-runbook. AS-025H-B documentation reconciliation is complete and added no runtime functionality;
-AS-025H-C final verification and feature-level review are next but have not started.
+runbook. AS-025H-B documentation reconciliation is complete and added no runtime functionality.
+AS-025H-C final verification and feature-level review passed. AS-025 is complete; AS-026 has not
+started.
 
 ## Delivery Strategy
 
@@ -421,17 +423,31 @@ has not started.
 
 - AS-025H-A, Production Readiness Runbook: completed, reviewed, approved, and committed as
   `195abf95f31eb2564abdbb7f7ac2e18ed7959f67`.
-- AS-025H-B, Documentation Reconciliation: completed, reviewed, approved, and committed;
-  documentation-only with no runtime behavior.
-- AS-025H-C, Final Verification and Feature-Level Review: next active phase, not started.
+- AS-025H-B, Documentation Reconciliation: completed, reviewed, approved, and committed as
+  `67055700ecd8eb8da48c8e484209d5808fb45f38`; documentation-only with no runtime behavior.
+- AS-025H-C, Final Verification and Feature-Level Review: completed, reviewed, and approved.
 
-AS-025H remains incomplete until AS-025H-C satisfies the existing exit gate.
+AS-025H-C verification evidence: the 15-class focused selection ran 188 tests with 187 passed, one
+reviewed skip, and no failures or errors; compilation passed; and the ordinary inert full Maven
+suite ran 1,112 tests with 1,096 passed, 16 reviewed skips, and no failures or errors. The accepted
+AS-025G evidence remains the committed qualification at `d82593ec520a7416c49f1315e2881665a5f96647`
+and the recorded manifest revision `65b9f5ea2a7118751c4fdcb89166b7e08fc30d05`.
+The full-suite skips were eight platform-dependent symbolic-link cases and eight explicitly gated
+browser or qualification cases; none was unexpected.
+
+The final independent review approved architecture, security, fencing, source immutability,
+workspace identity and access, secret isolation, Playwright behavior, qualification evidence,
+operational readiness, documentation consistency, and deferred-scope integrity. No production
+defect or implicit later-story behavior was found. The exit gate is satisfied, AS-025 is complete,
+and AS-026 has not started.
 
 ### Exit gate
 
 All AS-025 requirements have evidence, deferred scope remains deferred, full and focused suites are
 green, real-target qualification is accepted, and the final verdict approves the feature. Commit
 and push remain separate explicit user-authorized actions.
+
+Exit gate satisfied by AS-025H-C. The final feature-level verdict is approved.
 
 ## Cross-Phase Scope Guard
 

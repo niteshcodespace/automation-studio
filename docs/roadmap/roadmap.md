@@ -32,9 +32,11 @@ AS-025E OrangeHRM Scenario Source - completed, reviewed, approved, and committed
 AS-025F Complete Controlled Pipeline Verification - completed, reviewed, approved, and committed (654bdcc025ff738738f9346a2896adab59103650)
 AS-025G Real OrangeHRM Runtime Validation - completed, reviewed, approved, and committed (d82593ec520a7416c49f1315e2881665a5f96647)
 AS-025H-A Production Readiness Runbook - completed, reviewed, approved, and committed (195abf95f31eb2564abdbb7f7ac2e18ed7959f67)
-AS-025H-B Documentation Reconciliation - completed, reviewed, approved, and committed; no runtime functionality
-AS-025H-C Final Verification and Feature-Level Review - next active phase, not started
-AS-025H Production Readiness and Final Documentation - incomplete
+AS-025H-B Documentation Reconciliation - completed, reviewed, approved, and committed (67055700ecd8eb8da48c8e484209d5808fb45f38); no runtime functionality
+AS-025H-C Final Verification and Feature-Level Review - completed, reviewed, and approved
+AS-025H Production Readiness and Final Documentation - completed, reviewed, and approved
+AS-025 First Business Automation Execution - complete
+AS-026 - not started
 ```
 
 The approved sequence preserves immutable execution snapshots, keeps resolved values outside
@@ -48,9 +50,10 @@ non-destructive login-and-dashboard smoke scenario. It remains prohibited in CI 
 execution; public credentials remain operator-injected secrets, and external demo instability is
 reported separately from platform defects.
 
-AS-025H-A recorded the production-readiness runbook. AS-025H-B reconciled supporting and governing
-documentation only. AS-025H remains incomplete until AS-025H-C completes final inert
-verification and the feature-level independent review approves delivery.
+AS-025H-A recorded the production-readiness runbook, and AS-025H-B reconciled supporting and
+governing documentation only. AS-025H-C completed focused and full inert verification and the final
+feature-level architecture, security, operations, and deferred-scope review. The accepted AS-025G
+qualification evidence remains authoritative. AS-025 is complete; AS-026 has not started.
 
 ## Phase 2
 
