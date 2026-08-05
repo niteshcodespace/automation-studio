@@ -175,12 +175,9 @@ class PlaywrightExecutionEngineTest {
                 new WorkspaceId(UUID.randomUUID()), SourceType.GIT_HTTPS, REVISION,
                 SourceMaterializationState.MATERIALIZED,
                 request.preparation().preparedAt()));
-        EngineExecutionRequest malformedRequest = new EngineExecutionRequest(
-                request.context(), malformed);
-
-        assertFailure(() -> engine.execute(malformedRequest),
-                "INVALID_PLAYWRIGHT_EXECUTION_REQUEST",
-                "Playwright execution request is invalid");
+        assertThatThrownBy(() -> new EngineExecutionRequest(request.context(), malformed))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Prepared workspace and source identities are inconsistent");
         verifyNoInteractions(resolver, loader, runtime, runner, clock);
     }
 
@@ -202,10 +199,10 @@ class PlaywrightExecutionEngineTest {
             when(malformed.workspace()).thenReturn(request.preparation().workspace());
             when(malformed.source()).thenReturn(source);
 
-            assertFailure(() -> engine.execute(new EngineExecutionRequest(
-                            request.context(), malformed)),
-                    "INVALID_PLAYWRIGHT_EXECUTION_REQUEST",
-                    "Playwright execution request is invalid");
+            assertThatThrownBy(() -> new EngineExecutionRequest(
+                            request.context(), malformed))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Prepared workspace and source identities are inconsistent");
         }
         verifyNoInteractions(resolver, loader, runtime, runner, clock);
     }

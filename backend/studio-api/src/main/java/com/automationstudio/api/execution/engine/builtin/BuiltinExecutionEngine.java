@@ -3,6 +3,9 @@ package com.automationstudio.api.execution.engine.builtin;
 import com.automationstudio.api.execution.ExecutionContext;
 import com.automationstudio.api.execution.engine.ExecutionEngine;
 import com.automationstudio.api.execution.engine.ExecutionEngineDescriptor;
+import com.automationstudio.api.execution.engine.EngineExecutionRequest;
+import com.automationstudio.api.execution.engine.EngineExecutionResult;
+import com.automationstudio.api.execution.engine.EngineExecutionState;
 import com.automationstudio.api.execution.evidence.ExecutionArtifact;
 import com.automationstudio.api.execution.evidence.ExecutionArtifactReference;
 import com.automationstudio.api.execution.evidence.ExecutionArtifactType;
@@ -20,6 +23,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
@@ -61,7 +65,31 @@ public class BuiltinExecutionEngine implements ExecutionEngine {
     }
 
     @Override
+    public EngineExecutionResult execute(EngineExecutionRequest request) {
+        EngineExecutionRequest validated = Objects.requireNonNull(
+                request, "Engine execution request must not be null").validateFor(descriptor());
+        ExecutionResult result = executeContext(validated.context());
+        return new EngineExecutionResult(
+                result.executionId(),
+                descriptor().engineId(),
+                descriptor().implementationVersion(),
+                validated.preparation().workspace().workspaceId(),
+                validated.preparation().source().resolvedRevision(),
+                result.status() == ExecutionStatus.SUCCEEDED
+                        ? EngineExecutionState.SUCCEEDED
+                        : EngineExecutionState.FAILED,
+                result.startedAt(),
+                result.finishedAt(),
+                result.duration());
+    }
+
+    @Deprecated(forRemoval = false)
+    @Override
     public ExecutionResult execute(ExecutionContext context) {
+        return executeContext(context);
+    }
+
+    private ExecutionResult executeContext(ExecutionContext context) {
         BuiltinExecutionEngineConfiguration.Parsed parsed = configuration.parse(context);
         OffsetDateTime startedAt = OffsetDateTime.now(clock);
         OffsetDateTime finishedAt = OffsetDateTime.now(clock);

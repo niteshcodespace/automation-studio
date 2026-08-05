@@ -2,7 +2,6 @@ package com.automationstudio.api.execution.engine;
 
 import com.automationstudio.api.execution.ExecutionContext;
 import com.automationstudio.api.execution.lifecycle.ExecutionResult;
-import com.automationstudio.api.execution.lifecycle.ExecutionStatus;
 
 public interface ExecutionEngine {
 
@@ -10,23 +9,21 @@ public interface ExecutionEngine {
 
     void validate(ExecutionContext context);
 
+    /**
+     * Legacy context-only invocation retained for source compatibility.
+     * Canonical orchestration must invoke {@link #execute(EngineExecutionRequest)}.
+     */
+    @Deprecated(forRemoval = false)
     default ExecutionResult execute(ExecutionContext context) {
-        throw new UnsupportedOperationException("Execution engine invocation is not implemented");
+        throw new UnsupportedOperationException(
+                "Legacy execution engine invocation is not implemented");
     }
 
+    /**
+     * Canonical provider-neutral invocation with verified preparation and scoped secret access.
+     */
     default EngineExecutionResult execute(EngineExecutionRequest request) {
-        ExecutionResult result = execute(request.context());
-        return new EngineExecutionResult(
-                result.executionId(),
-                descriptor().engineId(),
-                descriptor().implementationVersion(),
-                request.preparation().workspace().workspaceId(),
-                request.preparation().source().resolvedRevision(),
-                result.status() == ExecutionStatus.SUCCEEDED
-                        ? EngineExecutionState.SUCCEEDED
-                        : EngineExecutionState.FAILED,
-                result.startedAt(),
-                result.finishedAt(),
-                result.duration());
+        throw new UnsupportedOperationException(
+                "Prepared execution engine invocation is not implemented");
     }
 }

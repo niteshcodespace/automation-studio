@@ -174,7 +174,11 @@ public final class PlaywrightExecutionEngine implements ExecutionEngine {
         if (request == null) {
             throw invalidRequest();
         }
-        return request;
+        try {
+            return request.validateFor(descriptor());
+        } catch (RuntimeException exception) {
+            throw invalidRequest();
+        }
     }
 
     private void validatePreparationIdentity(EngineExecutionRequest request) {

@@ -11,11 +11,25 @@ import com.automationstudio.api.execution.ExecutionRunnerContext;
 import com.automationstudio.api.execution.ExecutionSecretReference;
 import com.automationstudio.api.execution.ExecutionSuiteSnapshot;
 import com.automationstudio.api.execution.engine.ExecutionEngineRegistryImpl;
+import com.automationstudio.api.execution.engine.EngineExecutionRequest;
+import com.automationstudio.api.execution.engine.EngineExecutionState;
+import com.automationstudio.api.execution.preparation.SourcePreparationResult;
+import com.automationstudio.api.execution.preparation.SourcePreparationState;
 import com.automationstudio.api.execution.lifecycle.ExecutionFailureReason;
 import com.automationstudio.api.execution.lifecycle.ExecutionStatus;
 import com.automationstudio.api.security.SensitiveKeyDetector;
+import com.automationstudio.api.execution.workspace.WorkspaceDescriptor;
+import com.automationstudio.api.execution.workspace.WorkspaceId;
+import com.automationstudio.api.execution.workspace.WorkspaceMetadata;
+import com.automationstudio.api.execution.workspace.WorkspaceProviderId;
+import com.automationstudio.api.execution.workspace.WorkspaceState;
+import com.automationstudio.api.source.ExecutionSourceReference;
+import com.automationstudio.api.source.SourceType;
+import com.automationstudio.api.source.materialization.SourceMaterializationResult;
+import com.automationstudio.api.source.materialization.SourceMaterializationState;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +89,23 @@ class BuiltinExecutionEngineTest {
             assertThat(artifact.size()).isZero();
         });
         assertThat(result.evidence().summary().duration()).isEqualTo(result.duration());
+    }
+
+    @Test
+    void executesCanonicalPreparedRequestWithExactIdentity() {
+        ExecutionContext context = context(Map.of("operation", "SUCCEED"));
+        SourcePreparationResult preparation = preparation();
+
+        var result = engine.execute(new EngineExecutionRequest(context, preparation));
+
+        assertThat(result.executionId()).isEqualTo(executionId);
+        assertThat(result.engineName()).isEqualTo(BuiltinExecutionEngine.ENGINE_ID);
+        assertThat(result.engineVersion())
+                .isEqualTo(BuiltinExecutionEngine.IMPLEMENTATION_VERSION);
+        assertThat(result.workspaceId()).isEqualTo(preparation.workspace().workspaceId());
+        assertThat(result.resolvedRevision())
+                .isEqualTo(preparation.source().resolvedRevision());
+        assertThat(result.state()).isEqualTo(EngineExecutionState.SUCCEEDED);
     }
 
     @Test
@@ -149,7 +180,36 @@ class BuiltinExecutionEngineTest {
         when(context.secretReferences()).thenReturn(List.of(
                 mock(ExecutionSecretReference.class)));
         when(suite.configuration()).thenReturn(configuration);
+        when(suite.engineId()).thenReturn(BuiltinExecutionEngine.ENGINE_ID);
+        when(suite.engineVersion()).thenReturn(
+                BuiltinExecutionEngine.IMPLEMENTATION_VERSION);
         when(runner.runnerId()).thenReturn(runnerId);
         return context;
+    }
+
+    private SourcePreparationResult preparation() {
+        WorkspaceId workspaceId = new WorkspaceId(UUID.randomUUID());
+        OffsetDateTime preparedAt = OffsetDateTime.ofInstant(NOW, ZoneOffset.UTC);
+        String revision = "0123456789012345678901234567890123456789";
+        ExecutionSourceReference sourceReference = new ExecutionSourceReference(
+                SourceType.GIT_HTTPS, "repository", revision, null);
+        WorkspaceDescriptor workspace = WorkspaceDescriptor.planned(
+                        workspaceId,
+                        executionId,
+                        new WorkspaceProviderId("local-filesystem"))
+                .transitionTo(WorkspaceState.PREPARING, null)
+                .transitionTo(
+                        WorkspaceState.READY,
+                        new WorkspaceMetadata(preparedAt, sourceReference));
+        return new SourcePreparationResult(
+                workspace,
+                new SourceMaterializationResult(
+                        workspaceId,
+                        SourceType.GIT_HTTPS,
+                        revision,
+                        SourceMaterializationState.MATERIALIZED,
+                        preparedAt),
+                SourcePreparationState.PREPARED,
+                preparedAt);
     }
 }
