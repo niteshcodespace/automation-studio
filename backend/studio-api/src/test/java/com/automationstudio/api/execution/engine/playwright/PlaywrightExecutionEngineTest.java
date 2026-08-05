@@ -26,6 +26,8 @@ import com.automationstudio.api.execution.ExecutionVariableSource;
 import com.automationstudio.api.execution.engine.EngineExecutionRequest;
 import com.automationstudio.api.execution.engine.EngineExecutionResult;
 import com.automationstudio.api.execution.engine.EngineExecutionState;
+import com.automationstudio.api.execution.engine.ExecutionEngine;
+import com.automationstudio.api.execution.engine.conformance.ExecutionEngineConformanceContract;
 import com.automationstudio.api.execution.engine.playwright.action.PlaywrightActionException;
 import com.automationstudio.api.execution.engine.playwright.action.PlaywrightActionExecutionContext;
 import com.automationstudio.api.execution.engine.playwright.action.PlaywrightActionMetricsAccumulator;
@@ -84,7 +86,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
-class PlaywrightExecutionEngineTest {
+class PlaywrightExecutionEngineTest implements ExecutionEngineConformanceContract {
 
     private static final Instant START = Instant.parse("2026-01-01T00:00:00Z");
     private static final Instant FINISH = START.plusSeconds(3);
@@ -117,6 +119,28 @@ class PlaywrightExecutionEngineTest {
         when(clock.instant()).thenReturn(START, FINISH);
         engine = new PlaywrightExecutionEngine(parser, resolver, loader, runtime, runner, selectors, clock);
         stubSuccess(request, workspace, session, manifest);
+    }
+
+    @Override
+    public ExecutionEngine conformanceEngine() {
+        return engine;
+    }
+
+    @Override
+    public EngineExecutionRequest conformanceRequest() {
+        return request;
+    }
+
+    @Override
+    public EngineExecutionState conformanceExpectedState() {
+        return EngineExecutionState.SUCCEEDED;
+    }
+
+    @Override
+    public void verifyConformanceCleanup() {
+        InOrder cleanup = inOrder(session, workspace);
+        cleanup.verify(session, times(1)).close();
+        cleanup.verify(workspace, times(1)).close();
     }
 
     @Test
@@ -408,8 +432,8 @@ class PlaywrightExecutionEngineTest {
         cleanup.verify(workspace, times(1)).close();
     }
 
-    @Test
-    void separateExecutionsReceiveIsolatedContextsMetricsAndResources() throws Exception {
+    @Override
+    public void verifyConformanceConcurrency() throws Exception {
         UUID execution2 = UUID.randomUUID();
         EngineExecutionRequest request2 = request(execution2, UUID.randomUUID(), "fedcba9876543210", "beta");
         EngineWorkspaceAccess workspace2 = mock(EngineWorkspaceAccess.class);
