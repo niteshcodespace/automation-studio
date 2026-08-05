@@ -150,8 +150,9 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
             EngineExecutionResult result) {
         if (result == null
                 || !request.executionId().equals(result.executionId())
-                || !support.descriptor().engineId().equals(result.engineName())
-                || !support.descriptor().implementationVersion().equals(result.engineVersion())
+                || !support.descriptor().engineId().equals(result.engineId())
+                || !support.descriptor().implementationVersion().equals(
+                        result.implementationVersion())
                 || !preparation.workspace().workspaceId().equals(result.workspaceId())
                 || !preparation.source().resolvedRevision().equals(result.resolvedRevision())
                 || result.state() == null

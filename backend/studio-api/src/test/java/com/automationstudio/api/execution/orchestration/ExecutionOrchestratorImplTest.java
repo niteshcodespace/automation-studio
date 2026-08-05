@@ -217,14 +217,14 @@ class ExecutionOrchestratorImplTest {
 
     @ParameterizedTest
     @ValueSource(strings = {
-            "execution", "engineName", "engineVersion", "workspace", "revision",
+            "execution", "engineId", "implementationVersion", "workspace", "revision",
             "state", "started", "finished", "order", "negativeDuration", "durationMismatch"
     })
     void rejectsEveryInvalidEngineResultInvariant(String mismatch) {
         EngineExecutionResult invalid = mock(EngineExecutionResult.class);
         when(invalid.executionId()).thenReturn(request.executionId());
-        when(invalid.engineName()).thenReturn("dummy");
-        when(invalid.engineVersion()).thenReturn("1.0");
+        when(invalid.engineId()).thenReturn("dummy");
+        when(invalid.implementationVersion()).thenReturn("1.0");
         when(invalid.workspaceId()).thenReturn(preparation.workspace().workspaceId());
         when(invalid.resolvedRevision()).thenReturn(REVISION);
         when(invalid.state()).thenReturn(EngineExecutionState.SUCCEEDED);
@@ -233,8 +233,9 @@ class ExecutionOrchestratorImplTest {
         when(invalid.duration()).thenReturn(Duration.ofSeconds(2));
         switch (mismatch) {
             case "execution" -> when(invalid.executionId()).thenReturn(UUID.randomUUID());
-            case "engineName" -> when(invalid.engineName()).thenReturn("other");
-            case "engineVersion" -> when(invalid.engineVersion()).thenReturn("2.0");
+            case "engineId" -> when(invalid.engineId()).thenReturn("other");
+            case "implementationVersion" ->
+                    when(invalid.implementationVersion()).thenReturn("2.0");
             case "workspace" -> when(invalid.workspaceId())
                     .thenReturn(new WorkspaceId(UUID.randomUUID()));
             case "revision" -> when(invalid.resolvedRevision()).thenReturn("other");

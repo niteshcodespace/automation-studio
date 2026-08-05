@@ -8,8 +8,8 @@ import java.util.UUID;
 
 public record EngineExecutionResult(
         UUID executionId,
-        String engineName,
-        String engineVersion,
+        String engineId,
+        String implementationVersion,
         WorkspaceId workspaceId,
         String resolvedRevision,
         EngineExecutionState state,
@@ -19,8 +19,9 @@ public record EngineExecutionResult(
 
     public EngineExecutionResult {
         executionId = Objects.requireNonNull(executionId, "Execution ID must not be null");
-        engineName = requireText(engineName, "Engine name");
-        engineVersion = requireText(engineVersion, "Engine version");
+        engineId = requireText(engineId, "Engine ID");
+        implementationVersion = requireText(
+                implementationVersion, "Engine implementation version");
         workspaceId = Objects.requireNonNull(workspaceId, "Workspace ID must not be null");
         resolvedRevision = requireText(resolvedRevision, "Resolved revision");
         state = Objects.requireNonNull(state, "Engine execution state must not be null");
@@ -38,6 +39,49 @@ public record EngineExecutionResult(
             throw new IllegalArgumentException(
                     "Engine duration must match its timestamps");
         }
+    }
+
+    public EngineExecutionResult validateFor(
+            EngineExecutionRequest request, ExecutionEngineDescriptor descriptor) {
+        EngineExecutionRequest invocation = Objects.requireNonNull(
+                request, "Engine execution request must not be null");
+        ExecutionEngineDescriptor selected = Objects.requireNonNull(
+                descriptor, "Execution engine descriptor must not be null");
+        if (!executionId.equals(invocation.executionId())
+                || !engineId.equals(selected.engineId())
+                || !implementationVersion.equals(selected.implementationVersion())
+                || !workspaceId.equals(invocation.preparation().workspace().workspaceId())
+                || !resolvedRevision.equals(
+                        invocation.preparation().source().resolvedRevision())) {
+            throw new IllegalArgumentException(
+                    "Engine result does not match its execution request");
+        }
+        return this;
+    }
+
+    /**
+     * Compatibility alias for callers written before canonical engine ID terminology.
+     */
+    @Deprecated(forRemoval = false)
+    public String engineName() {
+        return engineId;
+    }
+
+    /**
+     * Compatibility alias for callers written before implementation-version terminology.
+     */
+    @Deprecated(forRemoval = false)
+    public String engineVersion() {
+        return implementationVersion;
+    }
+
+    @Override
+    public String toString() {
+        return "EngineExecutionResult[executionId=" + executionId
+                + ", engineId=" + engineId
+                + ", implementationVersion=" + implementationVersion
+                + ", workspaceId=" + workspaceId
+                + ", state=" + state + "]";
     }
 
     private static String requireText(String value, String name) {
