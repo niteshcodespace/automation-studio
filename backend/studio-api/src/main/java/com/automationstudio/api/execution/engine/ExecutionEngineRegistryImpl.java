@@ -2,6 +2,7 @@ package com.automationstudio.api.execution.engine;
 
 import com.automationstudio.api.execution.ExecutionContext;
 import java.util.Comparator;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,35 +17,34 @@ public class ExecutionEngineRegistryImpl implements ExecutionEngineRegistry {
 
     public ExecutionEngineRegistryImpl(List<ExecutionEngine> availableEngines) {
         Objects.requireNonNull(availableEngines, "Available engines must not be null");
+        List<ExecutionEngineSupport> availableSupports = availableEngines.stream()
+                .map(ExecutionEngineRegistryImpl::validatedSupport)
+                .sorted(Comparator.comparing(
+                                (ExecutionEngineSupport support) ->
+                                        support.descriptor().engineId())
+                        .thenComparing(support ->
+                                support.descriptor().implementationVersion()))
+                .toList();
         Map<String, Map<String, ExecutionEngineSupport>> registrations = new LinkedHashMap<>();
-        for (ExecutionEngine engine : availableEngines) {
-            if (engine == null) {
-                throw new ExecutionEngineRegistrationException(
-                        "Execution engine must not be null");
-            }
-            ExecutionEngineDescriptor descriptor = engine.descriptor();
-            if (descriptor == null) {
-                throw new ExecutionEngineRegistrationException(
-                        "Execution engine descriptor must not be null");
-            }
+        for (ExecutionEngineSupport support : availableSupports) {
+            ExecutionEngineDescriptor descriptor = support.descriptor();
             Map<String, ExecutionEngineSupport> versions = registrations.computeIfAbsent(
                     descriptor.engineId(), ignored -> new LinkedHashMap<>());
             ExecutionEngineSupport prior = versions.putIfAbsent(
                     descriptor.implementationVersion(),
-                    new ExecutionEngineSupport(engine, descriptor));
+                    support);
             if (prior != null) {
                 throw new ExecutionEngineRegistrationException(
                         "Duplicate execution engine registration");
             }
         }
         Map<String, Map<String, ExecutionEngineSupport>> immutable = new LinkedHashMap<>();
-        registrations.forEach((name, versions) -> immutable.put(name, Map.copyOf(versions)));
-        engines = Map.copyOf(immutable);
-        descriptors = engines.values().stream()
-                .flatMap(versions -> versions.values().stream())
+        registrations.forEach((engineId, versions) -> immutable.put(
+                engineId,
+                Collections.unmodifiableMap(new LinkedHashMap<>(versions))));
+        engines = Collections.unmodifiableMap(immutable);
+        descriptors = availableSupports.stream()
                 .map(ExecutionEngineSupport::descriptor)
-                .sorted(Comparator.comparing(ExecutionEngineDescriptor::engineId)
-                        .thenComparing(ExecutionEngineDescriptor::implementationVersion))
                 .toList();
     }
 
@@ -57,10 +57,10 @@ public class ExecutionEngineRegistryImpl implements ExecutionEngineRegistry {
                     "Execution engine was not found");
         }
         if (versions.size() != 1) {
-            throw new ExecutionEngineCompatibilityException(
-                    "Execution engine version must be specified for " + name);
+            throw new ExecutionEngineAmbiguousException(
+                    "Execution engine registration is ambiguous");
         }
-        return versions.values().iterator().next();
+        return requireConsistentDescriptor(versions.values().iterator().next());
     }
 
     @Override
@@ -74,10 +74,10 @@ public class ExecutionEngineRegistryImpl implements ExecutionEngineRegistry {
         }
         ExecutionEngineSupport support = versions.get(version);
         if (support == null) {
-            throw new ExecutionEngineCompatibilityException(
-                    "Execution engine version is not supported: " + name + ":" + version);
+            throw new ExecutionEngineVersionNotSupportedException(
+                    "Execution engine implementation version is not supported");
         }
-        return support;
+        return requireConsistentDescriptor(support);
     }
 
     @Override
@@ -115,5 +115,43 @@ public class ExecutionEngineRegistryImpl implements ExecutionEngineRegistry {
             throw new IllegalArgumentException(name + " must not be blank");
         }
         return value;
+    }
+
+    private static ExecutionEngineSupport validatedSupport(ExecutionEngine engine) {
+        if (engine == null) {
+            throw new ExecutionEngineInvalidDescriptorException(
+                    "Execution engine registration is invalid");
+        }
+        ExecutionEngineDescriptor descriptor = descriptorOf(engine);
+        if (!descriptor.equals(descriptorOf(engine))) {
+            throw new ExecutionEngineInvalidDescriptorException(
+                    "Execution engine descriptor is inconsistent");
+        }
+        return new ExecutionEngineSupport(engine, descriptor);
+    }
+
+    private static ExecutionEngineSupport requireConsistentDescriptor(
+            ExecutionEngineSupport support) {
+        if (!support.descriptor().equals(descriptorOf(support.engine()))) {
+            throw new ExecutionEngineInvalidDescriptorException(
+                    "Execution engine descriptor is inconsistent");
+        }
+        return support;
+    }
+
+    private static ExecutionEngineDescriptor descriptorOf(ExecutionEngine engine) {
+        try {
+            ExecutionEngineDescriptor descriptor = engine.descriptor();
+            if (descriptor == null) {
+                throw new ExecutionEngineInvalidDescriptorException(
+                        "Execution engine descriptor is invalid");
+            }
+            return descriptor;
+        } catch (ExecutionEngineInvalidDescriptorException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw new ExecutionEngineInvalidDescriptorException(
+                    "Execution engine descriptor is invalid");
+        }
     }
 }
