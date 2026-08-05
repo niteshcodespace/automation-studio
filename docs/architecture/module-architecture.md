@@ -4,7 +4,10 @@
 
 The initial control plane is a modular monolith. Modules are organized by business capability, own their application behavior, and communicate through explicit application interfaces or domain events. This keeps v0.1 practical while preserving the boundaries needed for later extraction.
 
-The execution runner is a separate runtime boundary. Engine implementations are plugins behind a shared, versioned contract and do not become dependencies of control-plane domain modules.
+The execution runner is a separate runtime boundary. Engine implementations are statically
+Spring-registered plugins behind a shared contract and do not become dependencies of control-plane
+domain modules. The current compatibility axis is exact engine implementation version; a separate
+plugin-contract version is deferred by ADR-016.
 
 ## Control-Plane Modules
 
@@ -50,19 +53,24 @@ resolved identity. See ADR-013.
 
 ## Engine Plugin Contract
 
-Each engine declares a stable engine identifier, implementation version, supported contract versions, capabilities, configuration schema, runtime requirements, entry point, and integrity metadata.
+The current repository contract requires each engine to declare a stable case-sensitive
+`engineId`, exact `implementationVersion`, display name, and immutable capability/feature sets.
+Configuration/runtime requirements remain provider-owned behind the shared contract. Separate
+plugin-contract versions, package entry-point metadata, and integrity metadata are future SDK or
+external-plugin decisions, not current descriptor fields. See ADR-016.
 
 The required lifecycle operations are:
 
 - Describe capabilities.
 - Validate suite and engine configuration without side effects.
-- Discover tests when the engine supports discovery.
 - Execute a normalized request and emit normalized events.
-- Cooperatively cancel an active execution.
-- Report health.
 - Release resources.
 
-The normalized request includes execution and attempt identifiers, project workspace, source revision, selection, non-secret configuration, scoped secret material, artifact output path, timeouts, and requested capabilities. Plugins must not write platform database tables, make authorization decisions, select work independently, or resolve arbitrary platform secrets.
+The current canonical `EngineExecutionRequest` includes one immutable execution context, completed
+source/workspace preparation, and a narrow execution-matched secret-access capability. Cancellation,
+health, discovery, and artifact-output expansion require later approved contracts. Plugins must not
+write platform database tables, make authorization decisions, select work independently, delete
+physical workspaces, or resolve arbitrary platform secrets.
 
 ## AI Capability Modules
 

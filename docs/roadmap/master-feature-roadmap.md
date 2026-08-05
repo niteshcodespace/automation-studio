@@ -1333,6 +1333,11 @@ AS-026A must inspect the current repository and determine whether the Engine Reg
 
 No AS-026 implementation scope is approved until AS-026A is independently reviewed and accepted.
 
+Repository reconciliation found that AS-026B canonical descriptor work was implemented and
+committed at `8589afa` before the AS-026A artifacts were created. AS-026A must describe that code
+accurately and gate AS-026C and later phases on independent acceptance; it must not represent the
+out-of-order AS-026B work as approval to skip the mandatory lifecycle.
+
 ---
 
 # 25. Roadmap Change Policy
