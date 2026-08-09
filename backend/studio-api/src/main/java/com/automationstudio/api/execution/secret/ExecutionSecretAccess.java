@@ -3,7 +3,7 @@ package com.automationstudio.api.execution.secret;
 import java.util.Objects;
 import java.util.UUID;
 
-public interface ExecutionSecretAccess {
+public interface ExecutionSecretAccess extends com.automationstudio.engine.sdk.ExecutionSecretAccess {
 
     UUID executionId();
 

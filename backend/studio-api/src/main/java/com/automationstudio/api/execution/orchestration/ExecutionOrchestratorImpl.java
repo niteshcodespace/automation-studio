@@ -1,8 +1,6 @@
 package com.automationstudio.api.execution.orchestration;
 
-import com.automationstudio.api.execution.engine.EngineExecutionRequest;
-import com.automationstudio.api.execution.engine.EngineExecutionResult;
-import com.automationstudio.api.execution.engine.ExecutionEngine;
+import com.automationstudio.api.execution.engine.EngineExecutionContextProjection;
 import com.automationstudio.api.execution.engine.ExecutionEngineRegistry;
 import com.automationstudio.api.execution.engine.ExecutionEngineSupport;
 import com.automationstudio.api.execution.preparation.SourcePreparationResult;
@@ -13,6 +11,12 @@ import com.automationstudio.api.execution.secret.ExecutionSecretScopeFactory;
 import com.automationstudio.api.execution.workspace.WorkspaceDescriptor;
 import com.automationstudio.api.execution.workspace.WorkspaceManager;
 import com.automationstudio.api.execution.workspace.WorkspaceState;
+import com.automationstudio.api.execution.workspace.local.access.EngineWorkspaceAccessResolver;
+import com.automationstudio.api.execution.workspace.local.access.PreparedWorkspaceAccessCapability;
+import com.automationstudio.engine.sdk.EngineExecutionRequest;
+import com.automationstudio.engine.sdk.EngineExecutionResult;
+import com.automationstudio.engine.sdk.ExecutionEnginePlugin;
+import com.automationstudio.engine.sdk.PreparedSource;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -24,6 +28,7 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
     private final ExecutionEngineRegistry engineRegistry;
     private final WorkspaceManager workspaceManager;
     private final ExecutionSecretScopeFactory secretScopeFactory;
+    private final EngineWorkspaceAccessResolver workspaceAccessResolver;
     private final Clock clock;
 
     public ExecutionOrchestratorImpl(
@@ -31,6 +36,7 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
             ExecutionEngineRegistry engineRegistry,
             WorkspaceManager workspaceManager,
             ExecutionSecretScopeFactory secretScopeFactory,
+            EngineWorkspaceAccessResolver workspaceAccessResolver,
             Clock clock) {
         this.preparationService = Objects.requireNonNull(
                 preparationService, "Source preparation service must not be null");
@@ -40,7 +46,27 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
                 workspaceManager, "Workspace manager must not be null");
         this.secretScopeFactory = Objects.requireNonNull(
                 secretScopeFactory, "Execution secret scope factory must not be null");
+        this.workspaceAccessResolver = Objects.requireNonNull(
+                workspaceAccessResolver, "Engine workspace access resolver must not be null");
         this.clock = Objects.requireNonNull(clock, "Clock must not be null");
+    }
+
+    /** Compatibility constructor for callers whose engine invocation does not open source access. */
+    @Deprecated(forRemoval = false)
+    public ExecutionOrchestratorImpl(
+            SourcePreparationService preparationService,
+            ExecutionEngineRegistry engineRegistry,
+            WorkspaceManager workspaceManager,
+            ExecutionSecretScopeFactory secretScopeFactory,
+            Clock clock) {
+        this(
+                preparationService,
+                engineRegistry,
+                workspaceManager,
+                secretScopeFactory,
+                request -> { throw new IllegalStateException(
+                        "Prepared source access is unavailable for this compatibility caller"); },
+                clock);
     }
 
     @Override
@@ -92,10 +118,23 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
 
         EngineExecutionResult engineResult;
         try {
-            ExecutionEngine engine = support.engine();
-            engineResult = engine.execute(
-                    new EngineExecutionRequest(
-                            request.context(), preparation, secretScope));
+            ExecutionEnginePlugin engine = support.engine();
+            EngineExecutionRequest sdkRequest = new EngineExecutionRequest(
+                            EngineExecutionContextProjection.from(request.context()),
+                            new PreparedSource(
+                                    preparation.workspace().workspaceId(),
+                                    preparation.source().sourceType().name(),
+                                    preparation.source().resolvedRevision()),
+                            new PreparedWorkspaceAccessCapability(
+                            preparation, workspaceAccessResolver),
+                            secretScope);
+            if (usesLegacyPreparedBridge(engine)) {
+                engineResult = ((com.automationstudio.api.execution.engine.ExecutionEngine) engine)
+                        .execute(new com.automationstudio.api.execution.engine.EngineExecutionRequest(
+                                request.context(), preparation, secretScope));
+            } else {
+                engineResult = engine.execute(sdkRequest);
+            }
         } catch (RuntimeException failure) {
             throw cleanup(
                     secretScope,
@@ -119,6 +158,21 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
         }
         return new ExecutionOrchestrationResult(
                 engineResult, OffsetDateTime.now(clock));
+    }
+
+    private static boolean usesLegacyPreparedBridge(ExecutionEnginePlugin engine) {
+        if (!(engine instanceof com.automationstudio.api.execution.engine.ExecutionEngine)) {
+            return false;
+        }
+        try {
+            return engine.getClass().getMethod(
+                    "execute",
+                    com.automationstudio.api.execution.engine.EngineExecutionRequest.class)
+                    .getDeclaringClass()
+                    != com.automationstudio.api.execution.engine.ExecutionEngine.class;
+        } catch (NoSuchMethodException impossible) {
+            throw new IllegalStateException("Execution engine contract is incomplete", impossible);
+        }
     }
 
     private ExecutionOrchestrationException validatePreparation(

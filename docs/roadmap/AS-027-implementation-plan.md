@@ -2,9 +2,8 @@
 
 ## Status and delivery rules
 
-AS-027A documentation and independent review are complete on
-`feature/AS-027-engine-plugin-sdk` from baseline `59af99d`; changes are uncommitted and unpushed.
-AS-027B through AS-027F are not started and remain separately gated.
+AS-027A is committed and pushed. AS-027B implementation and verification are complete and
+uncommitted on `feature/AS-027-engine-plugin-sdk`; AS-027C through AS-027F remain separately gated.
 
 Every story follows implementation, focused verification, full reactor verification,
 `git diff --check`, independent architecture/security review, repository checkpoint, explicit
@@ -71,6 +70,13 @@ classpath/framework leakage, sensitive rendering, and authority exposure.
 
 **Repository/commit/push/PR gates:** Separate checkpoint, commit approval, commit, push approval,
 and push. Remains on the feature branch; no PR merge and no AS-027C without approval.
+
+**Implemented evidence:** The root reactor now builds `engines/engine-plugin-sdk` before
+`backend/studio-api`. The SDK contains 14 JDK-only production types, while platform projection,
+prepared-source binding, legacy adapters, registry integration, and Builtin/Playwright migration
+remain in `studio-api`. Focused verification passed 97 tests; dependency-tree verification found
+no SDK dependencies; full `mvn clean verify` passed 1,136 tests with 16 skips and no failures or
+errors. Changes remain uncommitted and unpushed.
 
 ## AS-027C - Reusable Fixtures and Conformance Harness
 

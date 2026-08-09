@@ -3,6 +3,7 @@ package com.automationstudio.api.execution.engine.playwright.manifest;
 import com.automationstudio.api.execution.ExecutionSuiteSnapshot;
 import com.automationstudio.api.execution.workspace.local.access.EngineWorkspaceAccess;
 import com.automationstudio.api.execution.workspace.local.access.EngineWorkspaceAccessException;
+import com.automationstudio.engine.sdk.PreparedSourceAccess;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -56,6 +57,23 @@ public final class PlaywrightScenarioManifestLoader {
         Objects.requireNonNull(workspaceAccess, "Engine workspace access must not be null");
         Path manifest = resolveManifest(workspaceAccess, suite.suiteReference());
         return parse(readBounded(manifest));
+    }
+
+    public PlaywrightScenarioManifest load(
+            String suiteReference, PreparedSourceAccess workspaceAccess) {
+        Objects.requireNonNull(workspaceAccess, "Prepared source access must not be null");
+        if (suiteReference == null || suiteReference.isBlank()
+                || suiteReference.length() > MAX_REFERENCE_LENGTH
+                || suiteReference.indexOf('\0') >= 0) {
+            throw unsafeLocation();
+        }
+        try (InputStream input = workspaceAccess.open(suiteReference)) {
+            return parse(readBounded(input));
+        } catch (EngineWorkspaceAccessException | PlaywrightManifestException exception) {
+            throw exception;
+        } catch (IOException | RuntimeException exception) {
+            throw failure("MANIFEST_UNREADABLE", "Scenario manifest could not be read");
+        }
     }
 
     private Path resolveManifest(EngineWorkspaceAccess access, String reference) {
@@ -145,6 +163,20 @@ public final class PlaywrightScenarioManifestLoader {
             throw failure(
                     "MANIFEST_UNREADABLE",
                     "Scenario manifest could not be read");
+        }
+    }
+
+    private byte[] readBounded(InputStream input) {
+        try {
+            byte[] bytes = input.readNBytes(MAX_MANIFEST_BYTES + 1);
+            if (bytes.length > MAX_MANIFEST_BYTES) {
+                throw failure("MANIFEST_TOO_LARGE", "Scenario manifest exceeds the size limit");
+            }
+            return bytes;
+        } catch (PlaywrightManifestException exception) {
+            throw exception;
+        } catch (IOException | RuntimeException exception) {
+            throw failure("MANIFEST_UNREADABLE", "Scenario manifest could not be read");
         }
     }
 

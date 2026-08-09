@@ -69,7 +69,8 @@ class OrangeHrmQualificationContractTest {
                         java.util.Set.of()))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("AS-025G requires the exact Playwright engine");
-        assertThatThrownBy(() -> new OrangeHrmQualificationExecutionEngine().validate(null))
+        assertThatThrownBy(() -> new OrangeHrmQualificationExecutionEngine().validate(
+                (com.automationstudio.api.execution.ExecutionContext) null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("AS-025G execution engine is not bound");
     }

@@ -117,7 +117,7 @@ class PlaywrightExecutionEngineSanitizationTest {
     @Test
     void sanitizesConfigurationFailure() {
         PlaywrightConfigurationException raw = new PlaywrightConfigurationException(SENSITIVE);
-        when(configurationParser.parse(any())).thenThrow(raw);
+        when(configurationParser.parse(any(ExecutionContext.class))).thenThrow(raw);
 
         assertSanitized(
                 () -> engine.validate(request.context()),
@@ -172,7 +172,8 @@ class PlaywrightExecutionEngineSanitizationTest {
     @Test
     void sanitizesManifestLoadingFailure() {
         PlaywrightManifestException raw = new PlaywrightManifestException("RAW_MANIFEST", SENSITIVE);
-        when(manifestLoader.load(any(), eq(workspaceAccess))).thenThrow(raw);
+        when(manifestLoader.load(any(ExecutionSuiteSnapshot.class), eq(workspaceAccess)))
+                .thenThrow(raw);
 
         assertSanitized(
                 () -> engine.execute(request),
@@ -249,7 +250,7 @@ class PlaywrightExecutionEngineSanitizationTest {
     @Test
     void sanitizesDefensiveExecuteTimeConfigurationFailure() {
         PlaywrightConfigurationException raw = new PlaywrightConfigurationException(SENSITIVE);
-        when(configurationParser.parse(any())).thenThrow(raw);
+        when(configurationParser.parse(any(ExecutionContext.class))).thenThrow(raw);
 
         assertSanitized(
                 () -> engine.execute(request),
@@ -394,11 +395,12 @@ class PlaywrightExecutionEngineSanitizationTest {
         PlaywrightRuntimeMetrics startup = PlaywrightRuntimeMetrics.startup(Duration.ofMillis(25));
         PlaywrightRuntimeMetrics completed = new PlaywrightRuntimeMetrics(
                 1, 1, 0, Duration.ofMillis(50), Duration.ofMillis(25));
-        when(configurationParser.parse(any())).thenReturn(configuration);
+        when(configurationParser.parse(any(ExecutionContext.class))).thenReturn(configuration);
         when(workspaceResolver.open(any())).thenReturn(workspaceAccess);
         when(workspaceAccess.workspaceId())
                 .thenReturn(request.preparation().workspace().workspaceId());
-        when(manifestLoader.load(any(), eq(workspaceAccess))).thenReturn(manifest);
+        when(manifestLoader.load(any(ExecutionSuiteSnapshot.class), eq(workspaceAccess)))
+                .thenReturn(manifest);
         when(runtime.open(configuration)).thenReturn(session);
         when(session.result()).thenReturn(new PlaywrightRuntimeResult(startup));
         when(runner.execute(

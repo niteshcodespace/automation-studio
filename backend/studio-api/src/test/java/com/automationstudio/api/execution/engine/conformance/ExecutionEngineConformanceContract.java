@@ -63,7 +63,7 @@ public interface ExecutionEngineConformanceContract {
         EngineExecutionResult result = engine.execute(request);
 
         assertThat(result.validateFor(request, engine.descriptor())).isSameAs(result);
-        assertThat(result.state()).isEqualTo(conformanceExpectedState());
+        assertThat(result.state().name()).isEqualTo(conformanceExpectedState().name());
         assertThat(result.executionId()).isEqualTo(request.executionId());
         assertThat(result.workspaceId())
                 .isEqualTo(request.preparation().workspace().workspaceId());

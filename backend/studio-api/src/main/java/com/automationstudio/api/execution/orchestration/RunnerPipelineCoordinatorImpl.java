@@ -1,7 +1,7 @@
 package com.automationstudio.api.execution.orchestration;
 
 import com.automationstudio.api.domain.ExecutionStatus;
-import com.automationstudio.api.execution.engine.EngineExecutionState;
+import com.automationstudio.engine.sdk.EngineExecutionState;
 import com.automationstudio.api.execution.preparation.SourcePreparationRequest;
 import com.automationstudio.api.execution.workspace.WorkspaceDescriptor;
 import com.automationstudio.api.execution.workspace.WorkspaceId;

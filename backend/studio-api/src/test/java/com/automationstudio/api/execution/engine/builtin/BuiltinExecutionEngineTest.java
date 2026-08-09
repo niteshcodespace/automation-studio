@@ -122,7 +122,7 @@ class BuiltinExecutionEngineTest implements ExecutionEngineConformanceContract {
         assertThat(result.workspaceId()).isEqualTo(preparation.workspace().workspaceId());
         assertThat(result.resolvedRevision())
                 .isEqualTo(preparation.source().resolvedRevision());
-        assertThat(result.state()).isEqualTo(EngineExecutionState.SUCCEEDED);
+        assertThat(result.state().name()).isEqualTo(EngineExecutionState.SUCCEEDED.name());
     }
 
     @Test

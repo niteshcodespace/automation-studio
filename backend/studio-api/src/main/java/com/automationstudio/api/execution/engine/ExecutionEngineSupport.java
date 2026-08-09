@@ -1,9 +1,11 @@
 package com.automationstudio.api.execution.engine;
 
 import java.util.Objects;
+import com.automationstudio.engine.sdk.ExecutionEngineDescriptor;
+import com.automationstudio.engine.sdk.ExecutionEnginePlugin;
 
 public record ExecutionEngineSupport(
-        ExecutionEngine engine,
+        ExecutionEnginePlugin engine,
         ExecutionEngineDescriptor descriptor) {
 
     public ExecutionEngineSupport {

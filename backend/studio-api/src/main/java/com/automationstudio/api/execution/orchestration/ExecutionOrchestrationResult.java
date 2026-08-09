@@ -1,6 +1,6 @@
 package com.automationstudio.api.execution.orchestration;
 
-import com.automationstudio.api.execution.engine.EngineExecutionResult;
+import com.automationstudio.engine.sdk.EngineExecutionResult;
 import java.time.OffsetDateTime;
 import java.util.Objects;
 

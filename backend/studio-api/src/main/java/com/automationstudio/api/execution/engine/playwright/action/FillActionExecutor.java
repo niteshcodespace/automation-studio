@@ -2,7 +2,7 @@ package com.automationstudio.api.execution.engine.playwright.action;
 
 import com.automationstudio.api.execution.engine.playwright.manifest.PlaywrightActionType;
 import com.automationstudio.api.execution.engine.playwright.manifest.PlaywrightStep;
-import com.automationstudio.api.execution.secret.ResolvedSecret;
+import com.automationstudio.engine.sdk.ResolvedSecret;
 import com.automationstudio.api.execution.secret.SecretResolutionException;
 import java.time.Duration;
 

@@ -22,7 +22,7 @@ class ExecutionEngineRegistryTest {
         assertThat(registry.resolve("playwright").engine()).isSameAs(first);
         assertThat(registry.resolve("selenium", "4").engine()).isSameAs(second);
         assertThat(registry.supportedEngines())
-                .extracting(ExecutionEngineDescriptor::engineId)
+                .extracting(descriptor -> descriptor.engineId())
                 .containsExactly("playwright", "selenium");
         assertThatThrownBy(() -> registry.supportedEngines().clear())
                 .isInstanceOf(UnsupportedOperationException.class);
