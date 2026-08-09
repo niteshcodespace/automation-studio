@@ -3,7 +3,8 @@
 ## Status and delivery rules
 
 AS-027A is committed and pushed. AS-027B implementation and verification are complete and
-uncommitted on `feature/AS-027-engine-plugin-sdk`; AS-027C through AS-027F remain separately gated.
+committed and pushed on `feature/AS-027-engine-plugin-sdk`; AS-027C is implemented but uncommitted,
+and AS-027D through AS-027F remain separately gated.
 
 Every story follows implementation, focused verification, full reactor verification,
 `git diff --check`, independent architecture/security review, repository checkpoint, explicit
@@ -105,6 +106,16 @@ observability, secret diagnostic safety, and no registry duplication.
 
 **Repository/commit/push/PR gates:** Separate checkpoint and explicit commit/push approvals;
 feature branch only, with no AS-027D or merge implied.
+
+**Implemented evidence:** The root reactor builds `engine-plugin-conformance` after the SDK. Its
+public JUnit 5 contract invokes supplied plugins directly and verifies immutable descriptor data,
+exact identity, side-effect-free validation, canonical correlated results, concurrent isolation,
+and observable cleanup. SDK-only in-memory workspace and secret fixtures verify bounded paths,
+handle closure, execution correlation, defensive copying, closed-value behavior, and redacted
+rendering. The module has no `studio-api`, Spring, persistence, database, Testcontainers,
+Playwright, Jackson, registry, or orchestrator dependency. The existing platform-specific
+contract remains temporarily for AS-027D repository-engine adoption; it is not the reusable
+generic contract.
 
 ## AS-027D - Repository Engine Migration and Conformance Proof
 

@@ -11,6 +11,7 @@
 
     <modules>
         <module>engines/engine-plugin-sdk</module>
+        <module>engines/engine-plugin-conformance</module>
         <module>backend/studio-api</module>
     </modules>
 </project>

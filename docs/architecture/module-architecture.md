@@ -94,8 +94,8 @@ engine-plugin-conformance
 Later, the sample engine depends on `engine-plugin-sdk`, and its tests depend on
 `engine-plugin-conformance`. A likely reactor layout is a root aggregator with
 `engines/engine-plugin-sdk`, `engines/engine-plugin-conformance`,
-`engines/sample-engine-plugin`, and `backend/studio-api`. AS-027B, AS-027C, and AS-027E must
-separately validate and create those modules; this document does not claim they exist.
+`engines/sample-engine-plugin`, and `backend/studio-api`. AS-027B created the SDK and AS-027C
+created the reusable conformance module. The sample remains deferred to AS-027E.
 
 The intended reusable `ExecutionEnginePlugin` interface conceptually centers on `descriptor()`,
 `validate(EngineExecutionContext)`, and `execute(EngineExecutionRequest)`. The current platform
