@@ -42,9 +42,10 @@ AS-026C Registry Resolution and Compatibility Hardening - complete and committed
 AS-026D Canonical Plugin Invocation Contract - complete and committed (03790ec)
 AS-026E Result, Failure and Cleanup Contract - complete and committed (ebd6ec4)
 AS-026F Repository Engine Conformance Verification - complete and committed (a19b204)
-AS-026G Documentation and Feature-Level Review - complete and awaiting final commit approval
-AS-026 Engine Registry and Plugin Contract - complete and awaiting final documentation commit approval
-AS-027 Engine Plugin SDK and Conformance Harness - next proposed feature; not started
+AS-026G Documentation and Feature-Level Review - complete and committed (59af99d)
+AS-026 Engine Registry and Plugin Contract - complete and committed (59af99d)
+AS-027A Requirements, Dependency Boundary and SDK Architecture - complete and awaiting commit approval
+AS-027 Engine Plugin SDK and Conformance Harness - AS-027A complete on feature branch; AS-027B not started
 ```
 
 The approved sequence preserves immutable execution snapshots, keeps resolved values outside
@@ -64,8 +65,8 @@ feature-level architecture, security, operations, and deferred-scope review. The
 qualification evidence remains authoritative. AS-025 is complete. AS-026 established one static,
 immutable engine registry and one provider-neutral descriptor, prepared invocation, result,
 cleanup, and repository-conformance contract. AS-026G completed final reconciliation without
-runtime changes. AS-027 begins only after the AS-026 final documentation commit is approved and
-must extract reusable SDK/harness concerns without creating a second registry or execution path.
+runtime changes and completed at `59af99d`. AS-027 extracts reusable SDK/harness concerns without
+creating a second registry or execution path; AS-027A defines the boundary before module creation.
 
 ## Phase 2
 

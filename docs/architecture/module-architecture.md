@@ -72,6 +72,43 @@ health, discovery, and artifact-output expansion require later approved contract
 write platform database tables, make authorization decisions, select work independently, delete
 physical workspaces, or resolve arbitrary platform secrets.
 
+AS-027 approves a future reusable module boundary without creating its physical modules in
+AS-027A. The production SDK is Spring-free and targets JDK-only dependencies. It exposes a
+projected immutable engine context and narrow execution-bound workspace/secret capabilities rather
+than platform orchestration, persistence, preparation, provider, or lifecycle implementations.
+
+The approved dependency direction is:
+
+```text
+engine-plugin-sdk
+        ^
+        |
+studio-api
+
+engine-plugin-sdk
+        ^
+        |
+engine-plugin-conformance
+```
+
+Later, the sample engine depends on `engine-plugin-sdk`, and its tests depend on
+`engine-plugin-conformance`. A likely reactor layout is a root aggregator with
+`engines/engine-plugin-sdk`, `engines/engine-plugin-conformance`,
+`engines/sample-engine-plugin`, and `backend/studio-api`. AS-027B, AS-027C, and AS-027E must
+separately validate and create those modules; this document does not claim they exist.
+
+The intended reusable `ExecutionEnginePlugin` interface conceptually centers on `descriptor()`,
+`validate(EngineExecutionContext)`, and `execute(EngineExecutionRequest)`. The current platform
+`ExecutionEngine` may temporarily bridge this contract. Deprecated `execute(ExecutionContext)`
+remains platform compatibility behavior and is not the SDK onboarding model. The platform retains
+one authoritative registry and one controlled execution path.
+
+Workspace capability design must keep physical roots, provider infrastructure, deletion, and the
+platform-local resolver internal. Raw `Path` is not required by AS-027A; AS-027B must prove and
+bound it if unavoidable. Secret capability design permits execution-correlated logical-name
+resolution only and keeps providers, registries, credentials, scopes, and persistence internal.
+In-process plugins remain trusted deployed code; the SDK boundary is not runtime isolation.
+
 ## AI Capability Modules
 
 AI modules are optional in v0.1 and remain outside the authoritative execution path.

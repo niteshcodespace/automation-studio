@@ -1318,8 +1318,9 @@ The immediate next proposed feature is:
 AS-027 — Engine Plugin SDK and Conformance Harness
 ```
 
-AS-026 is complete through AS-026G and awaits only approval of its final documentation commit.
-AS-027 begins where AS-026 deliberately stops: extracting a reusable SDK, external conformance
+AS-026 is complete through AS-026G at commit `59af99d`. AS-027A documentation and review are
+complete on the feature branch and await commit approval. AS-027 begins where AS-026 deliberately
+stops: extracting a reusable SDK, external conformance
 harness, fixtures, sample plugin, and third-party developer guidance from the proven repository
 contract. It must reuse the existing registry and orchestration path. Runtime plugin discovery,
 installation, trust/signing/isolation, durable artifact standardization, and additional engines

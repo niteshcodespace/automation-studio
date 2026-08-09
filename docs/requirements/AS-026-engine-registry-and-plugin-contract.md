@@ -6,8 +6,8 @@ AS-026 documents and reconciles the provider-neutral engine boundary introduced 
 AS-025. AS-026B canonicalized descriptor identity at commit `8589afa` before these feature
 documents were added. AS-026A and AS-026C through AS-026F subsequently completed the documented
 architecture, registry, invocation, result/cleanup, and repository-conformance work. AS-026G
-reconciled the final implementation and verification evidence; the feature is complete and awaits
-only its separately approved final documentation commit.
+reconciled the final implementation and verification evidence. The feature completed and was
+committed at `59af99d`.
 
 AS-026 formalizes the repository-level contract for registering, resolving, validating, invoking,
 and reviewing execution engines. It introduces no new engine. `BuiltinExecutionEngine` and
