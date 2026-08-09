@@ -63,8 +63,8 @@ The required lifecycle operations are:
 
 - Describe capabilities.
 - Validate suite and engine configuration without side effects.
-- Execute a normalized request and emit normalized events.
-- Release resources.
+- Execute a normalized prepared request and return a normalized result.
+- Close invocation resources acquired by the engine in deterministic reverse order.
 
 The current canonical `EngineExecutionRequest` includes one immutable execution context, completed
 source/workspace preparation, and a narrow execution-matched secret-access capability. Cancellation,
@@ -171,7 +171,7 @@ flowchart LR
         Secrets[Secret Resolver]
         Registry[Plugin Registry]
         Collector[Result and Artifact Collector]
-        Contract[Versioned Engine Contract]
+        Contract[Shared Engine Contract]
         Playwright[Playwright Java Engine]
 
         WorkConsumer --> Coordinator

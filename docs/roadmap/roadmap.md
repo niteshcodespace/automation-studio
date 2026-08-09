@@ -36,9 +36,15 @@ AS-025H-B Documentation Reconciliation - completed, reviewed, approved, and comm
 AS-025H-C Final Verification and Feature-Level Review - completed, reviewed, and approved
 AS-025H Production Readiness and Final Documentation - completed, reviewed, and approved
 AS-025 First Business Automation Execution - complete
-AS-026A Requirements and Architecture Reconciliation - completed and independently reviewed; awaiting commit approval
-AS-026B Canonical Engine Identity and Descriptor Contract - implemented and committed (8589afa); merge state not separately evidenced
-AS-026C and later phases - not started; blocked pending AS-026A acceptance
+AS-026A Requirements and Architecture Reconciliation - complete and committed (96e7fb5)
+AS-026B Canonical Engine Identity and Descriptor Contract - complete and committed (8589afa)
+AS-026C Registry Resolution and Compatibility Hardening - complete and committed (d8d05e7)
+AS-026D Canonical Plugin Invocation Contract - complete and committed (03790ec)
+AS-026E Result, Failure and Cleanup Contract - complete and committed (ebd6ec4)
+AS-026F Repository Engine Conformance Verification - complete and committed (a19b204)
+AS-026G Documentation and Feature-Level Review - complete and awaiting final commit approval
+AS-026 Engine Registry and Plugin Contract - complete and awaiting final documentation commit approval
+AS-027 Engine Plugin SDK and Conformance Harness - next proposed feature; not started
 ```
 
 The approved sequence preserves immutable execution snapshots, keeps resolved values outside
@@ -55,9 +61,11 @@ reported separately from platform defects.
 AS-025H-A recorded the production-readiness runbook, and AS-025H-B reconciled supporting and
 governing documentation only. AS-025H-C completed focused and full inert verification and the final
 feature-level architecture, security, operations, and deferred-scope review. The accepted AS-025G
-qualification evidence remains authoritative. AS-025 is complete. AS-026B implementation exists at
-`8589afa`; AS-026A has reconciled its missing governing documents. AS-026C remains blocked until
-the AS-026A repository checkpoint is explicitly approved and committed.
+qualification evidence remains authoritative. AS-025 is complete. AS-026 established one static,
+immutable engine registry and one provider-neutral descriptor, prepared invocation, result,
+cleanup, and repository-conformance contract. AS-026G completed final reconciliation without
+runtime changes. AS-027 begins only after the AS-026 final documentation commit is approved and
+must extract reusable SDK/harness concerns without creating a second registry or execution path.
 
 ## Phase 2
 

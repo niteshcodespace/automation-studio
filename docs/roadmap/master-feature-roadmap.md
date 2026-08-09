@@ -1315,28 +1315,15 @@ No stage silently implies approval for the next stage.
 The immediate next proposed feature is:
 
 ```text
-AS-026 — Engine Registry and Plugin Contract
+AS-027 — Engine Plugin SDK and Conformance Harness
 ```
 
-Its first phase is:
-
-```text
-AS-026A — Requirements and Architecture Reconciliation
-```
-
-AS-026A must inspect the current repository and determine whether the Engine Registry and plugin contract are:
-
-* already complete;
-* partially complete;
-* missing formal documentation;
-* or missing implementation capabilities.
-
-No AS-026 implementation scope is approved until AS-026A is independently reviewed and accepted.
-
-Repository reconciliation found that AS-026B canonical descriptor work was implemented and
-committed at `8589afa` before the AS-026A artifacts were created. AS-026A must describe that code
-accurately and gate AS-026C and later phases on independent acceptance; it must not represent the
-out-of-order AS-026B work as approval to skip the mandatory lifecycle.
+AS-026 is complete through AS-026G and awaits only approval of its final documentation commit.
+AS-027 begins where AS-026 deliberately stops: extracting a reusable SDK, external conformance
+harness, fixtures, sample plugin, and third-party developer guidance from the proven repository
+contract. It must reuse the existing registry and orchestration path. Runtime plugin discovery,
+installation, trust/signing/isolation, durable artifact standardization, and additional engines
+remain outside AS-027 unless separately approved.
 
 ---
 

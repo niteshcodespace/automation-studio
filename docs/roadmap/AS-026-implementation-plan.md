@@ -2,12 +2,20 @@
 
 ## Status and delivery rules
 
-AS-026A documentation and independent review are complete and awaiting commit approval. AS-026B
-was implemented on local `main` at commit `8589afa`
-before the missing AS-026A documents were reconstructed. Local `main` and the local `origin/main`
-tracking reference identify that commit; live remote verification is unavailable in the current
-restricted environment. This evidence does not establish a PR merge distinct from the direct
-`main` history, so the plan records AS-026B as implemented and committed, not independently merged.
+AS-026A through AS-026F are implemented, independently reviewed, committed, and synchronized on
+`main`. AS-026G has completed documentation reconciliation, focused verification, full Maven
+verification, and independent feature-level review; its final documentation candidate awaits
+separate commit approval.
+
+| Story | Status | Verification and review | Repository checkpoint |
+|---|---|---|---|
+| AS-026A | Complete | Documentation consistency and independent architecture/security review passed | Committed as `96e7fb5` |
+| AS-026B | Complete | Focused/full verification and independent review passed | Committed as `8589afa` |
+| AS-026C | Complete | 15 focused tests and 1,117 full tests passed; independent review passed | Committed as `d8d05e7` |
+| AS-026D | Complete | 90 focused tests and 1,121 full tests passed; independent review passed | Committed as `03790ec` |
+| AS-026E | Complete | 115 focused tests and 1,124 full tests passed; independent review passed | Committed as `ebd6ec4` |
+| AS-026F | Complete | 56 focused tests and 1,132 full tests passed; independent review passed | Committed as `a19b204` |
+| AS-026G | Complete, awaiting commit approval | 58 focused tests and 1,132 full tests passed; documentation checks and independent feature review passed | Uncommitted final candidate |
 
 Every phase below has separate repository checkpoint, commit, push, PR, and merge gates. Completion
 or verification never implies permission for the next gate. No later phase begins until the prior
@@ -18,6 +26,8 @@ durable artifact standardization, scheduling, retries, persistence, REST, Flyway
 and changes to established workspace, source, secret, lifecycle, or cleanup ownership.
 
 ## AS-026A - Requirements and Architecture Reconciliation
+
+**Status:** Complete; committed as `96e7fb5`.
 
 **Objective:** Establish authoritative AS-026 requirements and ADR-016 from repository evidence,
 including the already implemented AS-026B contract.
@@ -71,6 +81,8 @@ new repository checkpoint and explicit commit/push/merge gates.
 
 ## AS-026C - Registry Resolution and Compatibility Hardening
 
+**Status:** Complete; committed as `d8d05e7`.
+
 **Objective:** Harden deterministic construction, exact resolution, compatibility decisions,
 immutability, concurrency, and safe diagnostic distinctions.
 
@@ -95,6 +107,8 @@ separate commit, push, PR, and merge approval.
 
 ## AS-026D - Canonical Plugin Invocation Contract
 
+**Status:** Complete; committed as `03790ec`.
+
 **Objective:** Make prepared `EngineExecutionRequest` the verified canonical engine invocation
 direction and bound legacy invocation explicitly.
 
@@ -118,6 +132,8 @@ capabilities and request rendering; repository checkpoint; separate commit/push/
 
 ## AS-026E - Result, Failure and Cleanup Contract
 
+**Status:** Complete; committed as `ebd6ec4`.
+
 **Objective:** Verify deterministic provider-neutral result consistency, safe failure boundaries,
 and layered cleanup ownership without standardizing durable artifacts.
 
@@ -139,6 +155,8 @@ Builtin and Playwright. **Full verification:** `mvn clean verify`.
 repository checkpoint; separate commit/push/PR/merge approval.
 
 ## AS-026F - Repository Engine Conformance Verification
+
+**Status:** Complete; committed as `a19b204`.
 
 **Objective:** Prove current repository engines and shared registry/invocation contracts conform
 without extracting a public SDK.
@@ -162,6 +180,8 @@ contact external targets, resolve operator secrets, launch unapproved browsers, 
 secret/workspace/concurrency isolation; repository checkpoint; separate commit/push/PR/merge approval.
 
 ## AS-026G - Documentation and Feature-Level Review
+
+**Status:** Complete; final documentation candidate awaiting commit approval.
 
 **Objective:** Reconcile final implementation evidence and decide whether AS-026 satisfies its
 requirements without leaking AS-027/AS-028 work.

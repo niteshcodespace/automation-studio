@@ -2,12 +2,9 @@
 
 ## Status
 
-Accepted by the AS-026A documentation and independent architecture review; awaiting commit
-approval.
-
-AS-026B canonical descriptor work already exists locally on `main` at commit `8589afa`. This ADR
-reconciles that code with earlier AS-022 through AS-025 decisions; it does not retroactively mark
-the remaining AS-026 phases complete or authorize AS-026C.
+Accepted and implemented by AS-026A through AS-026F. AS-026G completed the final architecture,
+security, compatibility, and deferred-scope reconciliation without changing this decision. The
+final documentation candidate awaits separate commit approval.
 
 ## Context
 
