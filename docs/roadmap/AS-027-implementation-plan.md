@@ -2,9 +2,9 @@
 
 ## Status and delivery rules
 
-AS-027A is committed and pushed. AS-027B implementation and verification are complete and
-committed and pushed on `feature/AS-027-engine-plugin-sdk`; AS-027C is implemented but uncommitted,
-and AS-027D through AS-027F remain separately gated.
+AS-027A through AS-027E are complete, committed, and pushed on
+`feature/AS-027-engine-plugin-sdk`. AS-027F documentation, reconciliation, and feature-level
+verification are complete and remain uncommitted and unpushed. No pull request has been opened.
 
 Every story follows implementation, focused verification, full reactor verification,
 `git diff --check`, independent architecture/security review, repository checkpoint, explicit
@@ -43,6 +43,8 @@ workspace, secret, lifecycle, diagnostic, compatibility, trust, and deferred-sco
 approval; then stop for push approval. AS-027A does not open or merge the feature PR and does not
 authorize AS-027B.
 
+**Delivered:** Committed as `0b48c52ffebc2646aebcbc233589399abcaab9c2`.
+
 ## AS-027B - Minimal Engine Plugin SDK
 
 **Objective:** Create the smallest closed reusable production contract validated by AS-027A.
@@ -77,7 +79,7 @@ and push. Remains on the feature branch; no PR merge and no AS-027C without appr
 prepared-source binding, legacy adapters, registry integration, and Builtin/Playwright migration
 remain in `studio-api`. Focused verification passed 97 tests; dependency-tree verification found
 no SDK dependencies; full `mvn clean verify` passed 1,136 tests with 16 skips and no failures or
-errors. Changes remain uncommitted and unpushed.
+errors. Committed as `f1aeacaf309ce809e2fb6d515ee813cfc423dfb3`.
 
 ## AS-027C - Reusable Fixtures and Conformance Harness
 
@@ -116,6 +118,8 @@ rendering. The module has no `studio-api`, Spring, persistence, database, Testco
 Playwright, Jackson, registry, or orchestrator dependency. The existing platform-specific
 contract remains temporarily for AS-027D repository-engine adoption; it is not the reusable
 generic contract.
+
+**Delivered:** Committed as `973e4179fb72eed40d300f83e3034f04a876f84d`.
 
 ## AS-027D - Repository Engine Migration and Conformance Proof
 
@@ -162,8 +166,8 @@ Verification evidence: focused suites passed 113 tests with no failures, errors,
 `mvn clean verify` passed all four reactor modules with 1,148 tests, no failures or errors, and 16
 skips. Architecture/security review found no production behavior change, dependency reversal,
 registry/orchestrator duplication, provider-specific generic-harness assumption, AS-028 leakage,
-or runtime plugin-system leakage. AS-027D changes are uncommitted and unpushed; AS-027E has not
-started.
+or runtime plugin-system leakage. Committed as
+`ed2af6820486a33886e3df1ccab8608693ca657f`.
 
 ## AS-027E - Sample Engine Plugin
 
@@ -210,7 +214,7 @@ failures or errors, and 16 skips.
 
 Independent architecture/security review found no `studio-api`, Spring, persistence, Jackson,
 Playwright, Testcontainers, compatibility API, registry/orchestrator, runtime plugin-system, or
-AS-028 dependency/leakage. AS-027E changes are uncommitted and unpushed; AS-027F has not started.
+AS-028 dependency/leakage. Committed as `9fea0fdf31aedd1ea7700d9b02b3e6c8eead491a`.
 
 ## AS-027F - Developer Guide and Feature-Level Verification
 
@@ -241,6 +245,14 @@ trust, cleanup, diagnostics, and AS-028/runtime-scope boundaries.
 **Repository/commit/push/PR gates:** Final repository checkpoint, explicit commit and push gates,
 then separate PR creation/review/approval/merge, local synchronization, branch deletion, and final
 roadmap reconciliation approvals.
+
+**AS-027F implementation checkpoint:** Added the engine-plugin developer guide and reconciled the
+requirements, ADR-017, module architecture, this plan, development log, and two roadmaps against
+the delivered five-module implementation. Final dependency/leakage, compatibility, security,
+architecture, focused/full test, static, and independent feature reviews supply the remaining
+checkpoint evidence. Focused verification passed 99 tests; full `mvn clean verify` passed 1,157
+tests with 16 skips and no failures or errors across all five reactor modules. AS-027 is technically
+complete on the feature branch. AS-027F has no commit or push, and no PR has been opened.
 
 ## Principal risks
 

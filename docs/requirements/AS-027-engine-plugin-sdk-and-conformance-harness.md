@@ -2,10 +2,10 @@
 
 ## 1. Status and purpose
 
-AS-027A defines the reusable development and verification boundary for engine plugins. It begins
-from the completed AS-026 contract at commit `59af99d` and is documentation-only. AS-027A is
-implemented and independently reviewed but uncommitted; AS-027B through AS-027F remain separately
-gated.
+AS-027A defined the reusable development and verification boundary from completed AS-026 commit
+`59af99d`. AS-027A through AS-027E are committed and pushed on the feature branch. AS-027F performs
+the final developer-guide, reconciliation, and feature-level verification gate; it remains
+uncommitted until separately approved.
 
 AS-027 creates a compile-time SDK and reusable conformance harness. It does not create a runtime
 plugin-loading system, another engine registry, or another execution path.
@@ -221,3 +221,15 @@ AS-027 is complete when:
 10. compatibility APIs remain isolated and noncanonical;
 11. no runtime plugin system or durable artifact model is introduced; and
 12. focused, full, documentation, and independent reviews pass.
+
+### AS-027F acceptance evidence
+
+All twelve criteria are satisfied on `feature/AS-027-engine-plugin-sdk`. The five-module reactor
+contains the JDK-only SDK, JUnit-based infrastructure-free conformance support, SDK-only sample,
+and `studio-api` integration. Exact identity, projected immutable inputs, bounded workspace and
+secret capabilities, correlated provider-neutral results, deterministic cleanup, and sanitized
+diagnostics are implemented and tested. Builtin and Playwright inherit the reusable contract;
+the sample and developer guide demonstrate onboarding. The platform retains one registry, one
+orchestration path, compatibility APIs, lifecycle/persistence ownership, physical workspace
+cleanup, and secret-scope ownership. Runtime plugin machinery and durable artifact/evidence design
+remain explicitly deferred.

@@ -143,6 +143,11 @@ AS-026 must first determine which parts already exist and which parts require ha
 
 Create a reusable development and test contract for new engines.
 
+Status: technically complete on `feature/AS-027-engine-plugin-sdk`; AS-027A through AS-027E are
+committed and AS-027F final documentation/verification is complete but uncommitted. The feature is
+not merged to `main`. AS-028 is next and has not started; runtime plugin
+discovery/loading/installation remains deferred.
+
 Potential capabilities:
 
 * engine plugin interfaces;

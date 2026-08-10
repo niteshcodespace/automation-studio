@@ -44,8 +44,14 @@ AS-026E Result, Failure and Cleanup Contract - complete and committed (ebd6ec4)
 AS-026F Repository Engine Conformance Verification - complete and committed (a19b204)
 AS-026G Documentation and Feature-Level Review - complete and committed (59af99d)
 AS-026 Engine Registry and Plugin Contract - complete and committed (59af99d)
-AS-027A Requirements, Dependency Boundary and SDK Architecture - complete and awaiting commit approval
-AS-027 Engine Plugin SDK and Conformance Harness - AS-027A complete on feature branch; AS-027B not started
+AS-027A Requirements, Dependency Boundary and SDK Architecture - complete and committed (0b48c52)
+AS-027B Minimal Engine Plugin SDK - complete and committed (f1aeaca)
+AS-027C Reusable Fixtures and Conformance Harness - complete and committed (973e417)
+AS-027D Repository Engine Migration and Conformance Proof - complete and committed (ed2af68)
+AS-027E Sample Engine Plugin - complete and committed (9fea0fd)
+AS-027F Developer Guide and Feature-Level Verification - complete on feature branch; uncommitted
+AS-027 Engine Plugin SDK and Conformance Harness - technically complete on feature branch; not merged
+AS-028 Execution Artifact and Evidence Contract - next; not started
 ```
 
 The approved sequence preserves immutable execution snapshots, keeps resolved values outside
@@ -65,8 +71,10 @@ feature-level architecture, security, operations, and deferred-scope review. The
 qualification evidence remains authoritative. AS-025 is complete. AS-026 established one static,
 immutable engine registry and one provider-neutral descriptor, prepared invocation, result,
 cleanup, and repository-conformance contract. AS-026G completed final reconciliation without
-runtime changes and completed at `59af99d`. AS-027 extracts reusable SDK/harness concerns without
-creating a second registry or execution path; AS-027A defines the boundary before module creation.
+runtime changes and completed at `59af99d`. AS-027 provides the reusable SDK, conformance harness,
+repository-engine proof, sample, and developer guide on its feature branch without a second
+registry or execution path. Runtime plugin loading remains deferred; AS-028 is next and has not
+started.
 
 ## Phase 2
 

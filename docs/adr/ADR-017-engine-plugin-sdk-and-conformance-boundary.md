@@ -2,8 +2,8 @@
 
 ## Status
 
-Accepted by the AS-027A architecture/security review; uncommitted and awaiting repository
-checkpoint approval.
+Accepted and implemented by AS-027A through AS-027E. AS-027F final reconciliation and
+feature-level verification are complete and await their uncommitted repository checkpoint.
 
 ## Context
 
@@ -165,3 +165,19 @@ DTO/capability shapes are fixed.
 - runtime discovery, packaging, signing, trust, installation, refresh, and isolation;
 - durable artifacts/evidence (AS-028); and
 - additional production engines.
+
+## Implemented detail reconciliation
+
+AS-027B resolved the deliberately open public shape as 14 JDK-only types in
+`com.automationstudio.engine.sdk`. `EngineExecutionContext` projects execution identity, exact
+engine identity, suite reference/configuration, environment base URL/configuration, and variables.
+`WorkspaceAccess` opens a closeable `PreparedSourceAccess` for bounded repository-relative reads
+without exposing `Path` or a physical root. `ExecutionSecretAccess` resolves logical names to
+defensively copied, closeable `ResolvedSecret` values. `EngineExecutionResult` carries exact
+request/source correlation, normalized state, and consistent timing only.
+
+AS-027C created infrastructure-free JUnit 5 conformance support. AS-027D proved Builtin and
+Playwright while retaining Spring assembly, one registry, one orchestration path, and the platform
+compatibility bridge. AS-027E added the unregistered `sample-engine / 1.0.0` reference module.
+These details preserve the deferred runtime-plugin, compatibility-removal, additional-engine, and
+AS-028 boundaries.
