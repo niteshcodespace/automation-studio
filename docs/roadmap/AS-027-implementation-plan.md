@@ -193,6 +193,25 @@ statelessness, cleanup, and absence of accidental production/runtime scope.
 **Repository/commit/push/PR gates:** Separate checkpoint and explicit commit/push approvals; no
 AS-027F or merge implied.
 
+**AS-027E implementation checkpoint:** Added the non-production
+`engines/sample-engine-plugin` reactor module with exact identity `sample-engine / 1.0.0`.
+`SampleExecutionEnginePlugin` implements only the canonical SDK descriptor, validation, and
+prepared-request execution methods. Production code depends only on `engine-plugin-sdk`; the
+reusable conformance module and JUnit 5 are test-scoped. The sample is not Spring annotated,
+registered, advertised, or selectable by platform execution.
+
+The reference demonstrates a bounded `sample.txt` read through `WorkspaceAccess` and
+`PreparedSourceAccess`, logical-name resolution of `sample-token`, deterministic closure of the
+source handle/stream and resolved value, correlated provider-neutral results, invocation-local
+state, and fixed sanitized validation/execution diagnostics. Its reusable conformance fixture and
+three narrow unit tests passed together with harness regressions: 17 focused tests, no failures,
+errors, or skips. Full `mvn clean verify` passed all five reactor modules with 1,157 tests, no
+failures or errors, and 16 skips.
+
+Independent architecture/security review found no `studio-api`, Spring, persistence, Jackson,
+Playwright, Testcontainers, compatibility API, registry/orchestrator, runtime plugin-system, or
+AS-028 dependency/leakage. AS-027E changes are uncommitted and unpushed; AS-027F has not started.
+
 ## AS-027F - Developer Guide and Feature-Level Verification
 
 **Objective:** Document onboarding and reconcile the complete AS-027 implementation.
