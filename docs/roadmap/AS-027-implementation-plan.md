@@ -145,6 +145,26 @@ cleanup precedence, and platform authority preservation.
 **Repository/commit/push/PR gates:** Separate checkpoint and explicit commit/push approvals; no
 sample plugin, PR, or merge implied.
 
+**AS-027D implementation checkpoint:** Builtin and Playwright now have SDK-native fixtures that
+inherit `ExecutionEnginePluginConformanceContract` from the reusable conformance module. Builtin
+proves `BUILTIN / 1.0.0` with canonical requests/results, timing, validation, concurrency, and its
+resource-free cleanup expectation. Playwright proves `playwright-java / 1.61.0` with bounded
+prepared-source access, execution-scoped secret resolution, sanitized provider-facing execution,
+runtime/source-handle cleanup, and concurrent invocation isolation.
+
+The former repository-generic `ExecutionEngineConformanceContract` was deleted. Its reusable
+assertions are authoritative in `engine-plugin-conformance`; exact Spring registration, registry
+resolution/diagnostics, runner compatibility, orchestration projection/binding/cleanup, provider
+behavior, sanitization, and compatibility-bridge tests remain in `studio-api`. The conformance
+dependency is test-scoped; the SDK remains JDK-only.
+
+Verification evidence: focused suites passed 113 tests with no failures, errors, or skips. Full
+`mvn clean verify` passed all four reactor modules with 1,148 tests, no failures or errors, and 16
+skips. Architecture/security review found no production behavior change, dependency reversal,
+registry/orchestrator duplication, provider-specific generic-harness assumption, AS-028 leakage,
+or runtime plugin-system leakage. AS-027D changes are uncommitted and unpushed; AS-027E has not
+started.
+
 ## AS-027E - Sample Engine Plugin
 
 **Objective:** Demonstrate correct third-party-style SDK and harness use with a minimal reference
