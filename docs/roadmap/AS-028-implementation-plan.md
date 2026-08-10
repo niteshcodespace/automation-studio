@@ -2,8 +2,10 @@
 
 ## Status and delivery rules
 
-AS-028A documentation is in progress on `feature/AS-028-execution-artifact-evidence` from baseline
-`e849939`. It is uncommitted and unpushed. AS-028B through AS-028F remain separately gated.
+AS-028A is committed and pushed at `e2a36dd` on
+`feature/AS-028-execution-artifact-evidence`, created from baseline `e849939`. AS-028B implementation,
+verification, and independent review are complete but uncommitted and unpushed. AS-028C through
+AS-028F remain separately gated.
 
 Every story requires focused verification, full reactor verification when runtime/build files
 change, `git diff --check`, independent review, repository checkpoint, explicit commit approval,
@@ -59,6 +61,15 @@ declarations; zero-artifact compatibility; SDK remains JDK-only.
 **Independent review:** API minimization, authority, diagnostics, memory/resource behavior.
 
 **Gates:** Separate checkpoint and commit/push approvals; no AS-028C or PR implied.
+
+**Implemented checkpoint:** `ArtifactCategory`, `ArtifactPublication`, `ArtifactPublisher`,
+`ArtifactReceipt`, and `ArtifactPublicationException` are provider-neutral JDK-only SDK types.
+`EngineExecutionRequest` carries the execution-bound capability while its four-argument constructor
+binds an explicitly unavailable publisher for zero-artifact compatibility. The reusable
+`InMemoryArtifactPublisher` fixture makes no durability claim. Focused verification passed 48 tests
+with zero failures/errors/skips; full `mvn clean verify` passed 1,164 tests with zero failures,
+zero errors, and 16 skipped. Dependency and independent reviews found no blocking issue. The
+checkpoint is uncommitted and unpushed; AS-028C has not started.
 
 ## AS-028C - Storage Port, Local Adapter, Limits, and Integrity
 
