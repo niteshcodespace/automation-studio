@@ -49,9 +49,10 @@ AS-027B Minimal Engine Plugin SDK - complete and committed (f1aeaca)
 AS-027C Reusable Fixtures and Conformance Harness - complete and committed (973e417)
 AS-027D Repository Engine Migration and Conformance Proof - complete and committed (ed2af68)
 AS-027E Sample Engine Plugin - complete and committed (9fea0fd)
-AS-027F Developer Guide and Feature-Level Verification - complete on feature branch; uncommitted
-AS-027 Engine Plugin SDK and Conformance Harness - technically complete on feature branch; not merged
-AS-028 Execution Artifact and Evidence Contract - next; not started
+AS-027F Developer Guide and Feature-Level Verification - complete and merged
+AS-027 Engine Plugin SDK and Conformance Harness - complete and merged to main (e849939)
+AS-028A Requirements, Threat Model, and Architecture - documentation in progress on feature branch; uncommitted
+AS-028 Execution Artifact and Evidence Contract - in progress; AS-028B has not started
 ```
 
 The approved sequence preserves immutable execution snapshots, keeps resolved values outside
@@ -72,9 +73,10 @@ qualification evidence remains authoritative. AS-025 is complete. AS-026 establi
 immutable engine registry and one provider-neutral descriptor, prepared invocation, result,
 cleanup, and repository-conformance contract. AS-026G completed final reconciliation without
 runtime changes and completed at `59af99d`. AS-027 provides the reusable SDK, conformance harness,
-repository-engine proof, sample, and developer guide on its feature branch without a second
-registry or execution path. Runtime plugin loading remains deferred; AS-028 is next and has not
-started.
+repository-engine proof, sample, and developer guide without a second registry or execution path;
+it is merged to `main` at `e849939`. AS-028A now defines the provider-neutral artifact/evidence
+publication, storage, metadata, integrity, discovery, and cleanup boundaries. Runtime plugin
+loading remains deferred, and AS-028B has not started.
 
 ## Phase 2
 

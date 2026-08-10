@@ -7,7 +7,8 @@ Automation Studio is deployable as a small self-hosted platform first and can ev
 - The control plane and execution runner are separate runtime processes.
 - Web and API instances are stateless apart from external configuration.
 - PostgreSQL is the authoritative metadata store.
-- Artifact bytes are external to PostgreSQL behind an artifact-storage port.
+- Artifact bytes must remain external to PostgreSQL behind an artifact-storage port; AS-028
+  introduces that durable boundary, while PostgreSQL retains metadata only.
 - Secrets are provided by references and are not committed or persisted in execution history.
 - AI and MCP are optional capabilities, not v0.1 deployment prerequisites.
 
@@ -23,7 +24,7 @@ v0.1 is intended for local development, demonstrations, and a small self-hosted 
 | Engine | Playwright Java plugin in the runner boundary |
 | Metadata | One PostgreSQL instance |
 | Work transport | PostgreSQL job claiming and transactional outbox |
-| Artifacts | Local filesystem adapter through the artifact-storage port |
+| Artifacts | AS-028 local filesystem adapter through the artifact-storage port; bytes outside execution workspaces and metadata in PostgreSQL |
 | AI | Disabled or optional; no provider required |
 | MCP | Logical boundary only; no deployment required |
 | Availability | Single-node operation is acceptable |

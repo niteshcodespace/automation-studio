@@ -20,7 +20,7 @@ plugin-contract version is deferred by ADR-016.
 | Executions | Admission, immutable source/configuration snapshots, state transitions, cancellation intent, retry, and summaries |
 | Engine Catalog | Registered engine versions, capabilities, compatibility, and health metadata |
 | Reports | Read models, execution history, trends, and report summaries |
-| Artifacts | Artifact metadata, authorization, retention policy, and storage-port access |
+| Artifacts | Artifact metadata, authorization, retention references, integrity, and storage-port access |
 | Audit | Security and business audit events |
 | Events | Transactional outbox, event publication, and consumer idempotency support |
 
@@ -37,7 +37,7 @@ No module may bypass another module's invariants by writing its persistence reco
 | Secret Resolver | Resolves scoped secrets immediately before execution |
 | Plugin Registry | Finds a compatible, approved engine plugin |
 | Timeout and Cancellation Controller | Enforces execution limits and cooperative cancellation |
-| Result and Artifact Collector | Normalizes events, persists results, and uploads evidence |
+| Result and Artifact Collector | Normalizes results and publishes validated evidence through the platform-owned artifact boundary |
 | Lease and Heartbeat Manager | Maintains runner ownership and detects abandoned work |
 
 Workspace preparation starts only after fenced execution start commits. Source retrieval,
@@ -109,6 +109,13 @@ platform-local resolver internal. AS-027B implemented bounded repository-relativ
 without public raw `Path`. Secret capability design permits execution-correlated logical-name
 resolution only and keeps providers, registries, credentials, scopes, and persistence internal.
 In-process plugins remain trusted deployed code; the SDK boundary is not runtime isolation.
+
+AS-028 defines the artifact boundary that follows engine execution. Engines publish declared
+evidence through a narrow SDK capability; they do not return host paths, choose durable locations,
+or access persistence and storage adapters. The platform owns bounded staging, category and media
+type validation, SHA-256 integrity calculation, durable byte storage outside execution workspaces,
+PostgreSQL metadata, discovery authorization, and cleanup. The existing evidence records and
+workspace staging are foundations, not a completed durable artifact-storage implementation.
 
 ## AI Capability Modules
 
