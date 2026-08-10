@@ -127,6 +127,19 @@ enforced; no paths/provider credentials exposed.
 
 **Gates:** Separate checkpoint and commit/push approvals; no AS-028E or PR implied.
 
+**Implemented checkpoint:** Flyway V16 reconciles the existing artifact aggregate with extensible
+canonical categories, immutable provider-neutral metadata, opaque unique storage references,
+SHA-256 integrity, retention references, legacy-row compatibility, `ON DELETE RESTRICT`, and
+discovery indexes; PostgreSQL stores no bytes. The persistence-internal JPA entity is separated from
+the immutable discovery model. A platform service registers already verified AS-028C outcomes in a
+metadata transaction, validates workspace/project/execution scope, prevents duplicates, and uses
+best-effort storage deletion when new durable bytes cannot be registered, with AS-080 retaining
+orphan reconciliation. Service-level list and scoped lookup expose metadata only and deterministic
+ordering; REST/download remains deferred. Focused verification passed 30 tests with zero failures,
+zero errors, and one skip. Full five-module `mvn clean verify` passed 1,189 tests with zero failures,
+zero errors, and 17 skipped. Persistence, security, and architecture reviews found no blocking
+issue. The checkpoint is uncommitted and unpushed; AS-028E has not started.
+
 ## AS-028E - Orchestration and Lifecycle Integration
 
 **Objective:** Bind publication to the single controlled execution path before workspace cleanup.
