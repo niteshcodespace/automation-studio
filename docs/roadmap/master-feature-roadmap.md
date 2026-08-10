@@ -143,6 +143,11 @@ AS-026 must first determine which parts already exist and which parts require ha
 
 Create a reusable development and test contract for new engines.
 
+Status: technically complete on `feature/AS-027-engine-plugin-sdk`; AS-027A through AS-027E are
+committed and AS-027F final documentation/verification is complete but uncommitted. The feature is
+not merged to `main`. AS-028 is next and has not started; runtime plugin
+discovery/loading/installation remains deferred.
+
 Potential capabilities:
 
 * engine plugin interfaces;
@@ -1318,8 +1323,9 @@ The immediate next proposed feature is:
 AS-027 — Engine Plugin SDK and Conformance Harness
 ```
 
-AS-026 is complete through AS-026G and awaits only approval of its final documentation commit.
-AS-027 begins where AS-026 deliberately stops: extracting a reusable SDK, external conformance
+AS-026 is complete through AS-026G at commit `59af99d`. AS-027A documentation and review are
+complete on the feature branch and await commit approval. AS-027 begins where AS-026 deliberately
+stops: extracting a reusable SDK, external conformance
 harness, fixtures, sample plugin, and third-party developer guidance from the proven repository
 contract. It must reuse the existing registry and orchestration path. Runtime plugin discovery,
 installation, trust/signing/isolation, durable artifact standardization, and additional engines

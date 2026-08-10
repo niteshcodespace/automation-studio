@@ -1,12 +1,9 @@
 package com.automationstudio.api.execution.engine.playwright;
 
 import com.automationstudio.api.execution.ExecutionContext;
-import com.automationstudio.api.execution.ExecutionVariable;
-import com.automationstudio.api.execution.engine.EngineExecutionRequest;
-import com.automationstudio.api.execution.engine.EngineExecutionResult;
-import com.automationstudio.api.execution.engine.EngineExecutionState;
 import com.automationstudio.api.execution.engine.ExecutionEngine;
 import com.automationstudio.api.execution.engine.ExecutionEngineDescriptor;
+import com.automationstudio.api.execution.engine.EngineExecutionContextProjection;
 import com.automationstudio.api.execution.engine.playwright.action.NonSecretVariableInterpolator;
 import com.automationstudio.api.execution.engine.playwright.action.PlaywrightActionException;
 import com.automationstudio.api.execution.engine.playwright.action.PlaywrightActionExecutionContext;
@@ -25,11 +22,17 @@ import com.automationstudio.api.execution.engine.playwright.manifest.PlaywrightS
 import com.automationstudio.api.execution.engine.playwright.runtime.PlaywrightRuntime;
 import com.automationstudio.api.execution.engine.playwright.runtime.PlaywrightRuntimeException;
 import com.automationstudio.api.execution.engine.playwright.runtime.PlaywrightRuntimeSession;
-import com.automationstudio.api.execution.preparation.SourcePreparationResult;
 import com.automationstudio.api.execution.workspace.local.access.EngineWorkspaceAccess;
-import com.automationstudio.api.execution.workspace.local.access.EngineWorkspaceAccessException;
 import com.automationstudio.api.execution.workspace.local.access.EngineWorkspaceAccessRequest;
+import com.automationstudio.api.execution.workspace.local.access.EngineWorkspaceAccessException;
 import com.automationstudio.api.execution.workspace.local.access.EngineWorkspaceAccessResolver;
+import com.automationstudio.api.execution.workspace.local.access.PreparedWorkspaceAccessCapability;
+import com.automationstudio.engine.sdk.EngineExecutionContext;
+import com.automationstudio.engine.sdk.EngineExecutionRequest;
+import com.automationstudio.engine.sdk.EngineExecutionResult;
+import com.automationstudio.engine.sdk.EngineExecutionState;
+import com.automationstudio.engine.sdk.PreparedSourceAccess;
+import com.automationstudio.engine.sdk.PreparedSource;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -92,6 +95,12 @@ public final class PlaywrightExecutionEngine implements ExecutionEngine {
     }
 
     @Override
+    public void validate(EngineExecutionContext context) {
+        validateAndParse(context);
+    }
+
+    @Deprecated(forRemoval = false)
+    @Override
     public void validate(ExecutionContext context) {
         validateAndParse(context);
     }
@@ -101,26 +110,23 @@ public final class PlaywrightExecutionEngine implements ExecutionEngine {
         EngineExecutionRequest validatedRequest = requireRequest(request);
         PlaywrightExecutionConfiguration configuration =
                 validateAndParse(validatedRequest.context());
-        validatePreparationIdentity(validatedRequest);
 
         OffsetDateTime startedAt = now("ENGINE_START_TIME_INVALID");
-        EngineWorkspaceAccess workspaceAccess = null;
+        PreparedSourceAccess workspaceAccess = null;
         PlaywrightRuntimeSession runtimeSession = null;
         EngineExecutionState state = null;
         RuntimeException failure = null;
 
         try {
-            SourcePreparationResult preparation = validatedRequest.preparation();
-            workspaceAccess = workspaceAccessResolver.open(
-                    EngineWorkspaceAccessRequest.from(preparation));
-            validateWorkspaceAccess(preparation, workspaceAccess);
+            workspaceAccess = validatedRequest.workspaceAccess().openPreparedSource();
+            validateWorkspaceAccess(validatedRequest, workspaceAccess);
             PlaywrightScenarioManifest manifest = manifestLoader.load(
-                    validatedRequest.context().suite(), workspaceAccess);
-            Map<String, String> variables = projectVariables(validatedRequest.context());
+                    validatedRequest.context().suiteReference(), workspaceAccess);
+            Map<String, String> variables = validatedRequest.context().variables();
             NonSecretVariableInterpolator interpolator =
                     new NonSecretVariableInterpolator(variables);
             SameOriginNavigationPolicy navigationPolicy = new SameOriginNavigationPolicy(
-                    validatedRequest.context().environment().baseUrl());
+                    validatedRequest.context().environmentBaseUrl());
             PlaywrightScenario initialScenario = firstScenario(manifest);
             long totalActions = countActions(manifest);
 
@@ -152,13 +158,13 @@ public final class PlaywrightExecutionEngine implements ExecutionEngine {
         return result(validatedRequest, state, startedAt, finishedAt);
     }
 
-    private PlaywrightExecutionConfiguration validateAndParse(ExecutionContext context) {
-        if (context == null || context.suite() == null) {
+    private PlaywrightExecutionConfiguration validateAndParse(EngineExecutionContext context) {
+        if (context == null) {
             throw invalidRequest();
         }
-        if (!PlaywrightEngineDescriptor.ENGINE_ID.equals(context.suite().engineId())
+        if (!PlaywrightEngineDescriptor.ENGINE_ID.equals(context.engineIdentity().engineId())
                 || !PlaywrightEngineDescriptor.IMPLEMENTATION_VERSION.equals(
-                        context.suite().engineVersion())) {
+                        context.engineIdentity().implementationVersion())) {
             throw new PlaywrightExecutionException(
                     "UNSUPPORTED_PLAYWRIGHT_ENGINE",
                     "Execution request does not target the supported Playwright engine");
@@ -181,52 +187,106 @@ public final class PlaywrightExecutionEngine implements ExecutionEngine {
         }
     }
 
-    private void validatePreparationIdentity(EngineExecutionRequest request) {
-        SourcePreparationResult preparation = request.preparation();
-        if (!request.context().executionId().equals(preparation.executionId())
-                || preparation.workspace() == null
-                || preparation.workspace().workspaceId() == null
-                || preparation.source() == null
-                || !preparation.workspace().workspaceId().equals(
-                        preparation.source().workspaceId())
-                || preparation.workspace().metadata() == null
-                || preparation.workspace().metadata().sourceReference() == null
-                || preparation.workspace().metadata().sourceReference().sourceType()
-                        != preparation.source().sourceType()
-                || !preparation.workspace().metadata().sourceReference().revision()
-                        .equals(preparation.source().resolvedRevision())) {
+    @Deprecated(forRemoval = false)
+    @Override
+    public com.automationstudio.api.execution.engine.EngineExecutionResult execute(
+            com.automationstudio.api.execution.engine.EngineExecutionRequest request) {
+        com.automationstudio.api.execution.engine.EngineExecutionRequest validated =
+                requirePlatformRequest(request);
+        PlaywrightExecutionConfiguration configuration = validateAndParse(validated.context());
+        OffsetDateTime startedAt = now("ENGINE_START_TIME_INVALID");
+        EngineWorkspaceAccess workspace = null;
+        PlaywrightRuntimeSession session = null;
+        com.automationstudio.api.execution.engine.EngineExecutionState state = null;
+        RuntimeException failure = null;
+        try {
+            workspace = workspaceAccessResolver.open(
+                    EngineWorkspaceAccessRequest.from(validated.preparation()));
+            if (workspace == null || !validated.preparation().workspace().workspaceId()
+                    .equals(workspace.workspaceId())) {
+                throw invalidRequest();
+            }
+            PlaywrightScenarioManifest manifest = manifestLoader.load(
+                    validated.context().suite(), workspace);
+            Map<String, String> variables = projectPlatformVariables(validated.context());
+            PlaywrightScenario initial = firstScenario(manifest);
+            long totalActions = countActions(manifest);
+            session = openRuntime(configuration);
+            PlaywrightActionMetricsAccumulator metrics = new PlaywrightActionMetricsAccumulator(
+                    totalActions, requireStartupDuration(session));
+            PlaywrightActionExecutionContext actionContext = new PlaywrightActionExecutionContext(
+                    initial.id(), session, configuration, selectorResolver,
+                    new NonSecretVariableInterpolator(variables),
+                    new SameOriginNavigationPolicy(validated.context().environment().baseUrl()),
+                    validated.secretAccess()::resolve);
+            state = com.automationstudio.api.execution.engine.EngineExecutionState.valueOf(
+                    mapOutcome(scenarioRunner.execute(
+                            manifest.scenarios(), actionContext, metrics)).name());
+        } catch (RuntimeException executionFailure) {
+            failure = sanitize(executionFailure);
+        }
+        failure = closeRuntime(session, failure);
+        failure = closeWorkspaceAccess(workspace, failure);
+        if (failure != null) {
+            throw failure;
+        }
+        OffsetDateTime finishedAt = now("ENGINE_FINISH_TIME_INVALID");
+        return new com.automationstudio.api.execution.engine.EngineExecutionResult(
+                validated.executionId(), descriptor().engineId(), descriptor().implementationVersion(),
+                validated.preparation().workspace().workspaceId(),
+                validated.preparation().source().resolvedRevision(), state,
+                startedAt, finishedAt, Duration.between(startedAt, finishedAt));
+    }
+
+    private com.automationstudio.api.execution.engine.EngineExecutionRequest requirePlatformRequest(
+            com.automationstudio.api.execution.engine.EngineExecutionRequest request) {
+        if (request == null) {
+            throw invalidRequest();
+        }
+        try {
+            return request.validateFor(descriptor());
+        } catch (RuntimeException exception) {
             throw invalidRequest();
         }
     }
 
-    private void validateWorkspaceAccess(
-            SourcePreparationResult preparation, EngineWorkspaceAccess workspaceAccess) {
-        if (workspaceAccess == null
-                || !preparation.workspace().workspaceId().equals(workspaceAccess.workspaceId())) {
+    private PlaywrightExecutionConfiguration validateAndParse(ExecutionContext context) {
+        if (context == null || context.suite() == null) {
             throw invalidRequest();
+        }
+        if (!descriptor().engineId().equals(context.suite().engineId())
+                || !descriptor().implementationVersion().equals(context.suite().engineVersion())) {
+            throw new PlaywrightExecutionException(
+                    "UNSUPPORTED_PLAYWRIGHT_ENGINE",
+                    "Execution request does not target the supported Playwright engine");
+        }
+        try {
+            return configurationParser.parse(context);
+        } catch (RuntimeException exception) {
+            throw configurationFailure(exception);
         }
     }
 
-    private Map<String, String> projectVariables(ExecutionContext context) {
-        Map<String, String> projected = new LinkedHashMap<>();
-        for (Map.Entry<String, ExecutionVariable> entry : context.variables().entrySet()) {
-            ExecutionVariable variable = entry.getValue();
-            if (variable == null || !entry.getKey().equals(variable.name())) {
+    private Map<String, String> projectPlatformVariables(ExecutionContext context) {
+        Map<String, String> projected = new java.util.LinkedHashMap<>();
+        context.variables().forEach((name, variable) -> {
+            if (variable == null || !name.equals(variable.name())) {
                 throw new PlaywrightExecutionException(
                         "PLAYWRIGHT_VARIABLES_INVALID",
                         "Playwright execution variables are invalid");
             }
             if (variable.value() instanceof String value) {
-                projected.put(entry.getKey(), value);
+                projected.put(name, value);
             }
-        }
-        try {
-            return Map.copyOf(projected);
-        } catch (RuntimeException exception) {
-            throw new PlaywrightExecutionException(
-                    "PLAYWRIGHT_VARIABLES_INVALID",
-                    "Playwright execution variables are invalid",
-                    exception);
+        });
+        return Map.copyOf(projected);
+    }
+
+    private void validateWorkspaceAccess(
+            EngineExecutionRequest request, PreparedSourceAccess workspaceAccess) {
+        if (workspaceAccess == null
+                || !request.preparedSource().workspaceId().equals(workspaceAccess.workspaceId())) {
+            throw invalidRequest();
         }
     }
 
@@ -301,7 +361,7 @@ public final class PlaywrightExecutionEngine implements ExecutionEngine {
     }
 
     private RuntimeException closeWorkspaceAccess(
-            EngineWorkspaceAccess access, RuntimeException prior) {
+            PreparedSourceAccess access, RuntimeException prior) {
         if (access == null) {
             return prior;
         }
@@ -402,8 +462,8 @@ public final class PlaywrightExecutionEngine implements ExecutionEngine {
                     request.executionId(),
                     descriptor().engineId(),
                     descriptor().implementationVersion(),
-                    request.preparation().workspace().workspaceId(),
-                    request.preparation().source().resolvedRevision(),
+                    request.preparedSource().workspaceId(),
+                    request.preparedSource().resolvedRevision(),
                     state,
                     startedAt,
                     finishedAt,

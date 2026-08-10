@@ -7,6 +7,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import com.automationstudio.engine.sdk.ExecutionEngineDescriptor;
+import com.automationstudio.engine.sdk.ExecutionEnginePlugin;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -15,7 +17,7 @@ public class ExecutionEngineRegistryImpl implements ExecutionEngineRegistry {
     private final Map<String, Map<String, ExecutionEngineSupport>> engines;
     private final List<ExecutionEngineDescriptor> descriptors;
 
-    public ExecutionEngineRegistryImpl(List<ExecutionEngine> availableEngines) {
+    public ExecutionEngineRegistryImpl(List<? extends ExecutionEnginePlugin> availableEngines) {
         Objects.requireNonNull(availableEngines, "Available engines must not be null");
         List<ExecutionEngineSupport> availableSupports = availableEngines.stream()
                 .map(ExecutionEngineRegistryImpl::validatedSupport)
@@ -92,7 +94,11 @@ public class ExecutionEngineRegistryImpl implements ExecutionEngineRegistry {
             throw new ExecutionEngineCompatibilityException(
                     "Runner does not support execution engine " + name + ":" + version);
         }
-        support.engine().validate(context);
+        if (support.engine() instanceof ExecutionEngine compatibilityEngine) {
+            compatibilityEngine.validate(context);
+        } else {
+            support.engine().validate(EngineExecutionContextProjection.from(context));
+        }
         return support;
     }
 
@@ -117,7 +123,7 @@ public class ExecutionEngineRegistryImpl implements ExecutionEngineRegistry {
         return value;
     }
 
-    private static ExecutionEngineSupport validatedSupport(ExecutionEngine engine) {
+    private static ExecutionEngineSupport validatedSupport(ExecutionEnginePlugin engine) {
         if (engine == null) {
             throw new ExecutionEngineInvalidDescriptorException(
                     "Execution engine registration is invalid");
@@ -139,7 +145,7 @@ public class ExecutionEngineRegistryImpl implements ExecutionEngineRegistry {
         return support;
     }
 
-    private static ExecutionEngineDescriptor descriptorOf(ExecutionEngine engine) {
+    private static ExecutionEngineDescriptor descriptorOf(ExecutionEnginePlugin engine) {
         try {
             ExecutionEngineDescriptor descriptor = engine.descriptor();
             if (descriptor == null) {

@@ -75,12 +75,14 @@ public class LocalWorkspaceConfiguration {
             ExecutionEngineRegistry engineRegistry,
             WorkspaceManager workspaceManager,
             ExecutionSecretScopeFactory secretScopeFactory,
+            EngineWorkspaceAccessResolver workspaceAccessResolver,
             Clock clock) {
         return new ExecutionOrchestratorImpl(
                 sourcePreparationService,
                 engineRegistry,
                 workspaceManager,
                 secretScopeFactory,
+                workspaceAccessResolver,
                 clock);
     }
 

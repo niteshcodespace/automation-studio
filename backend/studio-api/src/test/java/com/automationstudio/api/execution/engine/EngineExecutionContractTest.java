@@ -22,15 +22,15 @@ class EngineExecutionContractTest {
     @Test
     void publicEngineContractsAreImmutableAndPathFree() {
         assertThat(EngineExecutionRequest.class.isRecord()).isTrue();
-        assertThat(EngineExecutionResult.class.isRecord()).isTrue();
+        assertThat(EngineExecutionResult.class.isRecord()).isFalse();
         assertThat(Arrays.stream(EngineExecutionRequest.class.getRecordComponents())
                 .noneMatch(component -> Path.class.isAssignableFrom(component.getType())))
                 .isTrue();
-        assertThat(Arrays.stream(EngineExecutionResult.class.getRecordComponents())
-                .noneMatch(component -> Path.class.isAssignableFrom(component.getType())))
+        assertThat(Arrays.stream(EngineExecutionResult.class.getMethods())
+                .noneMatch(method -> Path.class.isAssignableFrom(method.getReturnType())))
                 .isTrue();
-        assertThat(Arrays.stream(EngineExecutionResult.class.getRecordComponents())
-                .map(component -> component.getName()))
+        assertThat(Arrays.stream(EngineExecutionResult.class.getMethods())
+                .map(method -> method.getName()))
                 .doesNotContain("stdout", "stderr", "credentials", "environment", "repository");
     }
 
@@ -68,10 +68,8 @@ class EngineExecutionContractTest {
         assertThat(result.implementationVersion()).isEqualTo("1");
         assertThat(result.engineName()).isEqualTo(result.engineId());
         assertThat(result.engineVersion()).isEqualTo(result.implementationVersion());
-        assertThat(Arrays.stream(EngineExecutionResult.class.getRecordComponents())
-                .map(component -> component.getName()))
-                .contains("engineId", "implementationVersion")
-                .doesNotContain("engineName", "engineVersion");
+        assertThat(result).isInstanceOf(
+                com.automationstudio.engine.sdk.EngineExecutionResult.class);
     }
 
     @Test
@@ -87,7 +85,7 @@ class EngineExecutionContractTest {
         when(request.preparation()).thenReturn(preparation);
         when(preparation.workspace()).thenReturn(workspace);
         when(preparation.source()).thenReturn(source);
-        when(workspace.workspaceId()).thenReturn(result.workspaceId());
+        when(workspace.workspaceId()).thenReturn((WorkspaceId) result.workspaceId());
         when(source.resolvedRevision()).thenReturn(result.resolvedRevision());
         ExecutionEngineDescriptor descriptor = new ExecutionEngineDescriptor(
                 result.engineId(), result.implementationVersion(), "Dummy",

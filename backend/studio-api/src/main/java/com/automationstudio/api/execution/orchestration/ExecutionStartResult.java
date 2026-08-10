@@ -2,7 +2,7 @@ package com.automationstudio.api.execution.orchestration;
 
 import com.automationstudio.api.domain.ExecutionStatus;
 import com.automationstudio.api.execution.ExecutionContext;
-import com.automationstudio.api.execution.engine.ExecutionEngineDescriptor;
+import com.automationstudio.engine.sdk.ExecutionEngineDescriptor;
 import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.LinkedHashMap;

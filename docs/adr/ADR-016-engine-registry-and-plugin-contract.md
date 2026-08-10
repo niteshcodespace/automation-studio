@@ -2,9 +2,9 @@
 
 ## Status
 
-Accepted and implemented by AS-026A through AS-026F. AS-026G completed the final architecture,
-security, compatibility, and deferred-scope reconciliation without changing this decision. The
-final documentation candidate awaits separate commit approval.
+Accepted and implemented by AS-026A through AS-026G. AS-026G completed the final architecture,
+security, compatibility, and deferred-scope reconciliation without changing this decision, and the
+feature completed at commit `59af99d`.
 
 ## Context
 

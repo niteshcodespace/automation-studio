@@ -70,11 +70,15 @@ public class ExecutionLifecycleServiceImpl implements ExecutionLifecycleService 
         }
         ExecutionStartResult start = runnerExecutionService.start(request);
         ExecutionContext context = start.context();
-        ExecutionEngine engine = engineRegistry
+        var selectedEngine = engineRegistry
                 .resolve(
                         start.engineDescriptor().engineId(),
                         start.engineDescriptor().implementationVersion())
                 .engine();
+        if (!(selectedEngine instanceof ExecutionEngine engine)) {
+            throw new IllegalStateException(
+                    "Legacy lifecycle invocation requires a platform compatibility engine");
+        }
 
         ExecutionResult result;
         try {

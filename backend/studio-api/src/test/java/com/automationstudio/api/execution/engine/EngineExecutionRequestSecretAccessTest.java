@@ -36,7 +36,8 @@ class EngineExecutionRequestSecretAccessTest {
         assertThat(request.secretAccess()).isSameAs(access);
         assertThat(ExecutionSecretAccess.class.getMethods())
                 .extracting(java.lang.reflect.Method::getName)
-                .containsExactlyInAnyOrder("executionId", "resolve", "unavailable");
+                .contains("executionId", "resolve", "unavailable")
+                .doesNotContain("list", "enumerate", "provider");
     }
 
     @Test

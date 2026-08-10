@@ -26,8 +26,6 @@ import com.automationstudio.api.execution.ExecutionVariableSource;
 import com.automationstudio.api.execution.engine.EngineExecutionRequest;
 import com.automationstudio.api.execution.engine.EngineExecutionResult;
 import com.automationstudio.api.execution.engine.EngineExecutionState;
-import com.automationstudio.api.execution.engine.ExecutionEngine;
-import com.automationstudio.api.execution.engine.conformance.ExecutionEngineConformanceContract;
 import com.automationstudio.api.execution.engine.playwright.action.PlaywrightActionException;
 import com.automationstudio.api.execution.engine.playwright.action.PlaywrightActionExecutionContext;
 import com.automationstudio.api.execution.engine.playwright.action.PlaywrightActionMetricsAccumulator;
@@ -86,7 +84,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
-class PlaywrightExecutionEngineTest implements ExecutionEngineConformanceContract {
+class PlaywrightExecutionEngineTest {
 
     private static final Instant START = Instant.parse("2026-01-01T00:00:00Z");
     private static final Instant FINISH = START.plusSeconds(3);
@@ -121,28 +119,6 @@ class PlaywrightExecutionEngineTest implements ExecutionEngineConformanceContrac
         stubSuccess(request, workspace, session, manifest);
     }
 
-    @Override
-    public ExecutionEngine conformanceEngine() {
-        return engine;
-    }
-
-    @Override
-    public EngineExecutionRequest conformanceRequest() {
-        return request;
-    }
-
-    @Override
-    public EngineExecutionState conformanceExpectedState() {
-        return EngineExecutionState.SUCCEEDED;
-    }
-
-    @Override
-    public void verifyConformanceCleanup() {
-        InOrder cleanup = inOrder(session, workspace);
-        cleanup.verify(session, times(1)).close();
-        cleanup.verify(workspace, times(1)).close();
-    }
-
     @Test
     void exposesExactDescriptorAndValidatesWithoutLifecycleSideEffects() {
         assertThat(engine.descriptor().engineId()).isEqualTo("playwright-java");
@@ -162,7 +138,7 @@ class PlaywrightExecutionEngineTest implements ExecutionEngineConformanceContrac
             assertFailure(() -> engine.validate(invalid), "UNSUPPORTED_PLAYWRIGHT_ENGINE",
                     "Execution request does not target the supported Playwright engine");
         }
-        assertThatThrownBy(() -> engine.validate(null))
+        assertThatThrownBy(() -> engine.validate((ExecutionContext) null))
                 .isInstanceOf(PlaywrightExecutionException.class)
                 .hasMessage("Playwright execution request is invalid");
         verifyNoInteractions(resolver, loader, runtime, runner);
@@ -170,7 +146,8 @@ class PlaywrightExecutionEngineTest implements ExecutionEngineConformanceContrac
 
     @Test
     void configurationFailureIsIsolatedBeforeWorkspaceAcquisition() {
-        when(parser.parse(any())).thenThrow(new PlaywrightConfigurationException("raw configuration"));
+        when(parser.parse(any(ExecutionContext.class)))
+                .thenThrow(new PlaywrightConfigurationException("raw configuration"));
 
         assertFailure(() -> engine.execute(request), "PLAYWRIGHT_CONFIGURATION_INVALID",
                 "Playwright execution configuration is invalid");
@@ -253,7 +230,7 @@ class PlaywrightExecutionEngineTest implements ExecutionEngineConformanceContrac
         assertThat(result.resolvedRevision()).isEqualTo(REVISION);
         assertThat(result.engineName()).isEqualTo("playwright-java");
         assertThat(result.engineVersion()).isEqualTo("1.61.0");
-        assertThat(result.state()).isEqualTo(EngineExecutionState.SUCCEEDED);
+        assertThat(result.state().name()).isEqualTo(EngineExecutionState.SUCCEEDED.name());
         assertThat(result.startedAt()).isEqualTo(OffsetDateTime.ofInstant(START, ZoneOffset.UTC));
         assertThat(result.finishedAt()).isEqualTo(OffsetDateTime.ofInstant(FINISH, ZoneOffset.UTC));
         assertThat(result.duration()).isEqualTo(Duration.ofSeconds(3));
@@ -301,8 +278,8 @@ class PlaywrightExecutionEngineTest implements ExecutionEngineConformanceContrac
         when(runner.execute(any(), any(), any())).thenAnswer(invocation -> {
             verify(access, never()).resolve(any());
             PlaywrightActionExecutionContext context = invocation.getArgument(1);
-            try (ResolvedSecret secret = context.sensitiveFillValueResolver()
-                    .resolve("login.password")) {
+            try (com.automationstudio.engine.sdk.ResolvedSecret secret =
+                    context.sensitiveFillValueResolver().resolve("login.password")) {
                 assertThat(secret).isSameAs(resolved);
             }
             return new PlaywrightScenarioExecutionOutcome(
@@ -328,7 +305,7 @@ class PlaywrightExecutionEngineTest implements ExecutionEngineConformanceContrac
 
         EngineExecutionResult result = engine.execute(request);
 
-        assertThat(result.state()).isEqualTo(EngineExecutionState.FAILED);
+        assertThat(result.state().name()).isEqualTo(EngineExecutionState.FAILED.name());
         assertThat(result.toString()).doesNotContain("SECRET_SELECTOR_URL_TEXT", "scenario-2", "step-1");
         InOrder cleanup = inOrder(session, workspace);
         cleanup.verify(session).close();
@@ -337,7 +314,8 @@ class PlaywrightExecutionEngineTest implements ExecutionEngineConformanceContrac
 
     @Test
     void manifestFailureClosesOnlyWorkspace() {
-        when(loader.load(any(), eq(workspace))).thenThrow(new PlaywrightManifestException("RAW", "raw path"));
+        when(loader.load(any(ExecutionSuiteSnapshot.class), eq(workspace)))
+                .thenThrow(new PlaywrightManifestException("RAW", "raw path"));
 
         assertFailure(() -> engine.execute(request), "PLAYWRIGHT_MANIFEST_LOAD_FAILED",
                 "Playwright scenario manifest could not be loaded");
@@ -432,8 +410,8 @@ class PlaywrightExecutionEngineTest implements ExecutionEngineConformanceContrac
         cleanup.verify(workspace, times(1)).close();
     }
 
-    @Override
-    public void verifyConformanceConcurrency() throws Exception {
+    @Test
+    void platformCompatibilityInvocationIsolatesConcurrentResources() throws Exception {
         UUID execution2 = UUID.randomUUID();
         EngineExecutionRequest request2 = request(execution2, UUID.randomUUID(), "fedcba9876543210", "beta");
         EngineWorkspaceAccess workspace2 = mock(EngineWorkspaceAccess.class);
@@ -541,7 +519,7 @@ class PlaywrightExecutionEngineTest implements ExecutionEngineConformanceContrac
         assertThat(result.resolvedRevision()).isEqualTo(revision);
         assertThat(result.engineName()).isEqualTo("playwright-java");
         assertThat(result.engineVersion()).isEqualTo("1.61.0");
-        assertThat(result.state()).isEqualTo(EngineExecutionState.SUCCEEDED);
+        assertThat(result.state().name()).isEqualTo(EngineExecutionState.SUCCEEDED.name());
     }
 
     private record RunnerInvocation(
@@ -551,7 +529,7 @@ class PlaywrightExecutionEngineTest implements ExecutionEngineConformanceContrac
 
     private void stubSuccess(EngineExecutionRequest current, EngineWorkspaceAccess access,
             PlaywrightRuntimeSession currentSession, PlaywrightScenarioManifest currentManifest) {
-        when(parser.parse(any())).thenReturn(configuration);
+        when(parser.parse(any(ExecutionContext.class))).thenReturn(configuration);
         when(resolver.open(any())).thenReturn(access);
         when(access.workspaceId()).thenReturn(current.preparation().workspace().workspaceId());
         when(loader.load(eq(current.context().suite()), eq(access))).thenReturn(currentManifest);

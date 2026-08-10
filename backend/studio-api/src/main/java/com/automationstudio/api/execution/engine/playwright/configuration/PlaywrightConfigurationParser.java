@@ -1,6 +1,7 @@
 package com.automationstudio.api.execution.engine.playwright.configuration;
 
 import com.automationstudio.api.execution.ExecutionContext;
+import com.automationstudio.engine.sdk.EngineExecutionContext;
 import com.automationstudio.api.security.SensitiveKeyDetector;
 import java.time.Duration;
 import java.util.IllformedLocaleException;
@@ -44,7 +45,15 @@ public class PlaywrightConfigurationParser {
 
     public PlaywrightExecutionConfiguration parse(ExecutionContext context) {
         Objects.requireNonNull(context, "Execution context must not be null");
-        Map<String, Object> values = context.suite().configuration();
+        return parse(context.suite().configuration());
+    }
+
+    public PlaywrightExecutionConfiguration parse(EngineExecutionContext context) {
+        Objects.requireNonNull(context, "Engine context must not be null");
+        return parse(context.suiteConfiguration());
+    }
+
+    private PlaywrightExecutionConfiguration parse(Map<String, Object> values) {
         rejectUnsupportedKeys(values);
 
         return new PlaywrightExecutionConfiguration(

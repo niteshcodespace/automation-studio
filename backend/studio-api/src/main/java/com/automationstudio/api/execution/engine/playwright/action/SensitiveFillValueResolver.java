@@ -1,6 +1,6 @@
 package com.automationstudio.api.execution.engine.playwright.action;
 
-import com.automationstudio.api.execution.secret.ResolvedSecret;
+import com.automationstudio.engine.sdk.ResolvedSecret;
 
 @FunctionalInterface
 public interface SensitiveFillValueResolver {

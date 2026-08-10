@@ -104,7 +104,8 @@ class ExecutionOrchestratorIntegrationTest {
                         new SourcePreparationRequest(planned, source)));
 
         assertThat(invoked).isTrue();
-        assertThat(result.engineResult().state()).isEqualTo(EngineExecutionState.SUCCEEDED);
+        assertThat(result.engineResult().state().name())
+                .isEqualTo(EngineExecutionState.SUCCEEDED.name());
         assertThat(result.engineResult().resolvedRevision()).isEqualTo(revision);
         assertThat(result.completedAt().toInstant()).isEqualTo(CLOCK.instant());
         assertThat(workspaceRoot.resolve(planned.workspaceId().value().toString()))

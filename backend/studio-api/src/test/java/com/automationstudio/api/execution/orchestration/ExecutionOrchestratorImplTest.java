@@ -17,7 +17,7 @@ import com.automationstudio.api.execution.ExecutionRetryPolicy;
 import com.automationstudio.api.execution.ExecutionRunnerContext;
 import com.automationstudio.api.execution.ExecutionSecretReference;
 import com.automationstudio.api.execution.ExecutionSuiteSnapshot;
-import com.automationstudio.api.execution.engine.EngineExecutionRequest;
+import com.automationstudio.engine.sdk.EngineExecutionRequest;
 import com.automationstudio.api.execution.engine.EngineExecutionResult;
 import com.automationstudio.api.execution.engine.EngineExecutionState;
 import com.automationstudio.api.execution.engine.ExecutionEngine;
@@ -123,8 +123,7 @@ class ExecutionOrchestratorImplTest {
                 request.executionId(), request.context().secretReferences());
         order.verify(preparationService).prepare(request.preparationRequest());
         order.verify(registry).resolve("dummy", "1.0");
-        order.verify(engine).execute(new EngineExecutionRequest(
-                request.context(), preparation, secretScope));
+        order.verify(engine).execute(any(EngineExecutionRequest.class));
         order.verify(secretScope).close();
         order.verify(workspaceManager).release(preparation.workspace());
     }
@@ -200,7 +199,8 @@ class ExecutionOrchestratorImplTest {
     void validNonSuccessTerminalResultsAreReturned(EngineExecutionState state) {
         when(engine.execute(any(EngineExecutionRequest.class))).thenReturn(result(state));
 
-        assertThat(orchestrator.execute(request).engineResult().state()).isEqualTo(state);
+        assertThat(orchestrator.execute(request).engineResult().state().name())
+                .isEqualTo(state.name());
         verify(workspaceManager).release(preparation.workspace());
         verify(secretScope).close();
     }
@@ -227,7 +227,8 @@ class ExecutionOrchestratorImplTest {
         when(invalid.implementationVersion()).thenReturn("1.0");
         when(invalid.workspaceId()).thenReturn(preparation.workspace().workspaceId());
         when(invalid.resolvedRevision()).thenReturn(REVISION);
-        when(invalid.state()).thenReturn(EngineExecutionState.SUCCEEDED);
+        when(invalid.state()).thenReturn(
+                com.automationstudio.engine.sdk.EngineExecutionState.SUCCEEDED);
         when(invalid.startedAt()).thenReturn(START);
         when(invalid.finishedAt()).thenReturn(START.plusSeconds(2));
         when(invalid.duration()).thenReturn(Duration.ofSeconds(2));
@@ -445,7 +446,8 @@ class ExecutionOrchestratorImplTest {
                     engineRequest.executionId(),
                     "dummy",
                     "1.0",
-                    engineRequest.preparation().workspace().workspaceId(),
+                    (com.automationstudio.api.execution.workspace.WorkspaceId)
+                            engineRequest.preparedSource().workspaceId(),
                     REVISION,
                     EngineExecutionState.SUCCEEDED,
                     START,

@@ -3,9 +3,7 @@ package com.automationstudio.api.execution.engine.builtin;
 import com.automationstudio.api.execution.ExecutionContext;
 import com.automationstudio.api.execution.engine.ExecutionEngine;
 import com.automationstudio.api.execution.engine.ExecutionEngineDescriptor;
-import com.automationstudio.api.execution.engine.EngineExecutionRequest;
-import com.automationstudio.api.execution.engine.EngineExecutionResult;
-import com.automationstudio.api.execution.engine.EngineExecutionState;
+import com.automationstudio.api.execution.engine.EngineExecutionContextProjection;
 import com.automationstudio.api.execution.evidence.ExecutionArtifact;
 import com.automationstudio.api.execution.evidence.ExecutionArtifactReference;
 import com.automationstudio.api.execution.evidence.ExecutionArtifactType;
@@ -15,6 +13,10 @@ import com.automationstudio.api.execution.lifecycle.ExecutionFailureReason;
 import com.automationstudio.api.execution.lifecycle.ExecutionResult;
 import com.automationstudio.api.execution.lifecycle.ExecutionStatus;
 import com.automationstudio.api.execution.lifecycle.ExecutionTerminationReason;
+import com.automationstudio.engine.sdk.EngineExecutionContext;
+import com.automationstudio.engine.sdk.EngineExecutionRequest;
+import com.automationstudio.engine.sdk.EngineExecutionResult;
+import com.automationstudio.engine.sdk.EngineExecutionState;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -60,6 +62,12 @@ public class BuiltinExecutionEngine implements ExecutionEngine {
     }
 
     @Override
+    public void validate(EngineExecutionContext context) {
+        configuration.parse(context);
+    }
+
+    @Deprecated(forRemoval = false)
+    @Override
     public void validate(ExecutionContext context) {
         configuration.parse(context);
     }
@@ -68,25 +76,44 @@ public class BuiltinExecutionEngine implements ExecutionEngine {
     public EngineExecutionResult execute(EngineExecutionRequest request) {
         EngineExecutionRequest validated = Objects.requireNonNull(
                 request, "Engine execution request must not be null").validateFor(descriptor());
-        ExecutionResult result = executeContext(validated.context());
+        BuiltinExecutionEngineConfiguration.Parsed parsed = configuration.parse(validated.context());
+        OffsetDateTime startedAt = OffsetDateTime.now(clock);
+        OffsetDateTime finishedAt = OffsetDateTime.now(clock);
+        EngineExecutionState state = parsed.operation() == BuiltinExecutionOperation.SUCCEED
+                ? EngineExecutionState.SUCCEEDED : EngineExecutionState.FAILED;
         return new EngineExecutionResult(
-                result.executionId(),
+                validated.executionId(),
                 descriptor().engineId(),
                 descriptor().implementationVersion(),
-                validated.preparation().workspace().workspaceId(),
-                validated.preparation().source().resolvedRevision(),
-                result.status() == ExecutionStatus.SUCCEEDED
-                        ? EngineExecutionState.SUCCEEDED
-                        : EngineExecutionState.FAILED,
-                result.startedAt(),
-                result.finishedAt(),
-                result.duration());
+                validated.preparedSource().workspaceId(),
+                validated.preparedSource().resolvedRevision(),
+                state,
+                startedAt,
+                finishedAt,
+                Duration.between(startedAt, finishedAt));
     }
 
     @Deprecated(forRemoval = false)
     @Override
     public ExecutionResult execute(ExecutionContext context) {
         return executeContext(context);
+    }
+
+    @Deprecated(forRemoval = false)
+    @Override
+    public com.automationstudio.api.execution.engine.EngineExecutionResult execute(
+            com.automationstudio.api.execution.engine.EngineExecutionRequest request) {
+        Objects.requireNonNull(request, "Engine execution request must not be null")
+                .validateFor(descriptor());
+        ExecutionResult legacy = executeContext(request.context());
+        return new com.automationstudio.api.execution.engine.EngineExecutionResult(
+                legacy.executionId(), descriptor().engineId(), descriptor().implementationVersion(),
+                request.preparation().workspace().workspaceId(),
+                request.preparation().source().resolvedRevision(),
+                legacy.status() == ExecutionStatus.SUCCEEDED
+                        ? com.automationstudio.api.execution.engine.EngineExecutionState.SUCCEEDED
+                        : com.automationstudio.api.execution.engine.EngineExecutionState.FAILED,
+                legacy.startedAt(), legacy.finishedAt(), legacy.duration());
     }
 
     private ExecutionResult executeContext(ExecutionContext context) {

@@ -1,6 +1,7 @@
 package com.automationstudio.api.execution.engine.builtin;
 
 import com.automationstudio.api.execution.ExecutionContext;
+import com.automationstudio.engine.sdk.EngineExecutionContext;
 import com.automationstudio.api.security.SensitiveKeyDetector;
 import java.util.Locale;
 import java.util.Map;
@@ -27,7 +28,15 @@ public class BuiltinExecutionEngineConfiguration {
 
     public Parsed parse(ExecutionContext context) {
         Objects.requireNonNull(context, "Execution context must not be null");
-        Map<String, Object> configuration = context.suite().configuration();
+        return parse(context.suite().configuration());
+    }
+
+    public Parsed parse(EngineExecutionContext context) {
+        Objects.requireNonNull(context, "Engine context must not be null");
+        return parse(context.suiteConfiguration());
+    }
+
+    private Parsed parse(Map<String, Object> configuration) {
         rejectUnknownOrSensitiveKeys(configuration, ALLOWED_FIELDS, "Built-in configuration");
 
         Object operationValue = configuration.get("operation");

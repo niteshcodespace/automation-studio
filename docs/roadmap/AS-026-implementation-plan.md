@@ -2,10 +2,8 @@
 
 ## Status and delivery rules
 
-AS-026A through AS-026F are implemented, independently reviewed, committed, and synchronized on
-`main`. AS-026G has completed documentation reconciliation, focused verification, full Maven
-verification, and independent feature-level review; its final documentation candidate awaits
-separate commit approval.
+AS-026A through AS-026G are implemented, independently reviewed, committed, and synchronized on
+`main`. AS-026 completed at commit `59af99d`.
 
 | Story | Status | Verification and review | Repository checkpoint |
 |---|---|---|---|
@@ -15,7 +13,7 @@ separate commit approval.
 | AS-026D | Complete | 90 focused tests and 1,121 full tests passed; independent review passed | Committed as `03790ec` |
 | AS-026E | Complete | 115 focused tests and 1,124 full tests passed; independent review passed | Committed as `ebd6ec4` |
 | AS-026F | Complete | 56 focused tests and 1,132 full tests passed; independent review passed | Committed as `a19b204` |
-| AS-026G | Complete, awaiting commit approval | 58 focused tests and 1,132 full tests passed; documentation checks and independent feature review passed | Uncommitted final candidate |
+| AS-026G | Complete | 58 focused tests and 1,132 full tests passed; documentation checks and independent feature review passed | Committed as `59af99d` |
 
 Every phase below has separate repository checkpoint, commit, push, PR, and merge gates. Completion
 or verification never implies permission for the next gate. No later phase begins until the prior
@@ -181,7 +179,7 @@ secret/workspace/concurrency isolation; repository checkpoint; separate commit/p
 
 ## AS-026G - Documentation and Feature-Level Review
 
-**Status:** Complete; final documentation candidate awaiting commit approval.
+**Status:** Complete; committed as `59af99d`.
 
 **Objective:** Reconcile final implementation evidence and decide whether AS-026 satisfies its
 requirements without leaking AS-027/AS-028 work.

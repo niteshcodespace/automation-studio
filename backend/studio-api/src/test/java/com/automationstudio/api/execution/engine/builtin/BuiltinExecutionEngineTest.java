@@ -13,8 +13,6 @@ import com.automationstudio.api.execution.ExecutionSuiteSnapshot;
 import com.automationstudio.api.execution.engine.ExecutionEngineRegistryImpl;
 import com.automationstudio.api.execution.engine.EngineExecutionRequest;
 import com.automationstudio.api.execution.engine.EngineExecutionState;
-import com.automationstudio.api.execution.engine.ExecutionEngine;
-import com.automationstudio.api.execution.engine.conformance.ExecutionEngineConformanceContract;
 import com.automationstudio.api.execution.preparation.SourcePreparationResult;
 import com.automationstudio.api.execution.preparation.SourcePreparationState;
 import com.automationstudio.api.execution.lifecycle.ExecutionFailureReason;
@@ -40,7 +38,7 @@ import java.util.concurrent.Executors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class BuiltinExecutionEngineTest implements ExecutionEngineConformanceContract {
+class BuiltinExecutionEngineTest {
 
     private static final Instant NOW = Instant.parse("2026-07-30T10:00:00Z");
     private final UUID executionId = UUID.randomUUID();
@@ -93,21 +91,6 @@ class BuiltinExecutionEngineTest implements ExecutionEngineConformanceContract {
         assertThat(result.evidence().summary().duration()).isEqualTo(result.duration());
     }
 
-    @Override
-    public ExecutionEngine conformanceEngine() {
-        return engine;
-    }
-
-    @Override
-    public EngineExecutionRequest conformanceRequest() {
-        return new EngineExecutionRequest(context(Map.of("operation", "SUCCEED")), preparation());
-    }
-
-    @Override
-    public EngineExecutionState conformanceExpectedState() {
-        return EngineExecutionState.SUCCEEDED;
-    }
-
     @Test
     void executesCanonicalPreparedRequestWithExactIdentity() {
         ExecutionContext context = context(Map.of("operation", "SUCCEED"));
@@ -122,7 +105,7 @@ class BuiltinExecutionEngineTest implements ExecutionEngineConformanceContract {
         assertThat(result.workspaceId()).isEqualTo(preparation.workspace().workspaceId());
         assertThat(result.resolvedRevision())
                 .isEqualTo(preparation.source().resolvedRevision());
-        assertThat(result.state()).isEqualTo(EngineExecutionState.SUCCEEDED);
+        assertThat(result.state().name()).isEqualTo(EngineExecutionState.SUCCEEDED.name());
     }
 
     @Test
@@ -158,8 +141,8 @@ class BuiltinExecutionEngineTest implements ExecutionEngineConformanceContract {
         assertThat(nestedEvidence).containsEntry("enabled", true);
     }
 
-    @Override
-    public void verifyConformanceConcurrency() throws Exception {
+    @Test
+    void legacyInvocationRemainsConcurrencySafe() throws Exception {
         ExecutionContext context = context(Map.of(
                 "operation", "SUCCEED",
                 "evidence", Map.of("enabled", true)));
