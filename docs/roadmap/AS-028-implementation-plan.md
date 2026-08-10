@@ -2,9 +2,9 @@
 
 ## Status and delivery rules
 
-AS-028A is committed and pushed at `e2a36dd` on
-`feature/AS-028-execution-artifact-evidence`, created from baseline `e849939`. AS-028B implementation,
-verification, and independent review are complete but uncommitted and unpushed. AS-028C through
+AS-028A and AS-028B are committed and pushed through `43c4226` on
+`feature/AS-028-execution-artifact-evidence`, created from baseline `e849939`. AS-028C implementation,
+verification, and independent review are complete but uncommitted and unpushed. AS-028D through
 AS-028F remain separately gated.
 
 Every story requires focused verification, full reactor verification when runtime/build files
@@ -93,6 +93,16 @@ compensated finalization; published bytes survive workspace release.
 **Independent review:** Filesystem security, resource exhaustion, diagnostics, cleanup.
 
 **Gates:** Separate checkpoint and commit/push approvals; no AS-028D or PR implied.
+
+**Implemented checkpoint:** A platform-owned `ArtifactStorage` port and local adapter stream bytes
+to controlled pending files, compute exact size and SHA-256, and finalize outside workspace cleanup
+with atomic move or a non-replacing same-filesystem fallback. Opaque UUID-derived references expose
+no path. Validated defaults are 100 MiB per artifact, 1 GiB per execution, 100 artifacts, and four
+concurrent publications. Execution-scoped accounting excludes failures and isolates executions;
+restart-durable accounting remains deferred. Focused verification passed 21 tests with zero
+failures/errors and one environment skip. Full `mvn clean verify` passed 1,178 tests with zero
+failures, zero errors, and 17 skipped. Security and architecture reviews found no blocking issue.
+The checkpoint is uncommitted and unpushed; AS-028D has not started.
 
 ## AS-028D - Metadata Persistence and Discovery
 
