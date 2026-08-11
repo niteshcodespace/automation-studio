@@ -600,20 +600,24 @@ class SourceAdmissionIntegrationTest extends IntegrationTestBase {
         }
 
         @Override
-        public EngineExecutionResult execute(
-                com.automationstudio.api.execution.engine.EngineExecutionRequest request) {
-            resolvedRevision = request.preparation().source().resolvedRevision();
+        public com.automationstudio.engine.sdk.EngineExecutionResult execute(
+                com.automationstudio.engine.sdk.EngineExecutionRequest request) {
+            resolvedRevision = request.preparedSource().resolvedRevision();
             for (String name : List.of("orangehrm.username", "orangehrm.password")) {
                 secretNames.add(name);
-                try (ResolvedSecret ignored = request.secretAccess().resolve(name)) {
+                try (var ignored = request.secretAccess().resolve(name)) {
                     // The controlled engine proves lazy named access without reading the value.
                 }
             }
             OffsetDateTime now = OffsetDateTime.now();
-            return new EngineExecutionResult(
-                    request.executionId(), descriptor().engineName(), descriptor().engineVersion(),
-                    request.preparation().workspace().workspaceId(), resolvedRevision,
-                    state, now, now, Duration.ZERO);
+            return new com.automationstudio.engine.sdk.EngineExecutionResult(
+                    request.executionId(), descriptor().engineId(),
+                    descriptor().implementationVersion(), request.preparedSource().workspaceId(),
+                    resolvedRevision,
+                    state == EngineExecutionState.SUCCEEDED
+                            ? com.automationstudio.engine.sdk.EngineExecutionState.SUCCEEDED
+                            : com.automationstudio.engine.sdk.EngineExecutionState.FAILED,
+                    now, now, Duration.ZERO);
         }
     }
 

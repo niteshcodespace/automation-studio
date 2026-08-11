@@ -163,6 +163,31 @@ failure-precedence tests. **Full verification:** `mvn clean verify`.
 
 **Gates:** Separate checkpoint and commit/push approvals; no AS-028F or PR implied.
 
+**Implemented checkpoint:** The single `ExecutionOrchestratorImpl` request-construction point now
+binds one execution-correlated production publisher factory to the canonical SDK
+`EngineExecutionRequest`; orchestration no longer selects the legacy prepared-request overload.
+The local production adapter completes durable storage, registers immutable AS-028D metadata, and
+only then returns an SDK receipt. The publisher is invocation-local, tracks required-publication
+failures even if an engine catches them, and is deactivated before secret-scope and workspace
+cleanup. Valid registered artifacts remain durable when an engine returns `FAILED`, throws, or
+returns malformed evidence.
+
+Because the SDK exposes no optionality marker, AS-028E adopts one deterministic fail-closed policy:
+every requested production publication is required. Publication failure invalidates an otherwise
+successful engine invocation; zero-artifact execution remains valid. Existing cleanup precedence
+is preserved as artifact publisher cleanup, secret cleanup, workspace cleanup, then the existing
+fenced terminal lifecycle call owned by `RunnerExecutionService`. `ExecutionEvidence` remains a
+platform compatibility model; canonical artifact discovery stays the scoped AS-028D metadata
+service and no storage references enter engine results or terminal evidence.
+
+Focused verification passed 66 tests with zero failures, zero errors, and one Windows symbolic-link
+skip. Full five-module `mvn clean verify` passed 1,196 tests with zero failures, zero errors, and 17
+skips (`BUILD SUCCESS`). Architecture, security, and compatibility reviews found no blocking issue
+in orchestration uniqueness, lifecycle ownership, execution correlation, secret lifetime,
+workspace durability, split-resource compensation, provider leakage, fencing, or zero-artifact
+Builtin/Playwright/sample compatibility. The checkpoint is uncommitted and unpushed; AS-028F has
+not started.
+
 ## AS-028F - Engine Proof, Documentation, and Feature Review
 
 **Objective:** Prove cross-engine use and reconcile the completed feature.

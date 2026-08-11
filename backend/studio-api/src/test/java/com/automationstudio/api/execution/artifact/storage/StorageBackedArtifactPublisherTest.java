@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.automationstudio.api.execution.artifact.storage.local.LocalArtifactStorage;
+import com.automationstudio.api.execution.artifact.metadata.ArtifactMetadataException;
+import com.automationstudio.api.execution.artifact.metadata.ArtifactMetadataService;
 import com.automationstudio.engine.sdk.ArtifactCategory;
 import com.automationstudio.engine.sdk.ArtifactPublication;
 import com.automationstudio.engine.sdk.ArtifactPublicationException;
@@ -15,6 +17,10 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -104,6 +110,42 @@ class StorageBackedArtifactPublisherTest {
         assertThat(second.publish(publication("34")).executionId()).isEqualTo(second.executionId());
         assertThat(first.finalizedBytes()).isEqualTo(2);
         assertThat(second.finalizedBytes()).isEqualTo(2);
+    }
+
+    @Test
+    void productionReceiptRequiresMetadataRegistration() {
+        UUID executionId = UUID.randomUUID();
+        ArtifactMetadataService metadata = mock(ArtifactMetadataService.class);
+        var publisher = new StorageBackedArtifactPublisher(
+                executionId, storage("metadata"), limits(10, 10, 1, 1),
+                UUID.randomUUID(), UUID.randomUUID(), metadata, "retain:default");
+
+        var receipt = publisher.publish(publication("proof"));
+        publisher.complete();
+
+        assertThat(receipt.executionId()).isEqualTo(executionId);
+        verify(metadata).register(any(), any(), org.mockito.Mockito.eq(executionId), any());
+        assertThatThrownBy(() -> publisher.publish(publication("late")))
+                .isInstanceOf(ArtifactPublicationException.class)
+                .hasMessage("Artifact publication is unavailable for this execution");
+    }
+
+    @Test
+    void metadataFailureIsPrimaryAndMakesInvocationFailClosed() {
+        ArtifactMetadataService metadata = mock(ArtifactMetadataService.class);
+        when(metadata.register(any(), any(), any(), any())).thenThrow(
+                new ArtifactMetadataException("ARTIFACT_METADATA_PERSISTENCE_FAILED",
+                        "Artifact metadata registration failed safely"));
+        var publisher = new StorageBackedArtifactPublisher(
+                UUID.randomUUID(), storage("metadata-failure"), limits(10, 10, 1, 1),
+                UUID.randomUUID(), UUID.randomUUID(), metadata, "retain:default");
+
+        assertThatThrownBy(() -> publisher.publish(publication("proof")))
+                .isInstanceOf(ArtifactPublicationException.class)
+                .hasMessage("Artifact publication failed safely");
+        assertThat(publisher.finalizedArtifacts()).isZero();
+        assertThatThrownBy(publisher::complete)
+                .isInstanceOf(ArtifactPublicationException.class);
     }
 
     private LocalArtifactStorage storage(String name) {

@@ -17,7 +17,15 @@ import com.automationstudio.api.execution.ExecutionRetryPolicy;
 import com.automationstudio.api.execution.ExecutionRunnerContext;
 import com.automationstudio.api.execution.ExecutionSecretReference;
 import com.automationstudio.api.execution.ExecutionSuiteSnapshot;
+import com.automationstudio.api.execution.artifact.metadata.ArtifactMetadataService;
+import com.automationstudio.api.execution.artifact.metadata.ArtifactRegistration;
+import com.automationstudio.api.execution.artifact.storage.ArtifactStorageLimits;
+import com.automationstudio.api.execution.artifact.storage.StorageBackedArtifactPublisher;
+import com.automationstudio.api.execution.artifact.storage.local.LocalArtifactStorage;
 import com.automationstudio.engine.sdk.EngineExecutionRequest;
+import com.automationstudio.engine.sdk.ArtifactCategory;
+import com.automationstudio.engine.sdk.ArtifactPublication;
+import com.automationstudio.engine.sdk.ArtifactPublicationException;
 import com.automationstudio.api.execution.engine.EngineExecutionResult;
 import com.automationstudio.api.execution.engine.EngineExecutionState;
 import com.automationstudio.api.execution.engine.ExecutionEngine;
@@ -47,6 +55,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.nio.file.Path;
+import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -55,12 +66,15 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InOrder;
 
 class ExecutionOrchestratorImplTest {
+
+    @TempDir Path temporaryDirectory;
 
     private static final Clock CLOCK =
             Clock.fixed(Instant.parse("2026-07-30T12:05:00Z"), ZoneOffset.UTC);
@@ -472,6 +486,154 @@ class ExecutionOrchestratorImplTest {
         verify(engine, org.mockito.Mockito.times(2))
                 .execute(any(EngineExecutionRequest.class));
         verify(workspaceManager, org.mockito.Mockito.times(2)).release(any());
+    }
+
+    @Test
+    void bindsProductionPublisherToExecutionAndRegistersBeforeCleanup() {
+        ArtifactMetadataService metadata = mock(ArtifactMetadataService.class);
+        StorageBackedArtifactPublisher publisher = productionPublisher(metadata);
+        orchestrator = productionOrchestrator(publisher);
+        when(engine.execute(any(EngineExecutionRequest.class))).thenAnswer(invocation -> {
+            EngineExecutionRequest sdkRequest = invocation.getArgument(0);
+            assertThat(sdkRequest.artifactPublisher().executionId())
+                    .isEqualTo(request.executionId());
+            sdkRequest.artifactPublisher().publish(publication("durable evidence"));
+            return result(EngineExecutionState.SUCCEEDED);
+        });
+
+        orchestrator.execute(request);
+
+        InOrder order = inOrder(engine, metadata, secretScope, workspaceManager);
+        order.verify(engine).execute(any(EngineExecutionRequest.class));
+        order.verify(metadata).register(any(), any(),
+                org.mockito.Mockito.eq(request.executionId()), any());
+        order.verify(secretScope).close();
+        order.verify(workspaceManager).release(preparation.workspace());
+        assertThatThrownBy(() -> publisher.publish(publication("late")))
+                .isInstanceOf(ArtifactPublicationException.class);
+    }
+
+    @Test
+    void retainsRegisteredArtifactWhenEngineFailsAfterPublication() {
+        ArtifactMetadataService metadata = mock(ArtifactMetadataService.class);
+        StorageBackedArtifactPublisher publisher = productionPublisher(metadata);
+        orchestrator = productionOrchestrator(publisher);
+        when(engine.execute(any(EngineExecutionRequest.class))).thenAnswer(invocation -> {
+            ((EngineExecutionRequest) invocation.getArgument(0)).artifactPublisher()
+                    .publish(publication("failure evidence"));
+            throw new IllegalStateException("engine detail");
+        });
+
+        assertFailure("ENGINE_EXECUTION_FAILED", "Execution engine failed");
+
+        verify(metadata).register(any(), any(),
+                org.mockito.Mockito.eq(request.executionId()), any());
+        assertThat(publisher.finalizedArtifacts()).isEqualTo(1);
+        verify(secretScope).close();
+        verify(workspaceManager).release(preparation.workspace());
+    }
+
+    @Test
+    void swallowedPublicationFailureStillFailsRequiredArtifactPolicy() {
+        ArtifactMetadataService metadata = mock(ArtifactMetadataService.class);
+        when(metadata.register(any(), any(), any(), any())).thenThrow(
+                new IllegalStateException("database detail"));
+        StorageBackedArtifactPublisher publisher = productionPublisher(metadata);
+        orchestrator = productionOrchestrator(publisher);
+        when(engine.execute(any(EngineExecutionRequest.class))).thenAnswer(invocation -> {
+            try {
+                ((EngineExecutionRequest) invocation.getArgument(0)).artifactPublisher()
+                        .publish(publication("required"));
+            } catch (ArtifactPublicationException ignored) {
+                // The orchestrator must still fail closed when an engine swallows the failure.
+            }
+            return result(EngineExecutionState.SUCCEEDED);
+        });
+
+        assertFailure("ARTIFACT_PUBLICATION_FAILED", "Required artifact publication failed")
+                .hasNoCause();
+        verify(secretScope).close();
+        verify(workspaceManager).release(preparation.workspace());
+    }
+
+    @Test
+    void durableArtifactSurvivesWorkspaceCleanup() throws Exception {
+        ArtifactMetadataService metadata = mock(ArtifactMetadataService.class);
+        Path workspaceRoot = temporaryDirectory.resolve("workspace");
+        Path source = workspaceRoot.resolve("evidence.log");
+        Files.createDirectories(workspaceRoot);
+        Files.writeString(source, "workspace evidence");
+        var storage = new LocalArtifactStorage(
+                temporaryDirectory.resolve("durable-artifacts"), CLOCK);
+        var publisher = new StorageBackedArtifactPublisher(
+                request.executionId(), storage,
+                new ArtifactStorageLimits("C:/unused-test-root", 1024, 4096, 4, 2),
+                request.context().workspaceId(), request.context().projectId(), metadata,
+                "retain:default");
+        orchestrator = productionOrchestrator(publisher);
+        when(engine.execute(any(EngineExecutionRequest.class))).thenAnswer(invocation -> {
+            ((EngineExecutionRequest) invocation.getArgument(0)).artifactPublisher().publish(
+                    new ArtifactPublication(ArtifactCategory.LOG, "workspace.log", "text/plain",
+                            Map.of(), output -> Files.copy(source, output)));
+            return result(EngineExecutionState.SUCCEEDED);
+        });
+        when(workspaceManager.release(preparation.workspace())).thenAnswer(invocation -> {
+            Files.delete(source);
+            Files.delete(workspaceRoot);
+            return released();
+        });
+
+        orchestrator.execute(request);
+
+        org.mockito.ArgumentCaptor<ArtifactRegistration> registration =
+                org.mockito.ArgumentCaptor.forClass(ArtifactRegistration.class);
+        verify(metadata).register(any(), any(), any(), registration.capture());
+        assertThat(Files.exists(workspaceRoot)).isFalse();
+        assertThat(storage.verify(registration.getValue().storedArtifact())).isTrue();
+    }
+
+    @Test
+    void malformedResultDoesNotDeleteAlreadyRegisteredEvidence() {
+        ArtifactMetadataService metadata = mock(ArtifactMetadataService.class);
+        StorageBackedArtifactPublisher publisher = productionPublisher(metadata);
+        orchestrator = productionOrchestrator(publisher);
+        when(engine.execute(any(EngineExecutionRequest.class))).thenAnswer(invocation -> {
+            ((EngineExecutionRequest) invocation.getArgument(0)).artifactPublisher()
+                    .publish(publication("diagnostic"));
+            return null;
+        });
+
+        assertFailure("ENGINE_RESULT_INVARIANT_VIOLATION",
+                "Execution engine returned inconsistent evidence");
+
+        verify(metadata).register(any(), any(), any(), any());
+        assertThat(publisher.finalizedArtifacts()).isEqualTo(1);
+    }
+
+    private ExecutionOrchestrator productionOrchestrator(
+            StorageBackedArtifactPublisher publisher) {
+        return new ExecutionOrchestratorImpl(
+                preparationService, registry, workspaceManager, secretScopeFactory,
+                ignored -> { throw new IllegalStateException("unused"); },
+                (workspaceId, projectId, executionId) -> publisher,
+                CLOCK);
+    }
+
+    private StorageBackedArtifactPublisher productionPublisher(
+            ArtifactMetadataService metadata) {
+        var storage = new LocalArtifactStorage(
+                temporaryDirectory.resolve(UUID.randomUUID().toString()), CLOCK);
+        var limits = new ArtifactStorageLimits("C:/unused-test-root", 1024, 4096, 4, 2);
+        return new StorageBackedArtifactPublisher(
+                request.executionId(), storage, limits,
+                request.context().workspaceId(), request.context().projectId(), metadata,
+                "retain:default");
+    }
+
+    private static ArtifactPublication publication(String content) {
+        return new ArtifactPublication(
+                ArtifactCategory.LOG, "engine.log", "text/plain", Map.of(),
+                output -> output.write(content.getBytes(StandardCharsets.UTF_8)));
     }
 
     private org.assertj.core.api.AbstractThrowableAssert<?, ? extends Throwable>

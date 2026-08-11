@@ -1,5 +1,8 @@
 package com.automationstudio.api.execution.artifact.storage;
 
+import com.automationstudio.api.execution.artifact.metadata.ArtifactMetadataService;
+import com.automationstudio.api.execution.artifact.metadata.ArtifactMetadataException;
+import com.automationstudio.api.execution.artifact.metadata.ArtifactRegistration;
 import com.automationstudio.engine.sdk.ArtifactPublication;
 import com.automationstudio.engine.sdk.ArtifactPublicationException;
 import com.automationstudio.engine.sdk.ArtifactPublisher;
@@ -14,16 +17,55 @@ public final class StorageBackedArtifactPublisher implements ArtifactPublisher {
     private final UUID executionId;
     private final ArtifactStorage storage;
     private final ArtifactStorageLimits limits;
+    private final UUID workspaceId;
+    private final UUID projectId;
+    private final ArtifactMetadataService metadataService;
+    private final String retentionReference;
     private final ReentrantLock accountingLock = new ReentrantLock();
     private long finalizedBytes;
     private int finalizedArtifacts;
     private int openPublications;
+    private boolean failedPublication;
+    private boolean active = true;
 
     public StorageBackedArtifactPublisher(
             UUID executionId, ArtifactStorage storage, ArtifactStorageLimits limits) {
+        this(executionId, storage, limits, null, null, null, null);
+    }
+
+    public StorageBackedArtifactPublisher(
+            UUID executionId,
+            ArtifactStorage storage,
+            ArtifactStorageLimits limits,
+            UUID workspaceId,
+            UUID projectId,
+            ArtifactMetadataService metadataService,
+            String retentionReference) {
         this.executionId = Objects.requireNonNull(executionId, "Execution ID must not be null");
         this.storage = Objects.requireNonNull(storage, "Artifact storage must not be null");
         this.limits = Objects.requireNonNull(limits, "Artifact storage limits must not be null");
+        this.workspaceId = workspaceId;
+        this.projectId = projectId;
+        this.metadataService = metadataService;
+        this.retentionReference = retentionReference;
+        if ((metadataService == null) != (workspaceId == null || projectId == null
+                || retentionReference == null)) {
+            throw new IllegalArgumentException("Artifact metadata binding is incomplete");
+        }
+    }
+
+    static StorageBackedArtifactPublisher unavailable(UUID executionId) {
+        return new StorageBackedArtifactPublisher(executionId);
+    }
+
+    private StorageBackedArtifactPublisher(UUID executionId) {
+        this.executionId = Objects.requireNonNull(executionId, "Execution ID must not be null");
+        this.storage = null;
+        this.limits = null;
+        this.workspaceId = null;
+        this.projectId = null;
+        this.metadataService = null;
+        this.retentionReference = null;
     }
 
     @Override
@@ -47,19 +89,55 @@ public final class StorageBackedArtifactPublisher implements ArtifactPublisher {
                 storage.delete(stored.storageReference());
                 throw limitExceeded();
             }
+            if (metadataService != null) {
+                metadataService.register(workspaceId, projectId, executionId,
+                        new ArtifactRegistration(artifactId, candidate.category(),
+                                candidate.logicalName(), candidate.mediaType(), candidate.metadata(),
+                                stored, retentionReference));
+            }
             return new ArtifactReceipt(artifactId, executionId, candidate.category(),
                     candidate.logicalName(), candidate.mediaType(), stored.sizeBytes(),
                     stored.checksumAlgorithm(), stored.checksum(), stored.finalizedAt());
         } catch (ArtifactPublicationException failure) {
+            recordFailure();
             throw failure;
         } catch (RuntimeException failure) {
-            if (stored != null && !accepted) {
+            recordFailure();
+            if (stored != null && accepted) {
+                rollbackFinalized(stored);
+            }
+            if (stored != null && !(failure instanceof ArtifactMetadataException)) {
                 deleteQuietly(stored.storageReference());
             }
             throw new ArtifactPublicationException(
                     "ARTIFACT_PUBLICATION_FAILED", "Artifact publication failed safely");
         } finally {
             releasePublication();
+        }
+    }
+
+    /** Completes the invocation and prevents all later use. */
+    public void complete() {
+        accountingLock.lock();
+        try {
+            active = false;
+            if (openPublications != 0 || failedPublication) {
+                throw new ArtifactPublicationException(
+                        "ARTIFACT_PUBLICATION_FAILED",
+                        "Artifact publication failed safely");
+            }
+        } finally {
+            accountingLock.unlock();
+        }
+    }
+
+    /** Aborts invocation-local use without deleting already durable, registered evidence. */
+    public void abort() {
+        accountingLock.lock();
+        try {
+            active = false;
+        } finally {
+            accountingLock.unlock();
         }
     }
 
@@ -84,6 +162,11 @@ public final class StorageBackedArtifactPublisher implements ArtifactPublisher {
     private long reservePublication() {
         accountingLock.lock();
         try {
+            if (!active || storage == null) {
+                throw new ArtifactPublicationException(
+                        "ARTIFACT_PUBLICATION_UNAVAILABLE",
+                        "Artifact publication is unavailable for this execution");
+            }
             if (openPublications >= limits.maximumConcurrentPublicationsPerExecution()
                     || finalizedArtifacts >= limits.maximumArtifactsPerExecution()
                     || finalizedBytes >= limits.maximumBytesPerExecution()) {
@@ -116,6 +199,25 @@ public final class StorageBackedArtifactPublisher implements ArtifactPublisher {
         accountingLock.lock();
         try {
             openPublications--;
+        } finally {
+            accountingLock.unlock();
+        }
+    }
+
+    private void rollbackFinalized(StoredArtifact stored) {
+        accountingLock.lock();
+        try {
+            finalizedArtifacts--;
+            finalizedBytes -= stored.sizeBytes();
+        } finally {
+            accountingLock.unlock();
+        }
+    }
+
+    private void recordFailure() {
+        accountingLock.lock();
+        try {
+            failedPublication = true;
         } finally {
             accountingLock.unlock();
         }
