@@ -237,7 +237,7 @@ public record RestAssuredApiManifest(
 
     private static String relativePath(String value) {
         String path = text(value, MAX_PATH_LENGTH, "Request path is invalid");
-        if (!path.startsWith("/") || path.startsWith("//") || path.contains("#")
+        if (!path.startsWith("/") || path.startsWith("//") || path.contains("#") || path.contains("?")
                 || path.contains("://") || path.contains("\\")) {
             throw invalid("INVALID_REQUEST", "Request path is invalid");
         }

@@ -22,7 +22,7 @@ public class RestAssuredManifestParserTest {
         assertEquals("scenario-one", manifest.scenarios().getFirst().id());
         var request = manifest.scenarios().getFirst().requests().getFirst();
         assertEquals(RestAssuredApiManifest.HttpMethod.GET, request.method());
-        assertEquals(RestAssuredApiManifest.AuthenticationType.BEARER,
+        assertEquals(RestAssuredApiManifest.AuthenticationType.NONE,
                 request.authentication().type());
         assertTrue(request.evidence().sanitizedSummary());
     }
@@ -87,18 +87,22 @@ public class RestAssuredManifestParserTest {
         assertCode("INVALID_HEADERS", validManifest().replace(
                 "\"Accept\":\"application/json\"", "\"Cookie\":\"literal\""));
         assertCode("INVALID_HEADERS", validManifest().replace(
-                "\"type\":\"BEARER\",\"secretRef\":\"api-token\"",
+                "\"type\":\"NONE\"",
                 "\"type\":\"API_KEY_HEADER\",\"secretRef\":\"api-token\",\"placement\":\"Authorization\""));
         assertCode("INVALID_HEADERS", validManifest()
                 .replace("\"X-Client\":\"contract\"", "\"X-Key\":\"literal\"")
-                .replace("\"type\":\"BEARER\",\"secretRef\":\"api-token\"",
+                .replace("\"type\":\"NONE\"",
                         "\"type\":\"API_KEY_HEADER\",\"secretRef\":\"api-token\",\"placement\":\"x-key\""));
         assertCode("INVALID_PARAMETERS", validManifest()
                 .replace("\"view\":\"summary\"", "\"clientkey\":\"literal\"")
-                .replace("\"type\":\"BEARER\",\"secretRef\":\"api-token\"",
+                .replace("\"type\":\"NONE\"",
                         "\"type\":\"API_KEY_QUERY\",\"secretRef\":\"api-token\",\"placement\":\"clientkey\""));
         assertFailure(validManifest().replace("\"/users/{id}\"", "\"https://internal.example/\""));
-        assertFailure(validManifest().replace("schemas/user.json", "../secret.json"));
+        assertFailure(validManifest().replace("\"/users/{id}\"", "\"/safe?api_key=literal\""));
+        assertFailure(validManifest().replace("\"headers\":{\"X-Client\":\"contract\"}",
+                "\"headers\":{\"X-Client\":\"contract\"},"
+                        + "\"body\":{\"sourceReference\":\"../secret.json\","
+                        + "\"mediaType\":\"application/json\"}"));
     }
 
     @Test
@@ -154,10 +158,9 @@ public class RestAssuredManifestParserTest {
                 {"id":"get-user","method":"GET","path":"/users/{id}",
                  "pathParameters":{"id":"42"},"queryParameters":{"view":"summary"},
                  "headers":{"X-Client":"contract"},
-                 "authentication":{"type":"BEARER","secretRef":"api-token"},
-                 "assertions":[{"type":"STATUS","expected":"200"},
-                    {"type":"JSON_SCHEMA","expression":"schemas/user.json"}],
-                 "retry":{"maxRetries":1,"backoffMillis":100},
+                 "authentication":{"type":"NONE"},
+                 "assertions":[{"type":"STATUS","expected":"200"}],
+                 "retry":{"maxRetries":0,"backoffMillis":0},
                  "evidence":{"sanitizedSummary":true}}
                 """;
     }

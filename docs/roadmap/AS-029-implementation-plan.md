@@ -95,6 +95,28 @@ external test calls.
 
 **Dependencies:** Accepted AS-029B.
 
+**Implemented checkpoint:** AS-029C executes sequential unauthenticated requests through a
+constructor-injected immutable runner network policy. The admitted environment origin is
+canonicalized, paths and deterministic parameters remain same-origin, all DNS answers are checked
+against global-address rules or an exact operator origin exception, and the transport connects only
+to the authorized pinned addresses while retaining the logical hostname for HTTP and TLS.
+
+Redirects, cookies, implicit proxies, and automatic decompression are disabled. TLS verification
+uses the provider default with no manifest trust override. Connect, socket, and absolute request
+deadlines are bounded; request bodies, response wire bytes, gzip-decoded bytes, and response headers
+are independently bounded. Unsupported/nested encodings fail closed. Transport errors expose only
+stable sanitized codes, while status-only assertion mismatch returns a correlated SDK `FAILED`
+result. Authentication, retry execution, non-status assertions, evidence, and registration remain
+deferred to AS-029D and AS-029E.
+
+Focused verification passed 40 tests (15 generic conformance plus 25 provider) with zero failures,
+errors, or skips. The watched-worktree full build reproduced the known generated-artifact lock. An
+exact-source snapshot was hash-verified across 727 source files, excluded generated outputs, and
+passed the six-module reactor with 1,223 tests, zero failures, zero errors, and 17 skips using local
+Docker only for the repository's existing Testcontainers tests. Independent architecture,
+security, and compatibility re-reviews reported no remaining findings. Changes remain uncommitted
+and unpushed; AS-029D has not started.
+
 ## AS-029D - Authentication, Assertions, Correlation, and Retries
 
 **Objective:** Add least-authority credentials and deterministic API validation behavior.

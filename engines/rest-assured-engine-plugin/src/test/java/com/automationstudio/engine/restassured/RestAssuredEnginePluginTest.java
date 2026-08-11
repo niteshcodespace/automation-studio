@@ -17,6 +17,8 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.UUID;
+import java.net.InetAddress;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class RestAssuredEnginePluginTest {
@@ -26,7 +28,8 @@ class RestAssuredEnginePluginTest {
         var descriptor = plugin().descriptor();
         assertEquals("rest-assured", descriptor.engineId());
         assertEquals("6.0.1", descriptor.implementationVersion());
-        assertFalse(descriptor.supportedFeatures().contains("http-execution"));
+        assertTrue(descriptor.supportedFeatures().contains("ssrf-safe-http-transport"));
+        assertTrue(descriptor.supportedFeatures().contains("unauthenticated-requests"));
         assertSame(descriptor, plugin().descriptor());
     }
 
@@ -53,6 +56,15 @@ class RestAssuredEnginePluginTest {
     }
 
     @Test
+    void statusAssertionMismatchReturnsCorrelatedFailedResult() {
+        TrackingSecretAccess secrets = new TrackingSecretAccess(EXECUTION_ID);
+        var result = plugin(503).execute(request(secrets));
+        assertEquals(com.automationstudio.engine.sdk.EngineExecutionState.FAILED, result.state());
+        assertEquals(EXECUTION_ID, result.executionId());
+        assertEquals(0, secrets.resolutions);
+    }
+
+    @Test
     void rejectsProviderConfigurationAndSanitizesManifestFailure() {
         EngineExecutionRequest valid = request(new TrackingSecretAccess(EXECUTION_ID));
         var configuredContext = new EngineExecutionContext(EXECUTION_ID,
@@ -74,8 +86,18 @@ class RestAssuredEnginePluginTest {
     static final UUID EXECUTION_ID = new UUID(29, 1);
 
     static RestAssuredEnginePlugin plugin() {
+        return plugin(200);
+    }
+
+    static RestAssuredEnginePlugin plugin(int status) {
+        var policy = com.automationstudio.engine.restassured.network.RestAssuredNetworkPolicy.productionDefaults();
+        var authorizer = new com.automationstudio.engine.restassured.network.RestAssuredTargetAuthorizer(
+                policy, host -> new InetAddress[] { InetAddress.getByName("8.8.8.8") });
+        com.automationstudio.engine.restassured.network.RestAssuredTransport transport =
+                (target, request, body) -> new com.automationstudio.engine.restassured.network.RestAssuredHttpTransport.Response(
+                        status, Map.of("content-type", "application/json"), "{}".getBytes(StandardCharsets.UTF_8));
         return new RestAssuredEnginePlugin(new RestAssuredManifestParser(), Clock.fixed(
-                Instant.parse("2026-08-11T00:00:00Z"), ZoneOffset.UTC));
+                Instant.parse("2026-08-11T00:00:00Z"), ZoneOffset.UTC), authorizer, transport);
     }
 
     static EngineExecutionRequest request(TrackingSecretAccess secrets) {
