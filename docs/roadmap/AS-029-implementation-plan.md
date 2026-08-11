@@ -45,6 +45,37 @@ effects; source-relative files use prepared access only.
 
 **Dependencies:** Accepted AS-029A.
 
+**Implemented checkpoint:** A new `engines/rest-assured-engine-plugin` reactor module depends on
+the unchanged JDK-only SDK, keeps REST Assured 6.0.1 and Jackson 3.1.4 provider-local, and uses the
+generic conformance harness only in test scope. Exact identity is `rest-assured` / `6.0.1`.
+
+The version-one UTF-8 JSON manifest is bounded to one MiB and depth 32, rejects duplicate/unknown
+fields and unsupported versions, and creates immutable values for defaults, scenarios, requests,
+methods, parameters, headers, optional bodies, authentication references, assertions, retry
+declarations, and required sanitized-summary evidence. Structural validation enforces bounded
+strings/collections, unique IDs, safe relative source references and request paths, the approved
+method/auth/assertion vocabularies, retry bounds, and prohibited credential/framing headers.
+Failures expose stable sanitized provider-local codes without causes or stack traces.
+
+The plugin foundation validates identity/configuration without side effects. Its temporary B-level
+`execute` proof opens and parses only the prepared manifest, returns a correlated zero-artifact SDK
+result, closes the source handle, resolves no secret, publishes no artifact, and performs no DNS,
+HTTP, redirect, TLS, retry, assertion, or authentication work. Production registry assembly remains
+AS-029E; no `studio-api`, registry, SDK, lifecycle, persistence, or migration source changed.
+
+Focused verification passed 33 tests across SDK/conformance/provider modules (15 existing generic,
+18 provider), with zero failures, errors, or skips. Dependency trees confirm zero SDK dependencies
+and provider-local REST Assured/Jackson. The watched-worktree full build hit known generated-source
+interference; an exact-source isolated six-module snapshot then required a snapshot-owned JVM temp
+directory and the local Docker engine for existing tests. That full reactor passed 1,216 tests with
+zero failures, zero errors, and 17 skips. Changes remain uncommitted and unpushed; AS-029C has not
+started.
+
+Independent architecture and compatibility reviews reported no findings. Security review findings
+covering locale-independent header normalization, forwarding and hop-by-hop header denial, generic
+credential channels, API-key placement collisions, and the evidence invariant were resolved; the
+final security re-review reported no remaining findings.
+
 ## AS-029C - Outbound HTTP and SSRF-Safe Transport
 
 **Objective:** Execute bounded unauthenticated requests through a fail-closed target policy.
