@@ -164,9 +164,7 @@ Potential capabilities:
 
 Standardize artifacts produced by all engines.
 
-Status: technically complete on `feature/AS-028-execution-artifact-evidence`. AS-028A through
-AS-028E are committed and pushed; AS-028F engine proof, final verification, documentation, and
-review are complete but uncommitted and unpushed.
+Status: complete and merged to `main` at `5e01604` (PR #17). AS-028A through AS-028F are complete.
 
 The approved direction is a provider-neutral SDK publication capability backed by platform-owned
 bounded staging, validation, SHA-256 integrity calculation, durable local storage outside execution
@@ -205,6 +203,16 @@ Add API-testing engines through the common Engine Registry and plugin contract.
 ## AS-029 — REST Assured Engine Plugin
 
 Support Java-based REST API automation.
+
+Status: AS-029A requirements and security architecture are complete but uncommitted on
+`feature/AS-029-rest-assured-engine-plugin`. Implementation has not started.
+
+The approved direction is a strict versioned declarative manifest executed by one statically
+assembled SDK plugin. The admitted environment base URL is the sole target authority; every
+request, retry, and redirect must pass fail-closed origin, address, and DNS-rebinding controls.
+Authentication uses execution-scoped logical secret references, results remain provider-neutral,
+and sanitized evidence publishes only through AS-028. AS-029 adds no persistence aggregate,
+execution-retry authority, runtime plugin loader, or second registry/orchestrator.
 
 Potential capabilities:
 
