@@ -35,7 +35,8 @@ public class PlaywrightConfigurationParser {
             "viewportWidth",
             "viewportHeight",
             "locale",
-            "navigationPolicy");
+            "navigationPolicy",
+            "captureFailureReport");
 
     private final SensitiveKeyDetector sensitiveKeyDetector;
 
@@ -78,7 +79,8 @@ public class PlaywrightConfigurationParser {
                         MIN_VIEWPORT_HEIGHT,
                         MAX_VIEWPORT_HEIGHT),
                 parseLocale(values.get("locale")),
-                parseNavigationPolicy(values.get("navigationPolicy")));
+                parseNavigationPolicy(values.get("navigationPolicy")),
+                parseCaptureFailureReport(values.get("captureFailureReport")));
     }
 
     private void rejectUnsupportedKeys(Map<String, Object> values) {
@@ -175,6 +177,16 @@ public class PlaywrightConfigurationParser {
             throw invalid("Playwright navigation policy must be a string");
         }
         throw invalid("Playwright navigation policy is not supported");
+    }
+
+    private static boolean parseCaptureFailureReport(Object value) {
+        if (value == null || Boolean.FALSE.equals(value)) {
+            return false;
+        }
+        if (Boolean.TRUE.equals(value)) {
+            return true;
+        }
+        throw invalid("Playwright failure report setting must be boolean");
     }
 
     private static PlaywrightConfigurationException invalid(String message) {

@@ -31,8 +31,12 @@ import com.automationstudio.engine.sdk.EngineExecutionContext;
 import com.automationstudio.engine.sdk.EngineExecutionRequest;
 import com.automationstudio.engine.sdk.EngineExecutionResult;
 import com.automationstudio.engine.sdk.EngineExecutionState;
+import com.automationstudio.engine.sdk.ArtifactCategory;
+import com.automationstudio.engine.sdk.ArtifactPublication;
+import com.automationstudio.engine.sdk.ArtifactPublicationException;
 import com.automationstudio.engine.sdk.PreparedSourceAccess;
 import com.automationstudio.engine.sdk.PreparedSource;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -143,6 +147,7 @@ public final class PlaywrightExecutionEngine implements ExecutionEngine {
                     validatedRequest.secretAccess()::resolve);
             PlaywrightScenarioExecutionOutcome outcome = scenarioRunner.execute(
                     manifest.scenarios(), actionContext, metrics);
+            publishFailureReport(validatedRequest, configuration, outcome);
             state = mapOutcome(outcome);
         } catch (RuntimeException executionFailure) {
             failure = sanitize(executionFailure);
@@ -390,6 +395,9 @@ public final class PlaywrightExecutionEngine implements ExecutionEngine {
     }
 
     private RuntimeException sanitize(RuntimeException failure) {
+        if (failure instanceof ArtifactPublicationException) {
+            return failure;
+        }
         if (failure instanceof PlaywrightExecutionException) {
             return failure;
         }
@@ -424,6 +432,28 @@ public final class PlaywrightExecutionEngine implements ExecutionEngine {
                 EXECUTION_FAILED,
                 "Playwright execution failed",
                 failure);
+    }
+
+    private void publishFailureReport(
+            EngineExecutionRequest request,
+            PlaywrightExecutionConfiguration configuration,
+            PlaywrightScenarioExecutionOutcome outcome) {
+        if (!configuration.captureFailureReport()
+                || outcome.status() != PlaywrightScenarioExecutionOutcome.Status.ASSERTION_FAILED) {
+            return;
+        }
+        var metrics = outcome.metrics();
+        String report = """
+                {"schemaVersion":"1","engineId":"playwright-java","outcome":"ASSERTION_FAILED","totalActions":%d,"successfulActions":%d,"failedActions":%d}
+                """.formatted(metrics.totalActions(), metrics.successfulActions(),
+                metrics.failedActions());
+        request.artifactPublisher().publish(new ArtifactPublication(
+                ArtifactCategory.REPORT,
+                "execution-failure-report.json",
+                "application/json",
+                Map.of("format", "playwright-execution-summary-v1",
+                        "capturePolicy", "assertion-failure-only"),
+                output -> output.write(report.getBytes(StandardCharsets.UTF_8))));
     }
 
     private PlaywrightRuntimeSession openRuntime(

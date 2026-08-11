@@ -2,10 +2,10 @@
 
 ## Status and delivery rules
 
-AS-028A and AS-028B are committed and pushed through `43c4226` on
-`feature/AS-028-execution-artifact-evidence`, created from baseline `e849939`. AS-028C implementation,
-verification, and independent review are complete but uncommitted and unpushed. AS-028D through
-AS-028F remain separately gated.
+AS-028A through AS-028E are committed and pushed through `7e89d7c` on
+`feature/AS-028-execution-artifact-evidence`, created from baseline `e849939`. AS-028F
+implementation, verification, documentation reconciliation, and final review are complete but
+uncommitted and unpushed.
 
 Every story requires focused verification, full reactor verification when runtime/build files
 change, `git diff --check`, independent review, repository checkpoint, explicit commit approval,
@@ -212,6 +212,20 @@ experience, AS-078/080 and runtime-plugin boundaries.
 
 **Gates:** Final checkpoint and explicit commit/push approvals, then separate PR/review/merge,
 main synchronization, and branch deletion approvals.
+
+**Implemented checkpoint:** Playwright now supports an explicit, default-off
+`captureFailureReport` setting. Assertion-failed executions publish one bounded provider-neutral
+`REPORT` containing structural status and action counts only. A deterministic PostgreSQL/local
+storage integration proof runs the actual engine publication path without a browser, external
+target, or operator secret and verifies scoped discovery, controlled workspace-directory deletion
+survival, and stored integrity; AS-028E retains canonical orchestrator release-order coverage.
+Builtin and sample engines remain valid with zero artifacts; reusable conformance
+requires no provider-specific extension. All twelve acceptance criteria are satisfied or explicitly
+deferred by design, and no blocking architecture, security, or compatibility finding remains.
+Focused verification passed 141 tests with zero failures, zero errors, and one Windows symbolic-link
+skip. Isolated five-module `mvn clean verify` passed 1,198 tests with zero failures, zero errors,
+and 17 skips (`BUILD SUCCESS`); isolation prevented active IDE language servers from mutating Maven
+output and contained the identical current source tree without generated targets.
 
 ## Principal risks
 

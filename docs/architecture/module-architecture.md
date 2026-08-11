@@ -114,8 +114,9 @@ AS-028 defines the artifact boundary that follows engine execution. Engines publ
 evidence through a narrow SDK capability; they do not return host paths, choose durable locations,
 or access persistence and storage adapters. The platform owns bounded staging, category and media
 type validation, SHA-256 integrity calculation, durable byte storage outside execution workspaces,
-PostgreSQL metadata, discovery authorization, and cleanup. The existing evidence records and
-workspace staging are foundations, not a completed durable artifact-storage implementation.
+PostgreSQL metadata, discovery authorization, and cleanup. AS-028 implements this path with a local
+durable adapter and an execution-scoped publisher. Playwright proves opt-in bounded failure-report
+publication; Builtin and sample engines remain valid without artifacts.
 
 ## AI Capability Modules
 

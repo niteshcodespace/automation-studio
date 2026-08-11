@@ -3,9 +3,9 @@
 ## 1. Status and purpose
 
 AS-028 standardizes artifacts produced by all engines through a provider-neutral, secure,
-platform-controlled publication and discovery contract. AS-028A is documentation-only and defines
-the requirements, threat model, architecture, phased delivery, and explicit deferrals before SDK,
-storage, persistence, orchestration, or engine changes.
+platform-controlled publication and discovery contract. AS-028A through AS-028E are committed and
+pushed; AS-028F implementation and verification are complete on the feature branch but remain
+uncommitted and unpushed.
 
 AS-028 begins from completed AS-027 merge commit `e849939`. It preserves one engine registry, one
 controlled execution path, the JDK-only SDK, platform-owned lifecycle/persistence, execution-scoped
@@ -283,3 +283,22 @@ AS-028 is complete when:
 10. legacy evidence and database vocabulary are reconciled without removing compatibility APIs;
 11. AS-078, AS-080, runtime-plugin, UI, download, and malware-scanning scope remains deferred; and
 12. focused, full reactor, migration, documentation, and independent reviews pass.
+
+## 19. Final acceptance review
+
+| Criterion | Classification | Final evidence |
+|---|---|---|
+| 1 | SATISFIED | JDK-only execution-scoped SDK publisher contract |
+| 2 | SATISFIED | Builtin, sample, and default Playwright remain zero-artifact compatible |
+| 3 | SATISFIED | Local durable storage root is separate from workspace cleanup |
+| 4 | SATISFIED | Stored size and SHA-256 are computed from finalized bytes |
+| 5 | SATISFIED | V16 metadata aggregate is immutable and execution-associated |
+| 6 | SATISFIED | Storage, declaration, quota, diagnostics, failure, and concurrency tests |
+| 7 | SATISFIED | Workspace/project/execution-scoped metadata list and lookup |
+| 8 | SATISFIED | One registry, SDK invocation path, orchestrator, and fenced lifecycle path |
+| 9 | SATISFIED | Generic conformance, zero-artifact engines, and opt-in Playwright REPORT proof |
+| 10 | SATISFIED | Canonical metadata vocabulary reconciled; compatibility APIs retained |
+| 11 | DEFERRED BY DESIGN | AS-078/080, runtime plugins, UI, download, and malware scanning remain assigned |
+| 12 | SATISFIED | Focused/full/static verification and final independent review completed |
+
+There are no unapproved `NOT SATISFIED` criteria.

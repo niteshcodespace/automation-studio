@@ -61,7 +61,12 @@ flowchart TB
   its owned value during deterministic scope cleanup.
 - Run execution workers without root privileges and with bounded workspace, CPU, memory, process, disk, and timeout limits.
 - Do not mount host filesystems or use privileged execution containers.
-- Generate signed, short-lived artifact access when an object-store adapter is introduced.
+- Signed or public artifact access remains deferred and must be separately designed with any future
+  object-store serving boundary.
+
+Playwright artifact capture is disabled unless a suite explicitly sets
+`captureFailureReport: true`. That setting emits only a bounded structural report after assertion
+failure; it does not enable screenshots, traces, videos, page capture, or browser-network capture.
 
 The Playwright runner provisioning, threat, failure-response, supported-platform, and release
 checks are defined in [Playwright Execution Engine Production Readiness](playwright-production-readiness.md).

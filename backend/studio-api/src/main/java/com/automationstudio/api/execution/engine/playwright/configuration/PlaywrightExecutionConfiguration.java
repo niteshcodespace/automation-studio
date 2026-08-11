@@ -11,7 +11,21 @@ public record PlaywrightExecutionConfiguration(
         int viewportWidth,
         int viewportHeight,
         String locale,
-        PlaywrightNavigationPolicy navigationPolicy) {
+        PlaywrightNavigationPolicy navigationPolicy,
+        boolean captureFailureReport) {
+
+    public PlaywrightExecutionConfiguration(
+            PlaywrightBrowser browser,
+            boolean headless,
+            Duration actionTimeout,
+            Duration navigationTimeout,
+            int viewportWidth,
+            int viewportHeight,
+            String locale,
+            PlaywrightNavigationPolicy navigationPolicy) {
+        this(browser, headless, actionTimeout, navigationTimeout, viewportWidth, viewportHeight,
+                locale, navigationPolicy, false);
+    }
 
     public static final Duration DEFAULT_ACTION_TIMEOUT = Duration.ofSeconds(30);
     public static final Duration DEFAULT_NAVIGATION_TIMEOUT = Duration.ofSeconds(30);

@@ -51,8 +51,9 @@ AS-027D Repository Engine Migration and Conformance Proof - complete and committ
 AS-027E Sample Engine Plugin - complete and committed (9fea0fd)
 AS-027F Developer Guide and Feature-Level Verification - complete and merged
 AS-027 Engine Plugin SDK and Conformance Harness - complete and merged to main (e849939)
-AS-028A Requirements, Threat Model, and Architecture - documentation in progress on feature branch; uncommitted
-AS-028 Execution Artifact and Evidence Contract - in progress; AS-028B has not started
+AS-028A through AS-028E - complete, committed, and pushed through 7e89d7c
+AS-028F Engine Proof, Documentation, and Feature Review - technically complete; uncommitted and unpushed
+AS-028 Execution Artifact and Evidence Contract - technically complete on feature branch
 ```
 
 The approved sequence preserves immutable execution snapshots, keeps resolved values outside
@@ -74,9 +75,10 @@ immutable engine registry and one provider-neutral descriptor, prepared invocati
 cleanup, and repository-conformance contract. AS-026G completed final reconciliation without
 runtime changes and completed at `59af99d`. AS-027 provides the reusable SDK, conformance harness,
 repository-engine proof, sample, and developer guide without a second registry or execution path;
-it is merged to `main` at `e849939`. AS-028A now defines the provider-neutral artifact/evidence
-publication, storage, metadata, integrity, discovery, and cleanup boundaries. Runtime plugin
-loading remains deferred, and AS-028B has not started.
+it is merged to `main` at `e849939`. AS-028 now implements the provider-neutral artifact/evidence
+publication, local durable storage, metadata, integrity, scoped discovery, orchestration, cleanup,
+and opt-in Playwright failure-report proof. Runtime plugin loading, S3, retention operations,
+download/serving, UI, and malware scanning remain deferred.
 
 ## Phase 2
 

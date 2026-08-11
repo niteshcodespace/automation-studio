@@ -164,15 +164,18 @@ Potential capabilities:
 
 Standardize artifacts produced by all engines.
 
-Status: AS-028A requirements, threat model, architecture, and implementation plan are in progress
-on `feature/AS-028-execution-artifact-evidence`; documentation changes are uncommitted and
-unpushed. AS-028B has not started.
+Status: technically complete on `feature/AS-028-execution-artifact-evidence`. AS-028A through
+AS-028E are committed and pushed; AS-028F engine proof, final verification, documentation, and
+review are complete but uncommitted and unpushed.
 
 The approved direction is a provider-neutral SDK publication capability backed by platform-owned
 bounded staging, validation, SHA-256 integrity calculation, durable local storage outside execution
 workspaces, PostgreSQL metadata, authorized metadata discovery, and deterministic cleanup. Artifact
 bytes do not belong in PostgreSQL. S3-compatible storage remains deferred to AS-078, and retention
 execution remains deferred to AS-080.
+
+The final engine proof is an explicit, default-off Playwright assertion-failure `REPORT`. Builtin,
+sample, and default Playwright executions remain valid with zero artifacts.
 
 Potential capabilities:
 

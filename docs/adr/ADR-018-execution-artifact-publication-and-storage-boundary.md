@@ -2,18 +2,14 @@
 
 ## Status
 
-Proposed by AS-028A; documentation implementation is uncommitted and awaiting repository
-checkpoint and commit approval.
+Accepted and implemented by AS-028. AS-028F feature-close changes are uncommitted and unpushed.
 
 ## Context
 
 The roadmap assigns AS-028 durable artifact categories, metadata, publication, integrity,
-retention references, and provider-neutral discovery. Earlier AS-022 architecture described an
-orchestrator-owned evidence sink, but deferred storage. The repository has evidence value objects,
-an unused `ExecutionArtifactRepository`, an `execution_artifact` table, and an ephemeral workspace
-`artifacts/` directory. It has no durable storage port or local adapter. Runtime and database
-category vocabularies conflict, legacy evidence is disconnected from the controlled pipeline, and
-normal workspace cleanup deletes staged files.
+retention references, and provider-neutral discovery. AS-028 implemented the narrow SDK
+capability, durable local storage port, reconciled metadata aggregate, scoped discovery, canonical
+orchestration binding, and an opt-in Playwright failure `REPORT` proof.
 
 AS-027 deliberately kept artifacts, paths, persistence, and provider types out of the JDK-only SDK
 result/workspace contracts. AS-028 must enable artifact-producing engines without reversing that
@@ -126,3 +122,12 @@ split-failure handling, new configuration limits, and migration of legacy eviden
 - S3-compatible storage (AS-078);
 - retention execution and legal hold (AS-080);
 - malware scanning, UI, runtime plugin isolation, and retry-attempt artifact identity.
+
+## Final engine proof
+
+Playwright accepts explicit `captureFailureReport: true`. On assertion failure it publishes one
+bounded `REPORT` (`application/json`) containing only schema, engine identity, outcome, and action
+counts. It excludes page content, selectors, URLs, cookies, headers, and secret values. The default
+is false, successful runs publish nothing, and Builtin/sample engines remain zero-artifact. The
+integration proof verifies durable storage, PostgreSQL registration, scoped discovery, workspace
+deletion survival, and checksum integrity without launching a browser or contacting a target.

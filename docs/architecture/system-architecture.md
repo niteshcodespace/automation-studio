@@ -148,7 +148,7 @@ C4Container
         Container(engine, "Engine Plugins", "Versioned modules", "Playwright initially; additional engines later")
         ContainerDb(db, "Metadata Store", "PostgreSQL", "State, history, audit, prompts, recommendations, and outbox")
         Container(queue, "Work and Event Transport", "PostgreSQL adapter initially", "Durable commands and events")
-        ContainerDb(artifacts, "Artifact Store", "Planned local filesystem adapter", "Durable evidence bytes outside execution workspaces")
+        ContainerDb(artifacts, "Artifact Store", "Local filesystem adapter", "Durable evidence bytes outside execution workspaces")
     }
 
     Rel(user, web, "Uses", "HTTPS")
@@ -224,6 +224,6 @@ Events include an event identifier, schema version, aggregate identifier, projec
 
 ## v0.1 Scope and Evolution
 
-v0.1 uses a Spring Boot modular monolith, Next.js web application, PostgreSQL, a dedicated Java runner, a Playwright Java engine, and PostgreSQL-based job claiming/outbox. Its target artifact profile is the AS-028 platform-owned local-filesystem adapter with PostgreSQL metadata; that durable adapter is not part of the pre-AS-028 baseline. It does not require AI, MCP, Kubernetes, Kafka, RabbitMQ, multi-tenancy, or high availability.
+v0.1 uses a Spring Boot modular monolith, Next.js web application, PostgreSQL, a dedicated Java runner, a Playwright Java engine, and PostgreSQL-based job claiming/outbox. AS-028 provides the platform-owned local-filesystem artifact adapter with PostgreSQL metadata and scoped discovery. It does not require AI, MCP, Kubernetes, Kafka, RabbitMQ, multi-tenancy, or high availability.
 
 Future installations may add S3-compatible artifact storage, external secret management, separate AI services, MCP deployment, external brokers, isolated execution containers, specialized runner pools, Kubernetes, high availability, and multi-tenancy without changing the core domain boundaries.
