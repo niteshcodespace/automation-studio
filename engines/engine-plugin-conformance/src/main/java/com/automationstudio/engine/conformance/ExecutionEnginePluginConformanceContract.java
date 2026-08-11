@@ -57,7 +57,7 @@ public interface ExecutionEnginePluginConformanceContract {
                 context.suiteReference(), context.suiteConfiguration(), context.environmentBaseUrl(),
                 context.environmentConfiguration(), context.variables());
         var mismatchedRequest = new EngineExecutionRequest(mismatch, request.preparedSource(),
-                request.workspaceAccess(), request.secretAccess());
+                request.workspaceAccess(), request.secretAccess(), request.artifactPublisher());
         assertThrows(IllegalArgumentException.class,
                 () -> mismatchedRequest.validateFor(supplied.plugin().descriptor()));
     }
@@ -84,7 +84,8 @@ public interface ExecutionEnginePluginConformanceContract {
         ExecutionEnginePlugin plugin = fixture().plugin();
         assertEquals(EngineExecutionResult.class,
                 plugin.getClass().getMethod("execute", EngineExecutionRequest.class).getReturnType());
-        assertEquals(List.of("context", "preparedSource", "workspaceAccess", "secretAccess"),
+        assertEquals(List.of("context", "preparedSource", "workspaceAccess", "secretAccess",
+                        "artifactPublisher"),
                 List.of(EngineExecutionRequest.class.getRecordComponents()).stream()
                         .map(component -> component.getName()).toList());
         assertTrue(fixture().validRequest().toString().contains("REDACTED"));

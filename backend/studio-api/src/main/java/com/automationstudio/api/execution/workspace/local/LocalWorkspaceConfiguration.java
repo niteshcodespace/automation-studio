@@ -12,6 +12,7 @@ import com.automationstudio.api.execution.orchestration.RunnerPipelineCoordinato
 import com.automationstudio.api.execution.orchestration.RunnerPipelineCoordinatorImpl;
 import com.automationstudio.api.execution.orchestration.RunnerExecutionService;
 import com.automationstudio.api.execution.secret.ExecutionSecretScopeFactory;
+import com.automationstudio.api.execution.artifact.storage.ArtifactPublisherFactory;
 import com.automationstudio.api.execution.workspace.local.access.EngineWorkspaceAccessResolver;
 import com.automationstudio.api.execution.workspace.local.access.LocalEngineWorkspaceAccessResolver;
 import com.automationstudio.api.source.SourceConfigurationValidator;
@@ -24,6 +25,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.ObjectProvider;
 
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(name = "automation.runner.workspace.root")
@@ -76,6 +78,7 @@ public class LocalWorkspaceConfiguration {
             WorkspaceManager workspaceManager,
             ExecutionSecretScopeFactory secretScopeFactory,
             EngineWorkspaceAccessResolver workspaceAccessResolver,
+            ObjectProvider<ArtifactPublisherFactory> artifactPublisherFactory,
             Clock clock) {
         return new ExecutionOrchestratorImpl(
                 sourcePreparationService,
@@ -83,6 +86,7 @@ public class LocalWorkspaceConfiguration {
                 workspaceManager,
                 secretScopeFactory,
                 workspaceAccessResolver,
+                artifactPublisherFactory.getIfAvailable(ArtifactPublisherFactory::unavailable),
                 clock);
     }
 

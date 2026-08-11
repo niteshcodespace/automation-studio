@@ -7,18 +7,32 @@ public record EngineExecutionRequest(
         EngineExecutionContext context,
         PreparedSource preparedSource,
         WorkspaceAccess workspaceAccess,
-        ExecutionSecretAccess secretAccess) {
+        ExecutionSecretAccess secretAccess,
+        ArtifactPublisher artifactPublisher) {
 
     public EngineExecutionRequest {
         context = Objects.requireNonNull(context, "Engine context must not be null");
         preparedSource = Objects.requireNonNull(preparedSource, "Prepared source must not be null");
         workspaceAccess = Objects.requireNonNull(workspaceAccess, "Workspace access must not be null");
         secretAccess = Objects.requireNonNull(secretAccess, "Secret access must not be null");
+        artifactPublisher = Objects.requireNonNull(
+                artifactPublisher, "Artifact publisher must not be null");
         if (!context.executionId().equals(workspaceAccess.executionId())
                 || !context.executionId().equals(secretAccess.executionId())
+                || !context.executionId().equals(artifactPublisher.executionId())
                 || !preparedSource.workspaceId().equals(workspaceAccess.workspaceId())) {
             throw new IllegalArgumentException("Engine request identities are inconsistent");
         }
+    }
+
+    public EngineExecutionRequest(
+            EngineExecutionContext context,
+            PreparedSource preparedSource,
+            WorkspaceAccess workspaceAccess,
+            ExecutionSecretAccess secretAccess) {
+        this(context, preparedSource, workspaceAccess, secretAccess,
+                ArtifactPublisher.unavailable(Objects.requireNonNull(
+                        context, "Engine context must not be null").executionId()));
     }
 
     public UUID executionId() {

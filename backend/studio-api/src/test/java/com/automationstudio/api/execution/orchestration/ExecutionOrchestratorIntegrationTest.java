@@ -9,8 +9,6 @@ import com.automationstudio.api.execution.ExecutionMetadata;
 import com.automationstudio.api.execution.ExecutionRetryPolicy;
 import com.automationstudio.api.execution.ExecutionRunnerContext;
 import com.automationstudio.api.execution.ExecutionSuiteSnapshot;
-import com.automationstudio.api.execution.engine.EngineExecutionRequest;
-import com.automationstudio.api.execution.engine.EngineExecutionResult;
 import com.automationstudio.api.execution.engine.EngineExecutionState;
 import com.automationstudio.api.execution.engine.ExecutionEngine;
 import com.automationstudio.api.execution.engine.ExecutionEngineDescriptor;
@@ -189,17 +187,18 @@ class ExecutionOrchestratorIntegrationTest {
             }
 
             @Override
-            public EngineExecutionResult execute(EngineExecutionRequest request) {
-                assertThat(request.preparation().source().resolvedRevision()).isEqualTo(revision);
-                assertThat(request.preparation().workspace().workspaceId()).isNotNull();
+            public com.automationstudio.engine.sdk.EngineExecutionResult execute(
+                    com.automationstudio.engine.sdk.EngineExecutionRequest request) {
+                assertThat(request.preparedSource().resolvedRevision()).isEqualTo(revision);
+                assertThat(request.preparedSource().workspaceId()).isNotNull();
                 invoked.set(true);
-                return new EngineExecutionResult(
+                return new com.automationstudio.engine.sdk.EngineExecutionResult(
                         request.executionId(),
-                        descriptor.engineName(),
-                        descriptor.engineVersion(),
-                        request.preparation().workspace().workspaceId(),
+                        descriptor.engineId(),
+                        descriptor.implementationVersion(),
+                        request.preparedSource().workspaceId(),
                         revision,
-                        EngineExecutionState.SUCCEEDED,
+                        com.automationstudio.engine.sdk.EngineExecutionState.SUCCEEDED,
                         ENGINE_START,
                         ENGINE_START.plusSeconds(1),
                         Duration.ofSeconds(1));

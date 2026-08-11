@@ -32,7 +32,8 @@ class PlaywrightConfigurationParserTest {
                 "viewportWidth", 1920,
                 "viewportHeight", 1080,
                 "locale", "en-US",
-                "navigationPolicy", "same-origin")));
+                "navigationPolicy", "same-origin",
+                "captureFailureReport", true)));
 
         assertThat(parsed.browser()).isEqualTo(PlaywrightBrowser.CHROMIUM);
         assertThat(parsed.headless()).isTrue();
@@ -43,6 +44,7 @@ class PlaywrightConfigurationParserTest {
         assertThat(parsed.locale()).isEqualTo("en-US");
         assertThat(parsed.navigationPolicy())
                 .isEqualTo(PlaywrightNavigationPolicy.SAME_ORIGIN);
+        assertThat(parsed.captureFailureReport()).isTrue();
     }
 
     @Test
@@ -62,6 +64,7 @@ class PlaywrightConfigurationParserTest {
         assertThat(parsed.locale()).isNull();
         assertThat(parsed.navigationPolicy())
                 .isEqualTo(PlaywrightNavigationPolicy.SAME_ORIGIN);
+        assertThat(parsed.captureFailureReport()).isFalse();
     }
 
     @ParameterizedTest
@@ -96,6 +99,7 @@ class PlaywrightConfigurationParserTest {
                 arguments("locale", 1),
                 arguments("navigationPolicy", "allow-all"),
                 arguments("navigationPolicy", true),
+                arguments("captureFailureReport", "true"),
                 arguments("unknown", "secret-value"),
                 arguments("apiToken", "secret-value"));
     }

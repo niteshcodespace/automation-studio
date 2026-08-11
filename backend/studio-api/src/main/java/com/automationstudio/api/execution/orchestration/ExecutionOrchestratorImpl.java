@@ -1,6 +1,8 @@
 package com.automationstudio.api.execution.orchestration;
 
 import com.automationstudio.api.execution.engine.EngineExecutionContextProjection;
+import com.automationstudio.api.execution.artifact.storage.ArtifactPublisherFactory;
+import com.automationstudio.api.execution.artifact.storage.StorageBackedArtifactPublisher;
 import com.automationstudio.api.execution.engine.ExecutionEngineRegistry;
 import com.automationstudio.api.execution.engine.ExecutionEngineSupport;
 import com.automationstudio.api.execution.preparation.SourcePreparationResult;
@@ -17,6 +19,7 @@ import com.automationstudio.engine.sdk.EngineExecutionRequest;
 import com.automationstudio.engine.sdk.EngineExecutionResult;
 import com.automationstudio.engine.sdk.ExecutionEnginePlugin;
 import com.automationstudio.engine.sdk.PreparedSource;
+import com.automationstudio.engine.sdk.ArtifactPublicationException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -29,6 +32,7 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
     private final WorkspaceManager workspaceManager;
     private final ExecutionSecretScopeFactory secretScopeFactory;
     private final EngineWorkspaceAccessResolver workspaceAccessResolver;
+    private final ArtifactPublisherFactory artifactPublisherFactory;
     private final Clock clock;
 
     public ExecutionOrchestratorImpl(
@@ -37,6 +41,7 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
             WorkspaceManager workspaceManager,
             ExecutionSecretScopeFactory secretScopeFactory,
             EngineWorkspaceAccessResolver workspaceAccessResolver,
+            ArtifactPublisherFactory artifactPublisherFactory,
             Clock clock) {
         this.preparationService = Objects.requireNonNull(
                 preparationService, "Source preparation service must not be null");
@@ -48,7 +53,22 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
                 secretScopeFactory, "Execution secret scope factory must not be null");
         this.workspaceAccessResolver = Objects.requireNonNull(
                 workspaceAccessResolver, "Engine workspace access resolver must not be null");
+        this.artifactPublisherFactory = Objects.requireNonNull(
+                artifactPublisherFactory, "Artifact publisher factory must not be null");
         this.clock = Objects.requireNonNull(clock, "Clock must not be null");
+    }
+
+    /** Compatibility constructor for callers whose engine invocation does not open source access. */
+    @Deprecated(forRemoval = false)
+    public ExecutionOrchestratorImpl(
+            SourcePreparationService preparationService,
+            ExecutionEngineRegistry engineRegistry,
+            WorkspaceManager workspaceManager,
+            ExecutionSecretScopeFactory secretScopeFactory,
+            EngineWorkspaceAccessResolver workspaceAccessResolver,
+            Clock clock) {
+        this(preparationService, engineRegistry, workspaceManager, secretScopeFactory,
+                workspaceAccessResolver, ArtifactPublisherFactory.unavailable(), clock);
     }
 
     /** Compatibility constructor for callers whose engine invocation does not open source access. */
@@ -66,6 +86,7 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
                 secretScopeFactory,
                 request -> { throw new IllegalStateException(
                         "Prepared source access is unavailable for this compatibility caller"); },
+                ArtifactPublisherFactory.unavailable(),
                 clock);
     }
 
@@ -116,6 +137,21 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
             throw cleanup(secretScope, preparation.workspace(), engineInvariant());
         }
 
+        StorageBackedArtifactPublisher artifactPublisher;
+        try {
+            artifactPublisher = artifactPublisherFactory.create(
+                    request.context().workspaceId(), request.context().projectId(),
+                    request.executionId());
+            if (artifactPublisher == null
+                    || !request.executionId().equals(artifactPublisher.executionId())) {
+                throw new IllegalStateException("Artifact publisher factory returned invalid scope");
+            }
+        } catch (RuntimeException failure) {
+            throw cleanup(secretScope, preparation.workspace(),
+                    failure("ARTIFACT_PUBLISHER_CREATION_FAILED",
+                            "Artifact publisher could not be created", null));
+        }
+
         EngineExecutionResult engineResult;
         try {
             ExecutionEnginePlugin engine = support.engine();
@@ -127,28 +163,38 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
                                     preparation.source().resolvedRevision()),
                             new PreparedWorkspaceAccessCapability(
                             preparation, workspaceAccessResolver),
-                            secretScope);
-            if (usesLegacyPreparedBridge(engine)) {
-                engineResult = ((com.automationstudio.api.execution.engine.ExecutionEngine) engine)
-                        .execute(new com.automationstudio.api.execution.engine.EngineExecutionRequest(
-                                request.context(), preparation, secretScope));
-            } else {
-                engineResult = engine.execute(sdkRequest);
-            }
+                            secretScope,
+                            artifactPublisher);
+            engineResult = engine.execute(sdkRequest);
         } catch (RuntimeException failure) {
-            throw cleanup(
+            throw cleanupArtifactPublisher(
+                    artifactPublisher,
                     secretScope,
                     preparation.workspace(),
                     failure(
-                            "ENGINE_EXECUTION_FAILED",
-                            "Execution engine failed",
+                            failure instanceof ArtifactPublicationException
+                                    ? "ARTIFACT_PUBLICATION_FAILED"
+                                    : "ENGINE_EXECUTION_FAILED",
+                            failure instanceof ArtifactPublicationException
+                                    ? "Required artifact publication failed"
+                                    : "Execution engine failed",
                             failure));
         }
 
         ExecutionOrchestrationException resultViolation =
                 validateEngineResult(request, preparation, support, engineResult);
         if (resultViolation != null) {
-            throw cleanup(secretScope, preparation.workspace(), resultViolation);
+            throw cleanupArtifactPublisher(
+                    artifactPublisher, secretScope, preparation.workspace(), resultViolation);
+        }
+
+        try {
+            artifactPublisher.complete();
+        } catch (RuntimeException failure) {
+            throw cleanupArtifactPublisher(
+                    artifactPublisher, secretScope, preparation.workspace(),
+                    failure("ARTIFACT_PUBLICATION_FAILED",
+                            "Required artifact publication failed", null));
         }
 
         ExecutionOrchestrationException cleanupFailure = cleanup(
@@ -158,21 +204,6 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
         }
         return new ExecutionOrchestrationResult(
                 engineResult, OffsetDateTime.now(clock));
-    }
-
-    private static boolean usesLegacyPreparedBridge(ExecutionEnginePlugin engine) {
-        if (!(engine instanceof com.automationstudio.api.execution.engine.ExecutionEngine)) {
-            return false;
-        }
-        try {
-            return engine.getClass().getMethod(
-                    "execute",
-                    com.automationstudio.api.execution.engine.EngineExecutionRequest.class)
-                    .getDeclaringClass()
-                    != com.automationstudio.api.execution.engine.ExecutionEngine.class;
-        } catch (NoSuchMethodException impossible) {
-            throw new IllegalStateException("Execution engine contract is incomplete", impossible);
-        }
     }
 
     private ExecutionOrchestrationException validatePreparation(
@@ -268,6 +299,25 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
         ExecutionOrchestrationException workspaceFailure =
                 release(workspace, afterSecretScope);
         return workspaceFailure == null ? afterSecretScope : workspaceFailure;
+    }
+
+    private ExecutionOrchestrationException cleanupArtifactPublisher(
+            StorageBackedArtifactPublisher artifactPublisher,
+            ExecutionSecretScope secretScope,
+            WorkspaceDescriptor workspace,
+            ExecutionOrchestrationException original) {
+        try {
+            artifactPublisher.abort();
+        } catch (RuntimeException cleanupFailure) {
+            ExecutionOrchestrationException sanitized = failure(
+                    "ARTIFACT_PUBLISHER_CLEANUP_FAILED",
+                    "Artifact publisher cleanup failed", null);
+            if (original != null) {
+                sanitized.addSuppressed(original);
+            }
+            original = sanitized;
+        }
+        return cleanup(secretScope, workspace, original);
     }
 
     private ExecutionOrchestrationException closeSecretScope(

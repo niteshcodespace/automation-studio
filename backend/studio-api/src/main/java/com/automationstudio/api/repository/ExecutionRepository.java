@@ -22,6 +22,9 @@ public interface ExecutionRepository extends JpaRepository<Execution, UUID> {
 
     Optional<Execution> findByProjectIdAndId(UUID projectId, UUID id);
 
+    Optional<Execution> findByIdAndProjectIdAndProjectWorkspaceId(
+            UUID id, UUID projectId, UUID workspaceId);
+
     Page<Execution> findByProjectIdOrderByRequestedAtDescIdDesc(
             UUID projectId, Pageable pageable);
 

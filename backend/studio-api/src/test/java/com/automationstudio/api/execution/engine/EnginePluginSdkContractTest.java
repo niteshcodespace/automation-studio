@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.automationstudio.engine.sdk.EngineExecutionContext;
+import com.automationstudio.engine.sdk.ArtifactPublication;
+import com.automationstudio.engine.sdk.ArtifactPublicationException;
+import com.automationstudio.engine.sdk.ArtifactPublisher;
 import com.automationstudio.engine.sdk.EngineExecutionRequest;
 import com.automationstudio.engine.sdk.EngineExecutionResult;
 import com.automationstudio.engine.sdk.EngineExecutionState;
@@ -65,6 +68,12 @@ class EnginePluginSdkContractTest {
             public ResolvedSecret resolve(String logicalName) { throw new UnsupportedOperationException(); }
         };
         var request = new EngineExecutionRequest(context, source, workspace, secrets);
+        assertThat(request.artifactPublisher().executionId()).isEqualTo(executionId);
+        assertThatThrownBy(() -> request.artifactPublisher().publish(
+                new ArtifactPublication(com.automationstudio.engine.sdk.ArtifactCategory.LOG,
+                        "engine.log", "text/plain", Map.of(), output -> {})))
+                .isInstanceOf(ArtifactPublicationException.class)
+                .hasMessage("Artifact publication is unavailable for this execution");
         var descriptor = new ExecutionEngineDescriptor(
                 "Engine", "V1", "Engine", Set.of(), Set.of());
         OffsetDateTime now = OffsetDateTime.parse("2026-01-01T00:00:00Z");
@@ -74,6 +83,11 @@ class EnginePluginSdkContractTest {
         assertThatThrownBy(() -> new EngineExecutionRequest(
                 context(UUID.randomUUID(), Map.of()), source, workspace, secrets))
                 .isInstanceOf(IllegalArgumentException.class);
+        ArtifactPublisher mismatchedPublisher = ArtifactPublisher.unavailable(UUID.randomUUID());
+        assertThatThrownBy(() -> new EngineExecutionRequest(
+                context, source, workspace, secrets, mismatchedPublisher))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Engine request identities are inconsistent");
     }
 
     @Test

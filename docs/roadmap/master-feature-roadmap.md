@@ -143,10 +143,8 @@ AS-026 must first determine which parts already exist and which parts require ha
 
 Create a reusable development and test contract for new engines.
 
-Status: technically complete on `feature/AS-027-engine-plugin-sdk`; AS-027A through AS-027E are
-committed and AS-027F final documentation/verification is complete but uncommitted. The feature is
-not merged to `main`. AS-028 is next and has not started; runtime plugin
-discovery/loading/installation remains deferred.
+Status: complete and merged to `main` at `e849939`. The feature branch has been removed. Runtime
+plugin discovery/loading/installation remains deferred.
 
 Potential capabilities:
 
@@ -165,6 +163,19 @@ Potential capabilities:
 ## AS-028 — Execution Artifact and Evidence Contract
 
 Standardize artifacts produced by all engines.
+
+Status: technically complete on `feature/AS-028-execution-artifact-evidence`. AS-028A through
+AS-028E are committed and pushed; AS-028F engine proof, final verification, documentation, and
+review are complete but uncommitted and unpushed.
+
+The approved direction is a provider-neutral SDK publication capability backed by platform-owned
+bounded staging, validation, SHA-256 integrity calculation, durable local storage outside execution
+workspaces, PostgreSQL metadata, authorized metadata discovery, and deterministic cleanup. Artifact
+bytes do not belong in PostgreSQL. S3-compatible storage remains deferred to AS-078, and retention
+execution remains deferred to AS-080.
+
+The final engine proof is an explicit, default-off Playwright assertion-failure `REPORT`. Builtin,
+sample, and default Playwright executions remain valid with zero artifacts.
 
 Potential capabilities:
 
@@ -1317,19 +1328,19 @@ No stage silently implies approval for the next stage.
 
 # 24. Immediate Next Feature
 
-The immediate next proposed feature is:
+The active feature is:
 
 ```text
-AS-027 — Engine Plugin SDK and Conformance Harness
+AS-028 — Execution Artifact and Evidence Contract
 ```
 
-AS-026 is complete through AS-026G at commit `59af99d`. AS-027A documentation and review are
-complete on the feature branch and await commit approval. AS-027 begins where AS-026 deliberately
-stops: extracting a reusable SDK, external conformance
-harness, fixtures, sample plugin, and third-party developer guidance from the proven repository
-contract. It must reuse the existing registry and orchestration path. Runtime plugin discovery,
-installation, trust/signing/isolation, durable artifact standardization, and additional engines
-remain outside AS-027 unless separately approved.
+AS-026 is complete through AS-026G at commit `59af99d`, and AS-027 is merged at `e849939` with its
+SDK, external conformance harness, repository-engine proof, sample plugin, and developer guidance.
+AS-028A defines the durable artifact/evidence boundary that AS-027 deliberately deferred. It must
+preserve the existing registry and orchestration path while keeping storage, persistence,
+authorization, and lifecycle ownership in the platform. Runtime plugin discovery, installation,
+trust/signing/isolation, S3-compatible storage, retention execution, and additional engines remain
+outside AS-028A unless separately approved.
 
 ---
 

@@ -7,7 +7,8 @@ Automation Studio is deployable as a small self-hosted platform first and can ev
 - The control plane and execution runner are separate runtime processes.
 - Web and API instances are stateless apart from external configuration.
 - PostgreSQL is the authoritative metadata store.
-- Artifact bytes are external to PostgreSQL behind an artifact-storage port.
+- Artifact bytes must remain external to PostgreSQL behind an artifact-storage port; AS-028
+  introduces that durable boundary, while PostgreSQL retains metadata only.
 - Secrets are provided by references and are not committed or persisted in execution history.
 - AI and MCP are optional capabilities, not v0.1 deployment prerequisites.
 
@@ -23,7 +24,7 @@ v0.1 is intended for local development, demonstrations, and a small self-hosted 
 | Engine | Playwright Java plugin in the runner boundary |
 | Metadata | One PostgreSQL instance |
 | Work transport | PostgreSQL job claiming and transactional outbox |
-| Artifacts | Local filesystem adapter through the artifact-storage port |
+| Artifacts | AS-028 local filesystem adapter through the artifact-storage port; bytes outside execution workspaces and metadata in PostgreSQL |
 | AI | Disabled or optional; no provider required |
 | MCP | Logical boundary only; no deployment required |
 | Availability | Single-node operation is acceptable |
@@ -60,7 +61,12 @@ flowchart TB
   its owned value during deterministic scope cleanup.
 - Run execution workers without root privileges and with bounded workspace, CPU, memory, process, disk, and timeout limits.
 - Do not mount host filesystems or use privileged execution containers.
-- Generate signed, short-lived artifact access when an object-store adapter is introduced.
+- Signed or public artifact access remains deferred and must be separately designed with any future
+  object-store serving boundary.
+
+Playwright artifact capture is disabled unless a suite explicitly sets
+`captureFailureReport: true`. That setting emits only a bounded structural report after assertion
+failure; it does not enable screenshots, traces, videos, page capture, or browser-network capture.
 
 The Playwright runner provisioning, threat, failure-response, supported-platform, and release
 checks are defined in [Playwright Execution Engine Production Readiness](playwright-production-readiness.md).
