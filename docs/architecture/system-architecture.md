@@ -224,6 +224,12 @@ Events include an event identifier, schema version, aggregate identifier, projec
 
 ## v0.1 Scope and Evolution
 
-v0.1 uses a Spring Boot modular monolith, Next.js web application, PostgreSQL, a dedicated Java runner, a Playwright Java engine, and PostgreSQL-based job claiming/outbox. AS-028 provides the platform-owned local-filesystem artifact adapter with PostgreSQL metadata and scoped discovery. It does not require AI, MCP, Kubernetes, Kafka, RabbitMQ, multi-tenancy, or high availability.
+v0.1 uses a Spring Boot modular monolith, Next.js web application, PostgreSQL, a dedicated Java runner, statically assembled Playwright Java and REST Assured engines, and PostgreSQL-based job claiming/outbox. AS-028 provides the platform-owned local-filesystem artifact adapter with PostgreSQL metadata and scoped discovery. It does not require AI, MCP, Kubernetes, Kafka, RabbitMQ, multi-tenancy, or high availability.
 
 Future installations may add S3-compatible artifact storage, external secret management, separate AI services, MCP deployment, external brokers, isolated execution containers, specialized runner pools, Kubernetes, high availability, and multi-tenancy without changing the core domain boundaries.
+
+AS-029 adds REST API traffic from a statically assembled engine to the system under test. The
+environment base URL is the sole admitted authority; engine-level URI, address, DNS-rebinding,
+redirect, credential-forwarding, timeout, and response-size controls complement deployment egress
+policy. API credentials remain execution-scoped secrets and API reports use the AS-028 artifact
+boundary. No new control-plane or persistence container is introduced.

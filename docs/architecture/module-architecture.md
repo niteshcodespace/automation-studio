@@ -67,10 +67,15 @@ The required lifecycle operations are:
 - Close invocation resources acquired by the engine in deterministic reverse order.
 
 The current canonical `EngineExecutionRequest` includes one immutable execution context, completed
-source/workspace preparation, and a narrow execution-matched secret-access capability. Cancellation,
-health, discovery, and artifact-output expansion require later approved contracts. Plugins must not
+source/workspace preparation, narrow execution-matched secret access, and the AS-028 artifact
+publisher. Cancellation, health, and discovery require later approved contracts. Plugins must not
 write platform database tables, make authorization decisions, select work independently, delete
 physical workspaces, or resolve arbitrary platform secrets.
+
+The production registry statically assembles Builtin, Playwright Java, and REST Assured engines.
+REST Assured `6.0.1` remains provider-local, executes strict bounded manifests under a fail-closed
+outbound policy, resolves credentials through the execution secret capability, and publishes one
+sanitized structural `REPORT` through the same AS-028 publisher used by the canonical orchestrator.
 
 AS-027 implements the reusable module boundary approved in AS-027A. The production SDK is
 Spring-free and JDK-only. It exposes a
@@ -117,6 +122,13 @@ type validation, SHA-256 integrity calculation, durable byte storage outside exe
 PostgreSQL metadata, discovery authorization, and cleanup. AS-028 implements this path with a local
 durable adapter and an execution-scoped publisher. Playwright proves opt-in bounded failure-report
 publication; Builtin and sample engines remain valid without artifacts.
+
+AS-029 introduces a planned `rest-assured-engine-plugin` as a sibling engine module depending on
+the JDK-only SDK. REST Assured and API-manifest types remain private to that module; the SDK and
+platform domains do not depend on them. `studio-api` may assemble the engine statically into the
+existing registry and supplies only the existing prepared workspace, execution-scoped secret, and
+artifact capabilities. The engine creates no registry, orchestrator, lifecycle, persistence, or
+network-policy authority outside its bounded invocation.
 
 ## AI Capability Modules
 
