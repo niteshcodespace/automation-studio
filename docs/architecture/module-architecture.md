@@ -72,6 +72,11 @@ publisher. Cancellation, health, and discovery require later approved contracts.
 write platform database tables, make authorization decisions, select work independently, delete
 physical workspaces, or resolve arbitrary platform secrets.
 
+The production registry statically assembles Builtin, Playwright Java, and REST Assured engines.
+REST Assured `6.0.1` remains provider-local, executes strict bounded manifests under a fail-closed
+outbound policy, resolves credentials through the execution secret capability, and publishes one
+sanitized structural `REPORT` through the same AS-028 publisher used by the canonical orchestrator.
+
 AS-027 implements the reusable module boundary approved in AS-027A. The production SDK is
 Spring-free and JDK-only. It exposes a
 projected immutable engine context and narrow execution-bound workspace/secret capabilities rather

@@ -201,6 +201,14 @@ dependencies, lifecycle, and deferrals.
 
 **Dependencies:** Accepted AS-029E.
 
+**Implemented checkpoint:** AS-029F adds one inert real-transport loopback proof covering
+execution-scoped bearer authentication, authoritative correlation, status/JSON assertions, and
+sanitized AS-028 reporting. The focused four-module reactor passed 1,226 tests with zero failures
+or errors and 17 skips. The full six-module reactor passed 1,235 tests with zero failures or errors
+and 17 skips. All twelve requirements acceptance criteria are `SATISFIED`; final security,
+architecture, and compatibility classifications are `NONE`. AS-029 is technically complete on the
+feature branch. Changes are uncommitted and unpushed; no PR is open and AS-030 has not started.
+
 ## Principal risks
 
 - URI/DNS/redirect differences can bypass origin checks or expose runner networks.

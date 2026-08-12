@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for AS-029 implementation by AS-029A. No runtime implementation is authorized by this ADR.
+Accepted and implemented by AS-029A through AS-029F. Merge and release remain separate actions.
 
 ## Context
 

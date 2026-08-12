@@ -2,10 +2,9 @@
 
 ## 1. Status and purpose
 
-AS-029A defines the requirements and security architecture for a Java REST API automation engine.
-It starts from merged AS-028 commit `5e01604` and authorizes documentation only. Implementation,
-dependencies, Maven modules, migrations, and runtime registration begin only in later approved
-stories.
+AS-029A defined the requirements and security architecture for a Java REST API automation engine.
+AS-029A through AS-029F now satisfy this specification on the feature branch; merge and release
+remain separate repository actions.
 
 AS-029 shall add REST API execution through the AS-027 plugin SDK, the sole platform engine
 registry and orchestrator, AS-023 prepared workspaces, AS-025 execution-scoped secrets, and AS-028

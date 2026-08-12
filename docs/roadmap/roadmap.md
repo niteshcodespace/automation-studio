@@ -53,7 +53,9 @@ AS-027F Developer Guide and Feature-Level Verification - complete and merged
 AS-027 Engine Plugin SDK and Conformance Harness - complete and merged to main (e849939)
 AS-028A through AS-028F - complete and merged to main (5e01604)
 AS-028 Execution Artifact and Evidence Contract - complete and merged to main (5e01604)
-AS-029A REST Assured Engine Requirements and Security Architecture - complete; uncommitted and unpushed
+AS-029A through AS-029E REST Assured Engine Plugin - complete and pushed on the feature branch
+AS-029F Feature Verification and Documentation Reconciliation - technically complete; uncommitted and unpushed
+AS-029 REST Assured Engine Plugin - technically complete on the feature branch; PR not opened
 ```
 
 The approved sequence preserves immutable execution snapshots, keeps resolved values outside

@@ -21,7 +21,7 @@ v0.1 is intended for local development, demonstrations, and a small self-hosted 
 | Web application | One Next.js deployment |
 | Control plane | One Spring Boot modular-monolith deployment |
 | Execution | One dedicated Java runner process or container |
-| Engine | Playwright Java plugin in the runner boundary |
+| Engines | Statically assembled Playwright Java and REST Assured plugins in the runner boundary |
 | Metadata | One PostgreSQL instance |
 | Work transport | PostgreSQL job claiming and transactional outbox |
 | Artifacts | AS-028 local filesystem adapter through the artifact-storage port; bytes outside execution workspaces and metadata in PostgreSQL |
@@ -42,7 +42,9 @@ flowchart TB
     Runner[Dedicated Execution Runner] --> Jobs
     Runner --> Db
     Runner --> Playwright[Playwright Java Engine]
+    Runner --> RestAssured[REST Assured API Engine]
     Playwright --> Sut[OrangeHRM System Under Test]
+    RestAssured --> ApiSut[Admitted API System Under Test]
     Runner --> Files[(Local Artifact Directory)]
     Api --> Files
 
@@ -67,6 +69,11 @@ flowchart TB
 Playwright artifact capture is disabled unless a suite explicitly sets
 `captureFailureReport: true`. That setting emits only a bounded structural report after assertion
 failure; it does not enable screenshots, traces, videos, page capture, or browser-network capture.
+
+REST Assured targets only the environment's admitted HTTP/HTTPS origin. Production defaults deny
+non-global destinations; operator policy may admit an exact non-global origin. Redirects, cookies,
+implicit proxies, and TLS bypass remain disabled, credentials resolve per execution, and one
+bounded sanitized structural report publishes through AS-028.
 
 The Playwright runner provisioning, threat, failure-response, supported-platform, and release
 checks are defined in [Playwright Execution Engine Production Readiness](playwright-production-readiness.md).

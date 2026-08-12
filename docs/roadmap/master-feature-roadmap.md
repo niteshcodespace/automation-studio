@@ -204,8 +204,8 @@ Add API-testing engines through the common Engine Registry and plugin contract.
 
 Support Java-based REST API automation.
 
-Status: AS-029A requirements and security architecture are complete but uncommitted on
-`feature/AS-029-rest-assured-engine-plugin`. Implementation has not started.
+Status: AS-029A through AS-029F are technically complete on
+`feature/AS-029-rest-assured-engine-plugin`; AS-029F changes are uncommitted and no PR is open.
 
 The approved direction is a strict versioned declarative manifest executed by one statically
 assembled SDK plugin. The admitted environment base URL is the sole target authority; every
