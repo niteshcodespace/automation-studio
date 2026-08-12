@@ -3,6 +3,7 @@ package com.automationstudio.engine.restassured;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.automationstudio.engine.conformance.InMemoryWorkspaceAccess;
+import com.automationstudio.engine.conformance.InMemoryArtifactPublisher;
 import com.automationstudio.engine.restassured.manifest.RestAssuredManifestParser;
 import com.automationstudio.engine.restassured.manifest.RestAssuredManifestParserTest;
 import com.automationstudio.engine.sdk.EngineExecutionContext;
@@ -42,17 +43,17 @@ class RestAssuredEnginePluginTest {
     }
 
     @Test
-    void executionOnlyParsesManifestAndReturnsZeroArtifactResult() {
+    void executionPublishesRequiredEvidenceWithoutResolvingSecrets() {
         TrackingSecretAccess secrets = new TrackingSecretAccess(EXECUTION_ID);
         EngineExecutionRequest request = request(secrets);
         var result = plugin().execute(request);
 
         assertEquals(EXECUTION_ID, result.executionId());
         assertEquals(0, secrets.resolutions);
-        assertThrows(com.automationstudio.engine.sdk.ArtifactPublicationException.class,
-                () -> request.artifactPublisher().publish(new com.automationstudio.engine.sdk.ArtifactPublication(
-                        com.automationstudio.engine.sdk.ArtifactCategory.REPORT, "not-published.json",
-                        "application/json", Map.of(), output -> output.write(1))));
+        var publisher = (InMemoryArtifactPublisher) request.artifactPublisher();
+        assertEquals(1, publisher.observations().size());
+        assertEquals(com.automationstudio.engine.sdk.ArtifactCategory.REPORT,
+                publisher.observations().getFirst().receipt().category());
     }
 
     @Test
@@ -113,7 +114,7 @@ class RestAssuredEnginePluginTest {
         var workspace = new InMemoryWorkspaceAccess(EXECUTION_ID, workspaceId,
                 Map.of("api-manifest.json", manifest.getBytes(StandardCharsets.UTF_8)));
         return new EngineExecutionRequest(context, new PreparedSource(workspaceId, "GIT_HTTPS", "abc123"),
-                workspace, secrets);
+                workspace, secrets, new InMemoryArtifactPublisher(EXECUTION_ID));
     }
 
     static final class TrackingSecretAccess implements ExecutionSecretAccess {

@@ -177,6 +177,13 @@ enter results; one registry and lifecycle remain.
 **Dependencies:** Accepted AS-029D.
 
 ## AS-029F - Feature Verification and Documentation Reconciliation
+**AS-029E implemented checkpoint:** One bounded required sanitized-summary `REPORT` publishes
+through the existing invocation-local AS-028 publisher, and exact identity `rest-assured` / `6.0.1`
+is statically contributed to the sole production registry. A structural allowlist excludes secrets,
+URLs/query values, headers, bodies, paths, schemas, exceptions, and provider types. Focused
+verification passed 84 tests with zero failures, errors, or skips. Changes are uncommitted and
+unpushed; AS-029F has not started.
+
 
 **Objective:** Complete feature-level verification, developer guidance, and authority
 reconciliation.

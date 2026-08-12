@@ -36,7 +36,8 @@ public final class RestAssuredEnginePlugin implements ExecutionEnginePlugin {
             ENGINE_ID, IMPLEMENTATION_VERSION, "REST Assured API Engine",
             Set.of("prepared-source", "api-manifest"),
             Set.of("strict-configuration", "ssrf-safe-http-transport", "execution-scoped-authentication",
-                    "bounded-response-assertions", "execution-correlation", "bounded-request-retry"));
+                    "bounded-response-assertions", "execution-correlation", "bounded-request-retry",
+                    "sanitized-evidence-report"));
 
     private final RestAssuredManifestParser parser;
     private final Clock clock;
@@ -96,11 +97,15 @@ public final class RestAssuredEnginePlugin implements ExecutionEnginePlugin {
         }
         OffsetDateTime startedAt = OffsetDateTime.now(clock);
         EngineExecutionState state = EngineExecutionState.SUCCEEDED;
+        String reportOutcome = state.name();
+        List<RestAssuredEvidenceReport.RequestSummary> evidence = new ArrayList<>();
+        RestAssuredEngineException executionFailure = null;
         try (var source = validated.workspaceAccess().openPreparedSource()) {
             RestAssuredApiManifest manifest = parser.load(validated.context().suiteReference(), source);
             for (var scenario : manifest.scenarios()) {
                 for (var requestConfiguration : scenario.requests()) {
-                    if (!executeRequest(validated, source, manifest.defaults(), requestConfiguration)) {
+                    if (!executeRequest(validated, source, manifest.defaults(), scenario.id(),
+                            requestConfiguration, evidence)) {
                         state = EngineExecutionState.FAILED;
                         break;
                     }
@@ -108,11 +113,17 @@ public final class RestAssuredEnginePlugin implements ExecutionEnginePlugin {
                 if (state == EngineExecutionState.FAILED) break;
             }
         } catch (RestAssuredManifestException exception) {
-            throw failure(exception.code(), exception.getMessage());
+            executionFailure = failure(exception.code(), exception.getMessage());
+            reportOutcome = "ERROR";
         } catch (RuntimeException exception) {
-            if (exception instanceof RestAssuredEngineException engineException) throw engineException;
-            throw failure("MANIFEST_LOAD_FAILED", "REST Assured manifest could not be loaded");
+            executionFailure = exception instanceof RestAssuredEngineException engineException
+                    ? engineException
+                    : failure("MANIFEST_LOAD_FAILED", "REST Assured manifest could not be loaded");
+            reportOutcome = "ERROR";
         }
+        RestAssuredEvidenceReport.publish(validated.artifactPublisher(), validated.executionId(),
+                executionFailure == null ? state.name() : reportOutcome, evidence);
+        if (executionFailure != null) throw executionFailure;
         OffsetDateTime finishedAt = OffsetDateTime.now(clock);
         return new EngineExecutionResult(validated.executionId(), ENGINE_ID, IMPLEMENTATION_VERSION,
                 validated.preparedSource().workspaceId(), validated.preparedSource().resolvedRevision(),
@@ -121,7 +132,9 @@ public final class RestAssuredEnginePlugin implements ExecutionEnginePlugin {
     }
 
     private boolean executeRequest(EngineExecutionRequest execution, com.automationstudio.engine.sdk.PreparedSourceAccess source,
-            RestAssuredApiManifest.Defaults defaults, RestAssuredApiManifest.Request request) {
+            RestAssuredApiManifest.Defaults defaults, String scenarioId,
+            RestAssuredApiManifest.Request request,
+            List<RestAssuredEvidenceReport.RequestSummary> evidence) {
         String targetPath = targetPath(request);
         var target = authorizer.authorize(execution.context().environmentBaseUrl(), targetPath);
         byte[] body = requestBody(source, request.body());
@@ -146,15 +159,30 @@ public final class RestAssuredEnginePlugin implements ExecutionEnginePlugin {
                 try {
                     var response = transport.execute(authentication.target(), outbound, body,
                             authentication.headers());
-                    return responseAssertions.evaluate(source, response, request.assertions());
+                    boolean assertionsPassed = responseAssertions.evaluate(
+                            source, response, request.assertions());
+                    evidence.add(summary(scenarioId, request, response.statusCode(),
+                            assertionsPassed ? "SUCCEEDED" : "FAILED", attempt + 1));
+                    return assertionsPassed;
                 } catch (RestAssuredEngineException exception) {
                     if (!retryable(exception) || attempt >= request.retry().maxRetries()) throw exception;
                     attempt++;
                     retryPolicy.beforeRetry(request.retry().backoffMillis(), attempt, requestStartedAt);
                     target = authorizer.authorize(execution.context().environmentBaseUrl(), targetPath);
                 }
+            } catch (RestAssuredEngineException exception) {
+                evidence.add(summary(scenarioId, request, null, "ERROR", attempt + 1));
+                throw exception;
             }
         }
+    }
+
+    private RestAssuredEvidenceReport.RequestSummary summary(String scenarioId,
+            RestAssuredApiManifest.Request request, Integer statusCode, String outcome,
+            int attemptCount) {
+        return new RestAssuredEvidenceReport.RequestSummary(scenarioId, request.id(),
+                request.method().name(), statusCode, outcome, request.assertions().size(),
+                "SUCCEEDED".equals(outcome), attemptCount);
     }
 
     private String targetPath(RestAssuredApiManifest.Request request) {
@@ -222,7 +250,7 @@ public final class RestAssuredEnginePlugin implements ExecutionEnginePlugin {
         }
     }
 
-    private RestAssuredEngineException failure(String code, String message) {
+    static RestAssuredEngineException failure(String code, String message) {
         return new RestAssuredEngineException(code, message);
     }
 }

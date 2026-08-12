@@ -3,6 +3,7 @@ package com.automationstudio.engine.restassured;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.automationstudio.engine.conformance.InMemoryWorkspaceAccess;
+import com.automationstudio.engine.conformance.InMemoryArtifactPublisher;
 import com.automationstudio.engine.restassured.manifest.RestAssuredManifestParser;
 import com.automationstudio.engine.restassured.network.RestAssuredHttpTransport;
 import com.automationstudio.engine.restassured.network.RestAssuredNetworkPolicy;
@@ -177,7 +178,7 @@ class RestAssuredAs029dTest {
         return new RestAssuredEnginePlugin(new RestAssuredManifestParser(), Clock.fixed(
                 Instant.parse("2026-08-12T00:00:00Z"), ZoneOffset.UTC), authorizer, transport).execute(
                 new EngineExecutionRequest(context, new PreparedSource(workspaceId, "GIT_HTTPS", "revision"),
-                        workspace, secrets));
+                        workspace, secrets, new InMemoryArtifactPublisher(EXECUTION)));
     }
 
     private String manifest(String type, String authFields, String correlation, String assertions) {

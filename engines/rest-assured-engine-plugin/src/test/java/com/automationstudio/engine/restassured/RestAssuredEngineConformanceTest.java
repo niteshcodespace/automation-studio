@@ -57,7 +57,8 @@ class RestAssuredEngineConformanceTest implements ExecutionEnginePluginConforman
                 workspaces.put(executionId, workspace);
                 values.add(new EngineExecutionRequest(context,
                         new com.automationstudio.engine.sdk.PreparedSource(
-                                workspaceId, "GIT_HTTPS", "revision-" + seed), workspace, secrets));
+                                workspaceId, "GIT_HTTPS", "revision-" + seed), workspace, secrets,
+                        new com.automationstudio.engine.conformance.InMemoryArtifactPublisher(executionId)));
             }
             return List.copyOf(values);
         }
