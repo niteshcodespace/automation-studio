@@ -38,7 +38,7 @@ public final class RestAssuredHttpTransport implements RestAssuredTransport {
     }
 
     public Response execute(RestAssuredTargetAuthorizer.AuthorizedTarget target,
-            RestAssuredApiManifest.Request request, byte[] body) {
+            RestAssuredApiManifest.Request request, byte[] body, Map<String, String> authentication) {
         DnsResolver pinned = host -> {
             if (!host.equalsIgnoreCase(target.logicalHost())) throw new java.net.UnknownHostException();
             return target.pinnedAddresses().toArray(java.net.InetAddress[]::new);
@@ -48,7 +48,7 @@ public final class RestAssuredHttpTransport implements RestAssuredTransport {
                 .setSocketTimeout(Math.toIntExact(policy.readTimeout().toMillis()))
                 .setConnectionRequestTimeout(Math.toIntExact(policy.connectTimeout().toMillis()))
                 .setRedirectsEnabled(false).build();
-        HttpUriRequest outbound = build(target, request, body);
+        HttpUriRequest outbound = build(target, request, body, authentication);
         AtomicBoolean deadlineExpired = new AtomicBoolean();
         try (var scheduler = Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());
                 var client = HttpClients.custom().setDnsResolver(pinned).disableRedirectHandling()
@@ -94,9 +94,10 @@ public final class RestAssuredHttpTransport implements RestAssuredTransport {
     }
 
     private HttpUriRequest build(RestAssuredTargetAuthorizer.AuthorizedTarget target,
-            RestAssuredApiManifest.Request request, byte[] body) {
+            RestAssuredApiManifest.Request request, byte[] body, Map<String, String> authentication) {
         RequestBuilder builder = RequestBuilder.create(request.method().name()).setUri(target.uri());
         request.headers().forEach(builder::addHeader);
+        authentication.forEach(builder::addHeader);
         if (body != null) {
             builder.setEntity(new ByteArrayEntity(body));
             builder.setHeader("Content-Type", request.body().mediaType());

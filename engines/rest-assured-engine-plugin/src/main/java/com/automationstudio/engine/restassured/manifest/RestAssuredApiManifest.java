@@ -21,6 +21,7 @@ public record RestAssuredApiManifest(
     public static final int MAX_ASSERTIONS = 64;
     public static final int MAX_RETRIES = 3;
     public static final int MAX_BACKOFF_MILLIS = 30_000;
+    public static final int MAX_CORRELATION_HEADER_LENGTH = 128;
 
     public RestAssuredApiManifest {
         if (!SCHEMA_VERSION.equals(schemaVersion)) {
@@ -60,6 +61,7 @@ public record RestAssuredApiManifest(
             Authentication authentication,
             List<Assertion> assertions,
             Retry retry,
+            String correlationHeader,
             Evidence evidence) {
         public Request {
             id = identifier(id, "Request id is invalid");
@@ -81,6 +83,16 @@ public record RestAssuredApiManifest(
             assertions = List.copyOf(requiredList(
                     assertions, MAX_ASSERTIONS, "Request assertions are invalid"));
             retry = retry == null ? new Retry(0, 0) : retry;
+            correlationHeader = optionalText(correlationHeader, MAX_CORRELATION_HEADER_LENGTH,
+                    "Correlation header is invalid");
+            if (correlationHeader != null) {
+                safeHeaders(Map.of(correlationHeader, "placeholder"));
+                if (containsHeader(headers, correlationHeader)
+                        || (authentication.type() == AuthenticationType.API_KEY_HEADER
+                        && correlationHeader.equalsIgnoreCase(authentication.placement()))) {
+                    throw invalid("INVALID_CORRELATION", "Correlation header conflicts with request configuration");
+                }
+            }
             evidence = evidence == null ? new Evidence(true) : evidence;
         }
     }

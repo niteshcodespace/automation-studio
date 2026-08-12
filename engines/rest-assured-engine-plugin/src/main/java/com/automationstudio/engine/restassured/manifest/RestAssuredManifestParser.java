@@ -32,7 +32,7 @@ public final class RestAssuredManifestParser {
     private static final Set<String> SCENARIO_FIELDS = Set.of("id", "name", "requests");
     private static final Set<String> REQUEST_FIELDS = Set.of("id", "method", "path",
             "pathParameters", "queryParameters", "headers", "body", "authentication",
-            "assertions", "retry", "evidence");
+            "assertions", "retry", "correlationHeader", "evidence");
     private static final Set<String> BODY_FIELDS = Set.of("inline", "sourceReference", "mediaType");
     private static final Set<String> AUTH_FIELDS =
             Set.of("type", "secretRef", "usernameSecretRef", "placement");
@@ -120,7 +120,8 @@ public final class RestAssuredManifestParser {
                     stringMap(node.get("headers"), "headers"), parseBody(node.get("body")),
                     parseAuthentication(node.get("authentication")),
                     parseAssertions(requiredArray(node, "assertions")),
-                    parseRetry(node.get("retry")), parseEvidence(node.get("evidence"))));
+                    parseRetry(node.get("retry")), optionalText(node, "correlationHeader", "request"),
+                    parseEvidence(node.get("evidence"))));
         }
         return requests;
     }

@@ -29,7 +29,7 @@ class RestAssuredEnginePluginTest {
         assertEquals("rest-assured", descriptor.engineId());
         assertEquals("6.0.1", descriptor.implementationVersion());
         assertTrue(descriptor.supportedFeatures().contains("ssrf-safe-http-transport"));
-        assertTrue(descriptor.supportedFeatures().contains("unauthenticated-requests"));
+        assertTrue(descriptor.supportedFeatures().contains("execution-scoped-authentication"));
         assertSame(descriptor, plugin().descriptor());
     }
 
@@ -94,7 +94,7 @@ class RestAssuredEnginePluginTest {
         var authorizer = new com.automationstudio.engine.restassured.network.RestAssuredTargetAuthorizer(
                 policy, host -> new InetAddress[] { InetAddress.getByName("8.8.8.8") });
         com.automationstudio.engine.restassured.network.RestAssuredTransport transport =
-                (target, request, body) -> new com.automationstudio.engine.restassured.network.RestAssuredHttpTransport.Response(
+                (target, request, body, authentication) -> new com.automationstudio.engine.restassured.network.RestAssuredHttpTransport.Response(
                         status, Map.of("content-type", "application/json"), "{}".getBytes(StandardCharsets.UTF_8));
         return new RestAssuredEnginePlugin(new RestAssuredManifestParser(), Clock.fixed(
                 Instant.parse("2026-08-11T00:00:00Z"), ZoneOffset.UTC), authorizer, transport);

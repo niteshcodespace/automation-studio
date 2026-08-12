@@ -135,6 +135,29 @@ retry, distributed tracing.
 
 **Dependencies:** Accepted AS-029C.
 
+**Implemented checkpoint:** AS-029D adds execution-scoped NONE/bearer/basic/API-key header/query
+authentication after AS-029C target authorization. Secret handles are invocation-local and close
+deterministically on success, construction, transport, assertion, schema, timeout, and retry paths;
+resolved material never enters provider-neutral results or diagnostics. Generic credential channels,
+case-insensitive collisions, redirects, cookies, and alternate origins remain denied.
+
+Status/range, exact header, bounded JSON scalar/existence/nonexistence, and bounded local prepared-source
+JSON Schema assertions now map deterministic mismatches to `FAILED`. JSON parsing is depth/string/node
+bounded; schemas are size/depth/keyword bounded, source-relative only, and reject every `$ref`, URL,
+external retrieval, and unsupported keyword. Optional correlation injects only the authoritative
+execution UUID into one validated non-conflicting header.
+
+Request retry remains provider-local and defaults to zero. It is limited to transient transport/timeout
+failures on GET, HEAD, PUT, DELETE, or OPTIONS, reauthorizes the destination before each attempt,
+rematerializes and closes credentials per attempt, uses bounded exponential backoff under one monotonic
+request deadline, and never retries assertions, authentication, schema, policy, POST, or PATCH.
+
+Focused exact-source snapshot verification passed 47 tests (15 conformance plus 32 provider), with zero
+failures, errors, or skips. The six-module full reactor reached existing `studio-api` tests but could not
+initialize Testcontainers because local Docker was unavailable; independent reviews are recorded in the
+development log.
+Changes remain uncommitted and unpushed; AS-029E has not started.
+
 ## AS-029E - Evidence Publication and Production Assembly
 
 **Objective:** Publish sanitized AS-028 reports and register the engine through the sole production

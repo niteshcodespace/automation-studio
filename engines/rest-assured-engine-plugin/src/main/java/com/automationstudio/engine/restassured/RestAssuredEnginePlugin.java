@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-/** AS-029C bounded outbound HTTP engine. Authentication and later-story features remain disabled. */
+/** Bounded outbound HTTP engine with invocation-local authentication and validation. */
 public final class RestAssuredEnginePlugin implements ExecutionEnginePlugin {
 
     public static final String ENGINE_ID = "rest-assured";
@@ -35,12 +35,15 @@ public final class RestAssuredEnginePlugin implements ExecutionEnginePlugin {
     private static final ExecutionEngineDescriptor DESCRIPTOR = new ExecutionEngineDescriptor(
             ENGINE_ID, IMPLEMENTATION_VERSION, "REST Assured API Engine",
             Set.of("prepared-source", "api-manifest"),
-            Set.of("strict-configuration", "ssrf-safe-http-transport", "unauthenticated-requests"));
+            Set.of("strict-configuration", "ssrf-safe-http-transport", "execution-scoped-authentication",
+                    "bounded-response-assertions", "execution-correlation", "bounded-request-retry"));
 
     private final RestAssuredManifestParser parser;
     private final Clock clock;
     private final RestAssuredTargetAuthorizer authorizer;
     private final RestAssuredTransport transport;
+    private final RestAssuredResponseAssertions responseAssertions = new RestAssuredResponseAssertions();
+    private final RestAssuredRetryPolicy retryPolicy;
 
     public RestAssuredEnginePlugin(RestAssuredManifestParser parser, Clock clock) {
         this(parser, clock, RestAssuredNetworkPolicy.productionDefaults());
@@ -53,10 +56,17 @@ public final class RestAssuredEnginePlugin implements ExecutionEnginePlugin {
 
     public RestAssuredEnginePlugin(RestAssuredManifestParser parser, Clock clock,
             RestAssuredTargetAuthorizer authorizer, RestAssuredTransport transport) {
+        this(parser, clock, authorizer, transport, new RestAssuredRetryPolicy());
+    }
+
+    RestAssuredEnginePlugin(RestAssuredManifestParser parser, Clock clock,
+            RestAssuredTargetAuthorizer authorizer, RestAssuredTransport transport,
+            RestAssuredRetryPolicy retryPolicy) {
         this.parser = Objects.requireNonNull(parser, "Manifest parser must not be null");
         this.clock = Objects.requireNonNull(clock, "Clock must not be null");
         this.authorizer = Objects.requireNonNull(authorizer, "Target authorizer must not be null");
         this.transport = Objects.requireNonNull(transport, "HTTP transport must not be null");
+        this.retryPolicy = Objects.requireNonNull(retryPolicy, "Retry policy must not be null");
     }
 
     @Override
@@ -112,16 +122,6 @@ public final class RestAssuredEnginePlugin implements ExecutionEnginePlugin {
 
     private boolean executeRequest(EngineExecutionRequest execution, com.automationstudio.engine.sdk.PreparedSourceAccess source,
             RestAssuredApiManifest.Defaults defaults, RestAssuredApiManifest.Request request) {
-        if (request.authentication().type() != RestAssuredApiManifest.AuthenticationType.NONE) {
-            throw failure("AUTHENTICATION_DEFERRED", "REST Assured authentication is not available");
-        }
-        if (request.retry().maxRetries() != 0) {
-            throw failure("RETRY_DEFERRED", "REST Assured retries are not available");
-        }
-        if (request.assertions().stream().anyMatch(assertion ->
-                assertion.type() != RestAssuredApiManifest.AssertionType.STATUS)) {
-            throw failure("ASSERTION_DEFERRED", "REST Assured response assertion is not available");
-        }
         String targetPath = targetPath(request);
         var target = authorizer.authorize(execution.context().environmentBaseUrl(), targetPath);
         byte[] body = requestBody(source, request.body());
@@ -129,16 +129,32 @@ public final class RestAssuredEnginePlugin implements ExecutionEnginePlugin {
         request.headers().forEach((name, value) -> headers.entrySet().removeIf(
                 existing -> existing.getKey().equalsIgnoreCase(name)));
         headers.putAll(request.headers());
+        if (request.correlationHeader() != null) {
+            headers.put(request.correlationHeader(), execution.executionId().toString());
+        }
         var outbound = new RestAssuredApiManifest.Request(request.id(), request.method(), request.path(),
                 request.pathParameters(), request.queryParameters(), headers, request.body(),
-                request.authentication(), request.assertions(), request.retry(), request.evidence());
-        var response = transport.execute(target, outbound, body);
-        for (var assertion : request.assertions()) {
-            if (!statusMatches(assertion.expected(), response.statusCode())) {
-                return false;
+                request.authentication(), request.assertions(), request.retry(), null, request.evidence());
+        if (request.retry().maxRetries() > 0 && !idempotent(request.method())) {
+            throw failure("RETRY_METHOD_DENIED", "REST Assured retry method is not permitted");
+        }
+        int attempt = 0;
+        long requestStartedAt = retryPolicy.start();
+        while (true) {
+            try (var authentication = RestAssuredAuthentication.materialize(
+                    request.authentication(), execution.secretAccess(), target)) {
+                try {
+                    var response = transport.execute(authentication.target(), outbound, body,
+                            authentication.headers());
+                    return responseAssertions.evaluate(source, response, request.assertions());
+                } catch (RestAssuredEngineException exception) {
+                    if (!retryable(exception) || attempt >= request.retry().maxRetries()) throw exception;
+                    attempt++;
+                    retryPolicy.beforeRetry(request.retry().backoffMillis(), attempt, requestStartedAt);
+                    target = authorizer.authorize(execution.context().environmentBaseUrl(), targetPath);
+                }
             }
         }
-        return true;
     }
 
     private String targetPath(RestAssuredApiManifest.Request request) {
@@ -184,15 +200,14 @@ public final class RestAssuredEnginePlugin implements ExecutionEnginePlugin {
         }
     }
 
-    private boolean statusMatches(String expected, int actual) {
-        try {
-            if (expected.matches("[1-5][0-9]{2}")) return Integer.parseInt(expected) == actual;
-            if (expected.matches("[1-5][0-9]{2}-[1-5][0-9]{2}")) {
-                String[] range = expected.split("-");
-                return actual >= Integer.parseInt(range[0]) && actual <= Integer.parseInt(range[1]);
-            }
-        } catch (NumberFormatException ignored) { }
-        throw failure("INVALID_STATUS_ASSERTION", "REST Assured status assertion is invalid");
+    private boolean idempotent(RestAssuredApiManifest.HttpMethod method) {
+        return Set.of(RestAssuredApiManifest.HttpMethod.GET, RestAssuredApiManifest.HttpMethod.HEAD,
+                RestAssuredApiManifest.HttpMethod.PUT, RestAssuredApiManifest.HttpMethod.DELETE,
+                RestAssuredApiManifest.HttpMethod.OPTIONS).contains(method);
+    }
+
+    private boolean retryable(RestAssuredEngineException exception) {
+        return exception.code().equals("TRANSPORT_FAILURE") || exception.code().equals("TRANSPORT_TIMEOUT");
     }
 
     private String encode(String value) {

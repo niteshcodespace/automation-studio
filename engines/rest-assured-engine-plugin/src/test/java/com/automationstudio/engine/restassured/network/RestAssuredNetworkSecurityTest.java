@@ -149,7 +149,7 @@ class RestAssuredNetworkSecurityTest {
                         null, null, null),
                 List.of(new RestAssuredApiManifest.Assertion(
                         RestAssuredApiManifest.AssertionType.STATUS, null, null, "200")),
-                new RestAssuredApiManifest.Retry(0, 0), new RestAssuredApiManifest.Evidence(true));
+                new RestAssuredApiManifest.Retry(0, 0), null, new RestAssuredApiManifest.Evidence(true));
     }
 
     private static RestAssuredNetworkPolicy policy(Set<RestAssuredNetworkPolicy.Origin> origins,
