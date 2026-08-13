@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import com.automationstudio.engine.sdk.PreparedSourceEntryKind;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -157,6 +158,78 @@ class LocalEngineWorkspaceAccessResolverTest {
         assertCode(
                 () -> resolver.open(EngineWorkspaceAccessRequest.from(preparation)),
                 "WORKSPACE_PATH_ESCAPE_DETECTED");
+    }
+
+    @Test
+    void listsRootAndNestedEntriesDeterministicallyWithoutFollowingLinks() throws Exception {
+        SourcePreparationResult preparation = prepare();
+        Path source = workspace(preparation).resolve("source");
+        Files.writeString(source.resolve("z.feature"), "z");
+        Files.createDirectories(source.resolve("features").resolve("nested"));
+        Files.writeString(source.resolve("features").resolve("b.feature"), "bb");
+        Files.writeString(source.resolve("features").resolve("a.feature"), "aaa");
+        Path external = temporaryDirectory.resolve("external-listing");
+        Files.createDirectory(external);
+        Files.writeString(external.resolve("secret.feature"), "secret");
+        createSymbolicLinkOrSkip(source.resolve("features").resolve("escape"), external);
+
+        try (EngineWorkspaceAccess access =
+                resolver.open(EngineWorkspaceAccessRequest.from(preparation))) {
+            assertThat(access.list("", 2))
+                    .extracting(entry -> entry.repositoryRelativePath())
+                    .containsExactly("features", "z.feature");
+            var entries = access.list("features", 4);
+            assertThat(entries)
+                    .extracting(entry -> entry.repositoryRelativePath())
+                    .containsExactly("features/a.feature", "features/b.feature",
+                            "features/escape", "features/nested");
+            assertThat(entries).extracting(entry -> entry.kind()).containsExactly(
+                    PreparedSourceEntryKind.FILE, PreparedSourceEntryKind.FILE,
+                    PreparedSourceEntryKind.LINK, PreparedSourceEntryKind.DIRECTORY);
+            assertThat(entries.getFirst().sizeBytes()).isEqualTo(3);
+            assertThat(entries.get(2).sizeBytes()).isEqualTo(-1);
+        }
+    }
+
+    @Test
+    void listingRejectsUnsafeDirectoriesAndEntryOverflowAndPreservesOpen() throws Exception {
+        SourcePreparationResult preparation = prepare();
+        Path source = workspace(preparation).resolve("source");
+        Files.writeString(source.resolve("one.feature"), "one");
+        Files.writeString(source.resolve("two.feature"), "two");
+
+        try (EngineWorkspaceAccess access =
+                resolver.open(EngineWorkspaceAccessRequest.from(preparation))) {
+            assertCode(() -> access.list("../outside", 10), "INVALID_RELATIVE_PATH");
+            assertCode(() -> access.list(source.toString(), 10), "INVALID_RELATIVE_PATH");
+            assertCode(() -> access.list("", 1), "ENTRY_LIMIT_EXCEEDED");
+            assertThat(access.open("one.feature").readAllBytes())
+                    .isEqualTo("one".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+    }
+
+    @Test
+    void listsEmptyDirectoryAndSeparateHandlesConcurrently() throws Exception {
+        SourcePreparationResult first = prepare();
+        SourcePreparationResult second = prepare();
+        Files.createDirectory(workspace(first).resolve("source").resolve("empty"));
+        Files.createDirectory(workspace(second).resolve("source").resolve("empty"));
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var firstFuture = executor.submit(() -> {
+                try (EngineWorkspaceAccess access =
+                        resolver.open(EngineWorkspaceAccessRequest.from(first))) {
+                    return access.list("empty", 1);
+                }
+            });
+            var secondFuture = executor.submit(() -> {
+                try (EngineWorkspaceAccess access =
+                        resolver.open(EngineWorkspaceAccessRequest.from(second))) {
+                    return access.list("empty", 1);
+                }
+            });
+            assertThat(firstFuture.get(10, TimeUnit.SECONDS)).isEmpty();
+            assertThat(secondFuture.get(10, TimeUnit.SECONDS)).isEmpty();
+        }
     }
 
     @Test

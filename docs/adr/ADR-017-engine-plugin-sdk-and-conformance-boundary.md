@@ -176,6 +176,15 @@ without exposing `Path` or a physical root. `ExecutionSecretAccess` resolves log
 defensively copied, closeable `ResolvedSecret` values. `EngineExecutionResult` carries exact
 request/source correlation, normalized state, and consistent timing only.
 
+AS-030B discovery analysis identified one provider-neutral gap: engines could open a known logical
+path but could not enumerate admitted prepared source. The compatible extension adds immutable
+`PreparedSourceEntry` metadata (`FILE`, `DIRECTORY`, `LINK`, or `UNSUPPORTED`) and a non-recursive
+`PreparedSourceAccess.list(relativeDirectory, maxEntries)` operation. The provider enforces the
+positive hard entry limit, returns deterministic logical-path ordering, does not follow links, and
+exposes file size only when applicable. It exposes no `Path`, root, link target, provider object,
+or mutable/streaming resource. A default unavailable implementation preserves existing provider
+source and binary compatibility; engines requiring discovery must fail closed when unsupported.
+
 AS-027C created infrastructure-free JUnit 5 conformance support. AS-027D proved Builtin and
 Playwright while retaining Spring assembly, one registry, one orchestration path, and the platform
 compatibility bridge. AS-027E added the unregistered `sample-engine / 1.0.0` reference module.

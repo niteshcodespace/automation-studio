@@ -9,6 +9,11 @@ verification when runtime/build files change, `git diff --check`, security/archi
 compatibility review, a repository checkpoint, and explicit commit approval. No story authorizes
 the next.
 
+AS-030B remains unstarted. Its prepared-source discovery prerequisite exposed an AS-027 SDK gap:
+only known logical paths could be opened. The blocker-resolution change now adds a compatible,
+provider-neutral, bounded single-directory listing capability plus local adapter and generic
+conformance coverage. No Karate module or dependency is part of the blocker resolution.
+
 ## AS-030A - Karate Requirements and Execution Security Architecture
 
 **Objective:** Establish API-only scope, executable-source trust, module, runtime-host, source,
@@ -45,6 +50,10 @@ service-provider review; no-network/no-secret/no-artifact proof.
 native reports, production registration, SDK/platform/persistence changes.
 
 **Dependency:** Accepted AS-030A.
+
+**Resolved prerequisite:** The generic SDK now supports deterministic non-recursive listing with
+safe immutable entry metadata and caller/platform-controlled bounds. AS-030B may recursively
+compose this operation under its separately approved depth, count, byte, and link policies.
 
 **Commit boundary:** Independently buildable provider module and configuration contract.
 
