@@ -3,16 +3,15 @@
 ## Status and delivery controls
 
 AS-030 starts from merged AS-029 commit `9cf1837453e74015e14bb0049149df023134e214`.
-AS-030A documentation is complete but uncommitted on
+AS-030A and the provider-neutral prepared-source listing prerequisite are committed and pushed on
 `feature/AS-030-karate-engine-plugin`. Each story requires focused verification, full reactor
 verification when runtime/build files change, `git diff --check`, security/architecture/
 compatibility review, a repository checkpoint, and explicit commit approval. No story authorizes
 the next.
 
-AS-030B remains unstarted. Its prepared-source discovery prerequisite exposed an AS-027 SDK gap:
-only known logical paths could be opened. The blocker-resolution change now adds a compatible,
-provider-neutral, bounded single-directory listing capability plus local adapter and generic
-conformance coverage. No Karate module or dependency is part of the blocker resolution.
+AS-030B implementation is complete and awaiting verification/review. Its resolved prerequisite
+provides a compatible provider-neutral bounded single-directory listing capability plus local
+adapter and generic conformance coverage.
 
 ## AS-030A - Karate Requirements and Execution Security Architecture
 
@@ -56,6 +55,18 @@ safe immutable entry metadata and caller/platform-controlled bounds. AS-030B may
 compose this operation under its separately approved depth, count, byte, and link policies.
 
 **Commit boundary:** Independently buildable provider module and configuration contract.
+
+**Implementation record:** The reactor module uses provider-local
+`io.karatelabs:karate-core:1.5.2`, selected as the current stable Maven Central release compatible
+with the Java 21 reactor. Production dependencies are only the JDK-only SDK and Karate Core;
+generic conformance and JUnit remain test-only. No browser/WebDriver artifact is declared.
+Configuration schema `1` admits one repository-relative feature root, bounded exact-tag lists,
+non-secret variables, logical secret references, and operator-ceiling discovery limits. Discovery
+recursively composes `PreparedSourceAccess.list(directory, maxEntries)`, orders logical entries,
+admits `.feature` files only, and fails closed for links, unsupported entries, unavailable listing,
+invalid provider entries, depth/count/listing/per-file/aggregate overflow, and empty selection.
+The temporary conformance `execute(...)` result means that AS-030B structural preparation
+succeeded; it does not represent Karate scenario execution. AS-030C remains unstarted.
 
 ## AS-030C - Controlled Karate Execution Boundary
 
