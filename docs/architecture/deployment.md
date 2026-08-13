@@ -21,7 +21,7 @@ v0.1 is intended for local development, demonstrations, and a small self-hosted 
 | Web application | One Next.js deployment |
 | Control plane | One Spring Boot modular-monolith deployment |
 | Execution | One dedicated Java runner process or container |
-| Engines | Statically assembled Playwright Java and REST Assured plugins; planned API-only Karate plugin in the same runner boundary |
+| Engines | Statically assembled Playwright Java and REST Assured plugins; planned API-only Karate provider adapter with an isolated Linux worker container |
 | Metadata | One PostgreSQL instance |
 | Work transport | PostgreSQL job claiming and transactional outbox |
 | Artifacts | AS-028 local filesystem adapter through the artifact-storage port; bytes outside execution workspaces and metadata in PostgreSQL |
@@ -43,10 +43,11 @@ flowchart TB
     Runner --> Db
     Runner --> Playwright[Playwright Java Engine]
     Runner --> RestAssured[REST Assured API Engine]
-    Runner -. AS-030 planned .-> Karate[Karate API Engine]
+    Runner -. bounded stdio IPC .-> Karate[Isolated Karate Worker Container]
+    Karate --> Gateway[Per-Execution HTTP Egress Gateway]
+    Gateway --> ApiSut
     Playwright --> Sut[OrangeHRM System Under Test]
     RestAssured --> ApiSut[Admitted API System Under Test]
-    Karate --> ApiSut
     Runner --> Files[(Local Artifact Directory)]
     Api --> Files
 
@@ -77,14 +78,24 @@ non-global destinations; operator policy may admit an exact non-global origin. R
 implicit proxies, and TLS bypass remain disabled, credentials resolve per execution, and one
 bounded sanitized structural report publishes through AS-028.
 
-The planned AS-030 Karate v1 deployment is API-only and statically assembled. Admitted feature and
-configuration files are trusted executable repository automation source, but remain subject to
-runner CPU, memory, filesystem, process, egress, concurrency, and deadline controls. Java host
-interop and child-process authority are prohibited. Outbound HTTP requires exact-origin and
-address authorization, DNS-rebinding resistance, disabled implicit proxies, verified TLS, and
-bounded redirects/resources. AS-030A does not add the runtime. It does not claim that the in-process
-runner contains hostile tenant code; future hostile-source support requires separately approved
-process/container isolation.
+The planned AS-030 Karate v1 deployment is API-only. The statically assembled provider adapter
+launches one digest-pinned short-lived Linux worker container per invocation; the image is built,
+scanned, versioned and released with the matching provider version, and Karate never shares the
+runner JVM. The container runs non-root with a read-only root, dropped capabilities,
+no-new-privileges, scrubbed environment, no Docker socket or host mounts, bounded tmpfs, CPU,
+memory and PIDs, a process/syscall profile that prevents feature-triggered executable launches,
+and a fixed entrypoint/classpath. Source arrives over bounded framed stdin and
+results over bounded framed stdout. Its network namespace can reach only a per-execution egress
+gateway that applies origin/address policy, pinned DNS connection, redirect authorization,
+upstream TLS verification and byte/deadline limits. Required v1 hosts therefore need a supported
+Linux-container runtime and controlled worker-image lifecycle; Windows development uses Linux
+containers. This contains trusted automation authority but is not hostile multi-tenant sandbox
+certification.
+
+Runner startup must fail closed when the container runtime, required resource/syscall controls,
+worker image digest, isolated-network policy or gateway is unavailable. Observability is limited to
+correlation-safe image identity, start/stop/kill latency, quota events, normalized outcome and
+orphan-cleanup metrics; raw worker stdout/stderr, source and network content are not platform logs.
 
 The Playwright runner provisioning, threat, failure-response, supported-platform, and release
 checks are defined in [Playwright Execution Engine Production Readiness](playwright-production-readiness.md).

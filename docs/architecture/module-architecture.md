@@ -130,14 +130,15 @@ existing registry and supplies only the existing prepared workspace, execution-s
 artifact capabilities. The engine creates no registry, orchestrator, lifecycle, persistence, or
 network-policy authority outside its bounded invocation.
 
-AS-030 plans `engines/karate-engine-plugin` as another SDK-dependent sibling provider module.
+AS-030 implements `engines/karate-engine-plugin` as another SDK-dependent sibling provider module.
 Karate and provider-native types remain local; `studio-api` will depend on it only for static
-assembly. The approved v1 is API-only. Karate features, configuration, JavaScript, and called
-features are trusted executable repository automation source subject to strict source, Java-host,
-process, network, secret, parallelism, deadline, and evidence controls. The in-process SDK boundary
-does not contain hostile tenant code; any such support requires separately approved process or
-container isolation. The module reuses the existing workspace, secret, artifact, registry,
-orchestrator, lifecycle, and persistence authorities.
+assembly. The approved v1 is API-only. Because Karate 1.5.2 cannot restrict Java host authority in
+the runner JVM, the provider adapter will hide a short-lived Linux worker container, bounded
+stdin/stdout protocol, execution-local source projection and platform-owned egress gateway behind
+the unchanged `ExecutionEnginePlugin` contract. The container is not a new orchestrator or
+lifecycle authority. Workspace Manager supplies source bytes, AS-028 remains the only artifact
+publication authority, and the existing registry, orchestrator, lifecycle, fencing, persistence
+and secret scopes remain singular.
 
 ## AI Capability Modules
 

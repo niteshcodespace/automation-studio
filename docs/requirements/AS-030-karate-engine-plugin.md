@@ -2,9 +2,10 @@
 
 ## 1. Status and purpose
 
-AS-030 adds API-focused Karate feature execution through the existing runner pipeline. AS-030A
-defines the requirements and security architecture only. Its changes are uncommitted on
-`feature/AS-030-karate-engine-plugin`; AS-030B implementation has not started.
+AS-030 adds API-focused Karate feature execution through the existing runner pipeline. AS-030A,
+the prepared-source prerequisite and AS-030B are committed on
+`feature/AS-030-karate-engine-plugin`. AS-030C in-process execution is blocked; AS-030C1 records
+the selected isolated-worker architecture and no runtime implementation has resumed.
 
 AS-030 begins from merged AS-029 commit `9cf1837453e74015e14bb0049149df023134e214`.
 It preserves the AS-027 SDK and conformance boundary, AS-028 artifact authority, AS-029 REST
@@ -57,10 +58,11 @@ source, not passive manifests. AS-030 v1 admits them only as trusted repository 
 from the platform-approved exact source revision. They still execute under least-authority
 capabilities, fail-closed validation, resource ceilings, egress controls, and sanitized output.
 
-The in-process SDK plugin is trusted deployed code, but the SDK is not a sandbox. AS-030 does not
-claim that hostile or arbitrary multi-tenant source is safely contained in the runner JVM. Such a
-threat model requires separately approved process or container isolation, a reduced runtime, or
-both. Source admission and review remain prerequisites, not substitutes for runtime controls.
+Karate 1.5.2 cannot satisfy the required host-authority restrictions in the runner JVM because its
+GraalJS context enables unrestricted host access. The SDK plugin remains trusted adapter code,
+while Karate executes only in a short-lived isolated Linux container. AS-030 still does not claim
+hostile or arbitrary multi-tenant source isolation: admission and review remain prerequisites, and
+the container limits accidental or source-driven host authority.
 
 ## 6. Discovery and source configuration
 
@@ -121,11 +123,12 @@ environment access, native loading, shutdown hooks, and access to platform/Sprin
 prohibited. Shell commands, process creation, Maven/Gradle execution, external scripts, and child
 processes are prohibited.
 
-This is an AS-030C security gate. Before real feature execution is accepted, the chosen embedded
-runtime must demonstrate enforceable in-process controls for these restrictions. If it cannot,
-AS-030C must stop and require a revised architecture, such as a separately approved isolated
-process/container; allowlisting trusted source alone must not be misreported as technical
-containment.
+The in-process gate failed for Karate 1.5.2: its internal GraalJS context enables all host access
+and its feature bridge exposes process, property, filesystem, listener, and related host functions
+without a supported replacement-context hook. Real execution is permitted only in the approved
+isolated-worker architecture. The worker has a fixed minimal classpath, scrubbed environment and
+properties, no platform classes or services, no host workspace mount, no Docker socket, no
+process-creation capability, and no unrestricted network route.
 
 ## 11. Filesystem and prepared-source boundary
 
@@ -138,9 +141,11 @@ classpath escape, URL-based file reads, device/reserved names, and symbolic or h
 rejected. Discovery does not follow links. `read()`, called features, configuration, schemas, and
 data files resolve beneath the admitted feature root through the same bounded capability.
 
-Karate APIs that require arbitrary `Path`, `File`, classpath scanning, temporary-directory access,
-or direct host filesystem reads must be disabled or adapted. Report staging is platform-selected,
-execution-local, bounded, and never feature-controlled; AS-028 owns durable publication.
+The provider streams an allowlisted bounded source manifest and file frames from
+`PreparedSourceAccess` to the worker. The worker verifies paths, sizes and digests, then
+materializes only those entries into an execution-local size-limited tmpfs beneath its read-only
+container root. No host path is mounted. Container policy and the manifest, rather than source
+scanning, form the boundary. AS-028 retains future durable-publication authority.
 
 ## 12. Network and SSRF policy
 
@@ -170,8 +175,13 @@ runtime customization that prevents re-resolution after validation. If exact pin
 enforced, deployment egress policy alone is insufficient and real network execution remains
 blocked pending an approved design change.
 
-Mock servers, listeners, inbound ports, WebSockets, non-HTTP protocols, and feature-created local
-servers are out of scope.
+The worker network namespace can reach only a platform-owned per-execution egress gateway. That
+gateway authorizes every origin and attempt, resolves and validates DNS once, connects to the
+selected validated address, reauthorizes redirects, independently validates upstream TLS, rejects
+proxy/TLS bypass semantics, and bounds deadlines and bytes. Namespace policy prevents direct
+worker egress, including localhost, metadata, Docker, runner and adjacent services. Deployment
+egress remains defense in depth. Mock servers, listeners, inbound ports, WebSockets and non-HTTP
+protocols remain out of scope.
 
 ## 13. Secret boundary
 
@@ -215,10 +225,11 @@ AS-030C/D must additionally bound request bytes, headers, cookies, call depth, r
 JavaScript values, report entries, open streams, connections, queues, worker lifetime, and memory
 growth. All limits fail closed with sanitized categories.
 
-Deadline expiry and runner interruption must stop scheduling, interrupt or cooperatively terminate
-running scenarios and HTTP work, close responses/streams/secrets, stop report workers, discard
-partial output through AS-028 abort, and return control for normal workspace cleanup. No Karate
-worker, global hook, executor, connection, or cache may survive the invocation.
+Deadline expiry and runner interruption must stop scheduling and terminate the worker container
+and execution-scoped gateway after a bounded grace period, close streams and connections, discard
+partial output through AS-028 abort, and return control for workspace cleanup. The provider records
+container identity before start and performs idempotent stop/remove in `finally`; no worker,
+gateway, namespace, volume, executor, connection, or cache may survive the invocation.
 
 The current SDK exposes no general cancellation token, and AS-030A does not add one. AS-030C must
 prove bounded deadline and thread-interruption behavior using the existing invocation boundary.
@@ -310,7 +321,7 @@ AS-030 is complete when:
 ## 20. Explicit deferred scope
 
 AS-030 excludes Karate UI/browser/WebDriver/CDP/desktop/mobile/image automation; arbitrary hostile
-or multi-tenant source; process/container isolation implementation; runtime plugin loading,
+or multi-tenant source; general-purpose sandbox/container orchestration; runtime plugin loading,
 installation, signing, or classloader isolation; arbitrary Java/JavaScript extension libraries;
 shell/process execution; mock/listener servers; performance/load testing; non-HTTP protocols;
 new persistence or per-scenario history; platform execution retry changes; artifact download,

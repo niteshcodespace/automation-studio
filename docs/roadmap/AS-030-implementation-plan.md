@@ -9,9 +9,10 @@ verification when runtime/build files change, `git diff --check`, security/archi
 compatibility review, a repository checkpoint, and explicit commit approval. No story authorizes
 the next.
 
-AS-030B implementation is complete and awaiting verification/review. Its resolved prerequisite
-provides a compatible provider-neutral bounded single-directory listing capability plus local
-adapter and generic conformance coverage.
+AS-030B implementation, focused/full verification and reviews are complete, committed and pushed.
+Its resolved prerequisite provides a compatible provider-neutral bounded single-directory listing
+capability plus local adapter and generic conformance coverage. AS-030C runtime execution remains
+blocked while AS-030C1 records the selected architecture.
 
 ## AS-030A - Karate Requirements and Execution Security Architecture
 
@@ -66,29 +67,65 @@ recursively composes `PreparedSourceAccess.list(directory, maxEntries)`, orders 
 admits `.feature` files only, and fails closed for links, unsupported entries, unavailable listing,
 invalid provider entries, depth/count/listing/per-file/aggregate overflow, and empty selection.
 The temporary conformance `execute(...)` result means that AS-030B structural preparation
-succeeded; it does not represent Karate scenario execution. AS-030C remains unstarted.
+succeeded; it does not represent Karate scenario execution. AS-030C runtime work remains
+unstarted; AS-030C1 now records the required isolation architecture.
 
-## AS-030C - Controlled Karate Execution Boundary
+## AS-030C1 - Isolated Runtime Architecture / Blocker Resolution
+
+**Objective:** Resolve the failed in-process host-authority and DNS-binding gates with the smallest
+credible isolated execution design.
+
+**Scope:** Short-lived Linux container decision; bounded framed IPC; manifest-based tmpfs source
+projection; platform-owned egress gateway with DNS-to-connection binding and upstream TLS
+validation; resource, termination, cleanup, deployment and future secret/artifact boundaries.
+
+**Tests:** Documentation consistency and independent security, architecture and compatibility
+reviews only.
+
+**Out of scope:** Java/POM/runtime implementation, Karate execution, secrets, parallel scenarios,
+artifacts, registration, persistence, browser/UI and AS-030D+.
+
+**Dependency:** Accepted AS-030B and confirmed Karate 1.5.2 in-process security blocker.
+
+**Commit boundary:** Architecture-only blocker resolution.
+
+## AS-030C2 - Isolated Runtime Foundation
+
+**Objective:** Implement and verify the worker/container boundary before enabling Karate features.
+
+**Scope:** Pinned worker image and fixed entrypoint; provider-owned container lifecycle; framed IPC;
+bounded source projection; non-root/read-only/capability/resource policy; isolated network; egress
+gateway; monotonic deadline; forced termination; deterministic cleanup; no-execution boundary
+tests.
+
+**Tests:** Image provenance and classpath; environment/property/filesystem/process/network denial;
+source manifest integrity; malformed/oversized IPC; gateway origin/DNS/address/TLS/proxy/redirect
+controls; timeout, kill and orphan cleanup; SDK/conformance regression.
+
+**Out of scope:** Karate scenario execution, secrets, parallelism, artifacts, registration,
+persistence and browser/UI.
+
+**Dependency:** Accepted AS-030C1.
+
+**Commit boundary:** Independently verifiable isolation foundation.
+
+## AS-030C3 - Controlled Karate Execution Boundary
 
 **Objective:** Execute API-focused Karate features only after proving runtime-host, filesystem,
 network, deadline, cancellation, and resource enforcement.
 
-**Scope:** Embedded runtime adapter; prohibited Java/reflective/process/classpath authority;
-invocation-local JavaScript; controlled source bridge; HTTP target authorizer and client
-interception/customization; URI/origin/address/DNS/redirect/proxy/TLS controls; response and
-deadline bounds; normalized pass/fail/error; cleanup.
+**Scope:** Karate worker adapter; sequential invocation-local execution; admitted call/read/config
+resolution; gateway-only HTTP; response/deadline bounds; normalized pass/fail/error; cleanup.
 
 **Tests:** API DSL pass/assertion failure; Java/process/filesystem escape attempts; SSRF address
 classes; DNS rebinding; redirect/origin escape; proxy/TLS bypass; timeouts; response bounds;
 cancellation; worker/stream/connection cleanup; sanitized diagnostics; loopback-only transport.
 
 **Out of scope:** Secrets, parallel scenarios beyond deterministic single-worker proof, artifacts,
-production assembly, UI/browser, isolation implementation, persistence.
+production assembly, UI/browser, persistence.
 
-**Dependency:** Accepted AS-030B. Failure to enforce Java-host restrictions or validated-address
-connection binding blocks this story and requires a separately approved architecture revision.
-Any new cancellation capability likewise requires a provider-neutral review rather than a
-Karate-specific SDK hook.
+**Dependency:** Accepted AS-030C2. Any new cancellation capability requires provider-neutral review
+rather than a Karate-specific SDK hook.
 
 **Commit boundary:** Minimal enforceable API execution and security mechanism.
 
@@ -108,7 +145,7 @@ operator ceilings; queue/worker cleanup; timeout and resource exhaustion.
 **Out of scope:** Literal credentials, ordinary secret variables, global caches, platform retry
 changes, distributed execution, UI/browser, artifacts, production assembly.
 
-**Dependency:** Accepted AS-030C.
+**Dependency:** Accepted AS-030C3.
 
 **Commit boundary:** Authentication and bounded parallel execution behavior.
 
@@ -155,8 +192,10 @@ without separate approval.
 
 ## Principal risks and stop conditions
 
-- The selected Karate runtime may not enforce Java host-interoperability restrictions in-process.
-- The HTTP client may not support validation-to-connection DNS address binding.
+- C2 must prove the container, syscall/process policy, source projection and forced cleanup rather
+  than treating container membership alone as isolation.
+- C2 must prove the gateway binds validated DNS answers to connections and independently validates
+  upstream TLS rather than relying on Karate or deployment egress.
 - Native logging/report hooks may observe secrets or sensitive HTTP data before sanitization.
 - Parallel workers or global configuration may leak state or survive cancellation.
 - Provider dependencies may conflict with platform/runtime dependencies.
