@@ -53,9 +53,10 @@ AS-027F Developer Guide and Feature-Level Verification - complete and merged
 AS-027 Engine Plugin SDK and Conformance Harness - complete and merged to main (e849939)
 AS-028A through AS-028F - complete and merged to main (5e01604)
 AS-028 Execution Artifact and Evidence Contract - complete and merged to main (5e01604)
-AS-029A through AS-029E REST Assured Engine Plugin - complete and pushed on the feature branch
-AS-029F Feature Verification and Documentation Reconciliation - technically complete; uncommitted and unpushed
-AS-029 REST Assured Engine Plugin - technically complete on the feature branch; PR not opened
+AS-029A through AS-029F REST Assured Engine Plugin - complete and merged to main (9cf1837)
+AS-029 REST Assured Engine Plugin - complete and merged to main (9cf1837)
+AS-030A Karate Requirements and Execution Security Architecture - complete but uncommitted on the feature branch
+AS-030 Karate Engine Plugin - active; AS-030B has not started
 ```
 
 The approved sequence preserves immutable execution snapshots, keeps resolved values outside
@@ -81,6 +82,12 @@ it is merged to `main` at `e849939`. AS-028 now implements the provider-neutral 
 publication, local durable storage, metadata, integrity, scoped discovery, orchestration, cleanup,
 and opt-in Playwright failure-report proof. Runtime plugin loading, S3, retention operations,
 download/serving, UI, and malware scanning remain deferred.
+
+AS-029 is merged at `9cf1837` and adds the statically assembled REST Assured API engine without
+changing the SDK, registry, orchestrator, lifecycle, or persistence authority. AS-030 is now the
+active feature. Its approved v1 scope is API-only Karate execution from trusted repository
+automation source under strict capability and resource controls; it does not claim safe in-process
+execution of hostile tenant code. AS-030A is documentation-only and AS-030B remains unstarted.
 
 ## Phase 2
 

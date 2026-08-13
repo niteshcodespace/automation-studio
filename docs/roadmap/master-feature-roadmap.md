@@ -204,8 +204,7 @@ Add API-testing engines through the common Engine Registry and plugin contract.
 
 Support Java-based REST API automation.
 
-Status: AS-029A through AS-029F are technically complete on
-`feature/AS-029-rest-assured-engine-plugin`; AS-029F changes are uncommitted and no PR is open.
+Status: complete and merged to `main` at `9cf1837`.
 
 The approved direction is a strict versioned declarative manifest executed by one statically
 assembled SDK plugin. The admitted environment base URL is the sole target authority; every
@@ -234,6 +233,15 @@ Potential capabilities:
 ## AS-030 — Karate Engine Plugin
 
 Support Karate test execution through the existing runner pipeline.
+
+Status: AS-030A requirements and execution security architecture are complete but uncommitted on
+`feature/AS-030-karate-engine-plugin`; AS-030B has not started.
+
+The approved v1 is API-only and treats admitted Karate source as trusted executable repository
+automation code operating under strict source, host-authority, network, secret, resource, and
+evidence limits. It does not claim hostile-source isolation. Karate UI/browser execution and
+process/container isolation remain separately deferred. A planned `karate-engine-plugin` reuses
+the AS-027 SDK, AS-028 artifacts, and the existing static registry and canonical orchestrator.
 
 Potential capabilities:
 
@@ -1339,16 +1347,15 @@ No stage silently implies approval for the next stage.
 The active feature is:
 
 ```text
-AS-028 — Execution Artifact and Evidence Contract
+AS-030 — Karate Engine Plugin
 ```
 
-AS-026 is complete through AS-026G at commit `59af99d`, and AS-027 is merged at `e849939` with its
-SDK, external conformance harness, repository-engine proof, sample plugin, and developer guidance.
-AS-028A defines the durable artifact/evidence boundary that AS-027 deliberately deferred. It must
-preserve the existing registry and orchestration path while keeping storage, persistence,
-authorization, and lifecycle ownership in the platform. Runtime plugin discovery, installation,
-trust/signing/isolation, S3-compatible storage, retention execution, and additional engines remain
-outside AS-028A unless separately approved.
+AS-027 is merged at `e849939`, AS-028 at `5e01604`, and AS-029 at `9cf1837`. AS-030A defines the
+API-only executable-source and security architecture before a Karate runtime or dependency is
+introduced. It preserves the JDK-only SDK, static registry, canonical orchestrator, lifecycle,
+persistence, workspace, secret, and AS-028 artifact authorities. Browser/UI execution,
+hostile-source isolation, runtime plugin loading, new persistence, and AS-030B remain outside
+AS-030A.
 
 ---
 

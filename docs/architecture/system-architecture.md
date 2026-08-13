@@ -224,7 +224,7 @@ Events include an event identifier, schema version, aggregate identifier, projec
 
 ## v0.1 Scope and Evolution
 
-v0.1 uses a Spring Boot modular monolith, Next.js web application, PostgreSQL, a dedicated Java runner, statically assembled Playwright Java and REST Assured engines, and PostgreSQL-based job claiming/outbox. AS-028 provides the platform-owned local-filesystem artifact adapter with PostgreSQL metadata and scoped discovery. It does not require AI, MCP, Kubernetes, Kafka, RabbitMQ, multi-tenancy, or high availability.
+v0.1 uses a Spring Boot modular monolith, Next.js web application, PostgreSQL, a dedicated Java runner, statically assembled Playwright Java and REST Assured engines, and PostgreSQL-based job claiming/outbox. AS-030 plans an API-only Karate plugin in that same static execution boundary; no Karate runtime is implemented by AS-030A. AS-028 provides the platform-owned local-filesystem artifact adapter with PostgreSQL metadata and scoped discovery. It does not require AI, MCP, Kubernetes, Kafka, RabbitMQ, multi-tenancy, or high availability.
 
 Future installations may add S3-compatible artifact storage, external secret management, separate AI services, MCP deployment, external brokers, isolated execution containers, specialized runner pools, Kubernetes, high availability, and multi-tenancy without changing the core domain boundaries.
 
@@ -233,3 +233,10 @@ environment base URL is the sole admitted authority; engine-level URI, address, 
 redirect, credential-forwarding, timeout, and response-size controls complement deployment egress
 policy. API credentials remain execution-scoped secrets and API reports use the AS-028 artifact
 boundary. No new control-plane or persistence container is introduced.
+
+AS-030 treats admitted Karate features and configuration as trusted executable repository
+automation code, not passive manifests or safely isolated hostile tenant input. The API-only v1
+must constrain Java-host and process authority, prepared-source access, outbound HTTP, secrets,
+parallelism, deadlines, and report content while reusing the existing runner pipeline. If the
+embedded runtime cannot enforce required host or network controls, controlled execution remains
+blocked pending a revised isolation architecture. Karate UI/browser execution is deferred.
