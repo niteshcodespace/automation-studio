@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 class KarateEnginePluginTest {
     @Test void exposesStableIdentityAndPerformsStructuralDiscoveryOnly() {
         var request = KarateTestFixtures.request(1, KarateTestFixtures.features("features/a.feature"), null);
-        var plugin = new KarateEnginePlugin();
+        var plugin = plugin();
         assertEquals("karate", plugin.descriptor().engineId());
         assertEquals("1.5.2", plugin.descriptor().implementationVersion());
         assertEquals(EngineExecutionState.SUCCEEDED, plugin.execute(request).state());
@@ -19,7 +19,7 @@ class KarateEnginePluginTest {
     @Test void closesPreparedSourceAfterSuccessfulDiscovery() {
         var observed = new com.automationstudio.engine.conformance.InMemoryWorkspaceAccess[1];
         var request = KarateTestFixtures.request(4, KarateTestFixtures.features("features/a.feature"), observed);
-        new KarateEnginePlugin().execute(request);
+        plugin().execute(request);
         assertEquals(1, observed[0].openedHandleCount());
         assertEquals(1, observed[0].closedHandleCount());
     }
@@ -27,7 +27,7 @@ class KarateEnginePluginTest {
     @Test void validationDoesNotAcquirePreparedSource() {
         var observed = new com.automationstudio.engine.conformance.InMemoryWorkspaceAccess[1];
         var request = KarateTestFixtures.request(2, KarateTestFixtures.features("features/a.feature"), observed);
-        new KarateEnginePlugin().validate(request.context());
+        plugin().validate(request.context());
         assertEquals(0, observed[0].openedHandleCount());
     }
 
@@ -36,8 +36,12 @@ class KarateEnginePluginTest {
         var badContext = new com.automationstudio.engine.sdk.EngineExecutionContext(request.executionId(),
                 request.context().engineIdentity(), "features", Map.of("schemaVersion", "1", "featureRoot", "../secret"),
                 "https://example.invalid", Map.of(), Map.of());
-        var exception = assertThrows(KarateEngineException.class, () -> new KarateEnginePlugin().validate(badContext));
+        var exception = assertThrows(KarateEngineException.class, () -> plugin().validate(badContext));
         assertEquals("INVALID_FEATURE_ROOT", exception.code());
         assertNull(exception.getCause());
+    }
+
+    private static KarateEnginePlugin plugin() {
+        return new KarateEnginePlugin(java.time.Clock.systemUTC(), new KarateFeatureDiscovery(), (id, source, paths) -> {});
     }
 }

@@ -20,6 +20,11 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <groupId>com.automationstudio</groupId>
+            <artifactId>karate-worker-runtime</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>io.karatelabs</groupId>
             <artifactId>karate-core</artifactId>
             <version>${karate.version}</version>

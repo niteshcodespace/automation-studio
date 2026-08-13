@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-/** AS-030B structural provider; Karate execution is intentionally not implemented. */
+/** Provider adapter for the AS-030C2 isolated worker foundation; Karate is not executed. */
 public final class KarateEnginePlugin implements ExecutionEnginePlugin {
     public static final String ENGINE_ID = "karate";
     public static final String IMPLEMENTATION_VERSION = "1.5.2";
@@ -24,12 +24,14 @@ public final class KarateEnginePlugin implements ExecutionEnginePlugin {
 
     private final Clock clock;
     private final KarateFeatureDiscovery discovery;
+    private final KarateWorkerRuntime workerRuntime;
 
-    public KarateEnginePlugin() { this(Clock.systemUTC(), new KarateFeatureDiscovery()); }
+    public KarateEnginePlugin() { this(Clock.systemUTC(), new KarateFeatureDiscovery(), new DockerKarateWorkerRuntime()); }
 
-    KarateEnginePlugin(Clock clock, KarateFeatureDiscovery discovery) {
+    KarateEnginePlugin(Clock clock, KarateFeatureDiscovery discovery, KarateWorkerRuntime workerRuntime) {
         this.clock = Objects.requireNonNull(clock, "Clock must not be null");
         this.discovery = Objects.requireNonNull(discovery, "Discovery must not be null");
+        this.workerRuntime = Objects.requireNonNull(workerRuntime, "Worker runtime must not be null");
     }
 
     @Override public ExecutionEngineDescriptor descriptor() { return DESCRIPTOR; }
@@ -58,7 +60,8 @@ public final class KarateEnginePlugin implements ExecutionEnginePlugin {
         }
         OffsetDateTime startedAt = OffsetDateTime.now(clock);
         try (var source = validated.workspaceAccess().openPreparedSource()) {
-            discovery.discover(source, KarateSuiteConfiguration.parse(validated.context().suiteConfiguration()));
+            var features = discovery.discover(source, KarateSuiteConfiguration.parse(validated.context().suiteConfiguration()));
+            workerRuntime.prove(validated.executionId(), source, features);
         } catch (KarateEngineException exception) {
             throw exception;
         } catch (RuntimeException exception) {

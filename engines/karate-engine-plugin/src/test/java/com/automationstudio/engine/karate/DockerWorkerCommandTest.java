@@ -1,0 +1,7 @@
+package com.automationstudio.engine.karate;
+import static org.junit.jupiter.api.Assertions.*;import java.util.*;import org.junit.jupiter.api.Test;
+class DockerWorkerCommandTest {private static final String IMAGE="local/worker:1@sha256:"+"a".repeat(64);private static final String NAME="as-karate-"+"b".repeat(32);
+ @Test void configuresIsolationAndExternalResourceLimits(){List<String> c=DockerWorkerCommand.create(NAME,IMAGE,WorkerLimits.defaults());assertContains(c,"--network","none");assertContains(c,"--read-only","--user");assertContains(c,"--user","10001:10001");assertContains(c,"--cap-drop","ALL");assertContains(c,"--security-opt","no-new-privileges:true");assertContains(c,"--pids-limit","128");assertContains(c,"--memory","805306368");assertContains(c,"--cpus","1.0");assertContains(c,"--tmpfs","/work:rw,noexec,nosuid,nodev,size=67108864");assertFalse(c.contains("-v"));assertFalse(c.contains("--volume"));assertFalse(c.stream().anyMatch(v->v.contains("docker.sock")||v.toLowerCase().contains("proxy")));assertEquals(1,Collections.frequency(c,"--env"));assertContains(c,"--env","LANG=C.UTF-8");}
+ @Test void requiresDigestPinnedImageAndDeterministicName(){assertThrows(IllegalArgumentException.class,()->DockerWorkerCommand.create(NAME,"local/worker:latest",WorkerLimits.defaults()));assertThrows(IllegalArgumentException.class,()->DockerWorkerCommand.create("bad",IMAGE,WorkerLimits.defaults()));}
+ private static void assertContains(List<String> c,String a,String b){int i=c.indexOf(a);assertTrue(i>=0&&i+1<c.size());assertEquals(b,c.get(i+1));}
+}

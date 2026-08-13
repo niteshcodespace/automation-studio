@@ -17,7 +17,8 @@ class KarateEngineConformanceTest implements ExecutionEnginePluginConformanceCon
     @Override public ExecutionEnginePluginFixture fixture() { return fixture; }
 
     private static final class Fixture implements ExecutionEnginePluginFixture {
-        private final ExecutionEnginePlugin plugin = new KarateEnginePlugin();
+        private final ExecutionEnginePlugin plugin = new KarateEnginePlugin(java.time.Clock.systemUTC(),
+                new KarateFeatureDiscovery(), (id, source, paths) -> {});
         private final Map<UUID, InMemoryWorkspaceAccess> workspaces = new ConcurrentHashMap<>();
         private final List<EngineExecutionRequest> requests = requests();
         public ExecutionEnginePlugin plugin() { return plugin; }

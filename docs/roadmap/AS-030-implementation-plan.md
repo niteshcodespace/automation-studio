@@ -109,6 +109,21 @@ persistence and browser/UI.
 
 **Commit boundary:** Independently verifiable isolation foundation.
 
+**Implementation record:** A new JDK-only `karate-worker-runtime` reactor module supplies the
+fixed bootstrap, version-1 length-prefixed deterministic JSON protocol, independent logical-path,
+size, SHA-256, duplicate and aggregate validation, tmpfs projection and structural
+`READY`/`ACCEPTED_SOURCE`/`COMPLETED_FOUNDATION_PROOF` responses. It has no Karate, SDK, Spring,
+persistence, browser or networking dependency and does not execute features. The provider owns a
+Docker CLI adapter behind `ExecutionEnginePlugin`; it accepts only a configured immutable
+`sha256` image identity, uses deterministic execution correlation, `network=none`, read-only root,
+UID/GID 10001, all capabilities dropped, no-new-privileges, no mounts, a noexec/nosuid/nodev
+64-MiB tmpfs, one CPU, 768-MiB memory, 128 PIDs, bounded stdout/stderr and wall time, then performs
+stop, kill, force-remove and absence inspection idempotently. The image uses Eclipse Temurin
+21.0.11+10 JRE on Alpine 3.23, pinned by index digest
+`sha256:704db3c40204a44f471191446ddd9cda5d60dab40f0e15c6507b815ed897238b`;
+the JRE image avoids a compiler and browser/runtime dependencies. Direct egress is disabled;
+the controlled gateway remains AS-030C3 scope. Production registration remains deferred.
+
 ## AS-030C3 - Controlled Karate Execution Boundary
 
 **Objective:** Execute API-focused Karate features only after proving runtime-host, filesystem,
