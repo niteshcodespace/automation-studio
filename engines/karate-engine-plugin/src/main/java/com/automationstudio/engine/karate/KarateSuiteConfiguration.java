@@ -13,6 +13,12 @@ public record KarateSuiteConfiguration(
         int maxFeatures, int maxDepth, int maxEntriesPerDirectory,
         long maxFeatureBytes, long maxAggregateBytes) {
 
+    Map<String,String> composeVariables(Map<String,String> executionVariables) {
+        if(executionVariables==null)throw failure("INVALID_BINDINGS","Karate bindings are invalid");var result=new java.util.TreeMap<>(variables);
+        for(var entry:executionVariables.entrySet()){if(entry.getKey()==null||!NAME.matcher(entry.getKey()).matches()||RESERVED.matcher(entry.getKey()).matches()||entry.getValue()==null||entry.getValue().isBlank()||entry.getValue().length()>1024||entry.getValue().indexOf('\0')>=0||result.putIfAbsent(entry.getKey(),entry.getValue())!=null)throw failure("INVALID_BINDINGS","Karate bindings are invalid");}
+        if(result.size()>64||result.entrySet().stream().mapToLong(e->e.getKey().length()+e.getValue().length()).sum()>65536)throw failure("INVALID_BINDINGS","Karate bindings are invalid");return Map.copyOf(result);
+    }
+
     private static final Set<String> FIELDS = Set.of("schemaVersion", "featureRoot", "includeTags",
             "excludeTags", "variables", "secretReferences", "limits");
     private static final Set<String> LIMIT_FIELDS = Set.of("maxFeatures", "maxDepth",

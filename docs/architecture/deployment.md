@@ -83,10 +83,11 @@ launches one digest-pinned short-lived Linux worker container per invocation; th
 scanned, versioned and released with the matching provider version, and Karate never shares the
 runner JVM. The container runs non-root with a read-only root, dropped capabilities,
 no-new-privileges, scrubbed environment, no Docker socket or host mounts, bounded tmpfs, CPU,
-memory and PIDs, a process/syscall profile that prevents feature-triggered executable launches,
-and a fixed entrypoint/classpath. Source arrives over bounded framed stdin and
-results over bounded framed stdout. Its network namespace can reach only a per-execution egress
-gateway that applies origin/address policy, pinned DNS connection, redirect authorization,
+memory and PIDs, enforced seccomp and applicable LSM policy that confine runtime-local process
+activity, and a fixed entrypoint/minimal worker-only classpath. Projected source is physically
+read-only and writable runtime/tmp is separate and bounded. Source arrives over bounded framed
+stdin and results over bounded framed stdout. Its network namespace can reach only a per-execution egress
+gateway that applies origin/address policy, pinned DNS connection, v1 redirect rejection,
 upstream TLS verification and byte/deadline limits. Required v1 hosts therefore need a supported
 Linux-container runtime and controlled worker-image lifecycle; Windows development uses Linux
 containers. This contains trusted automation authority but is not hostile multi-tenant sandbox

@@ -118,17 +118,21 @@ cache may retain variables, secrets, results, or provider objects across executi
 
 ## 10. Java host interoperability and process policy
 
-Arbitrary `Java.type`, Java class construction, reflection, classloader access, system-property or
-environment access, native loading, shutdown hooks, and access to platform/Spring services are
-prohibited. Shell commands, process creation, Maven/Gradle execution, external scripts, and child
-processes are prohibited.
+The isolated disposable worker container is the Java/process authority boundary. Runtime-local
+`Java.type`, Java construction/reflection, and process APIs such as `karate.exec` and `karate.fork`
+may exist, but they must not expose runner, SDK, backend or Spring classes and services; runner or
+host filesystems; host environment, properties or credentials; Docker control; host process
+authority; unrestricted network; cross-execution state; persistent state; or runtime dependency
+extension. Source filtering is not an enforcement mechanism.
 
 The in-process gate failed for Karate 1.5.2: its internal GraalJS context enables all host access
 and its feature bridge exposes process, property, filesystem, listener, and related host functions
 without a supported replacement-context hook. Real execution is permitted only in the approved
 isolated-worker architecture. The worker has a fixed minimal classpath, scrubbed environment and
-properties, no platform classes or services, no host workspace mount, no Docker socket, no
-process-creation capability, and no unrestricted network route.
+properties, no platform classes or services, no host workspace mount, no Docker socket, and no
+unrestricted network route. Non-root identity, dropped capabilities, no-new-privileges, restricted
+process/PID authority, resource ceilings, enforced seccomp and applicable LSM policy confine any
+runtime-local process activity to the disposable worker.
 
 ## 11. Filesystem and prepared-source boundary
 
@@ -144,8 +148,10 @@ data files resolve beneath the admitted feature root through the same bounded ca
 The provider streams an allowlisted bounded source manifest and file frames from
 `PreparedSourceAccess` to the worker. The worker verifies paths, sizes and digests, then
 materializes only those entries into an execution-local size-limited tmpfs beneath its read-only
-container root. No host path is mounted. Container policy and the manifest, rather than source
-scanning, form the boundary. AS-028 retains future durable-publication authority.
+container root, physically seals the projected tree read-only before execution, and uses a separate
+bounded execution-local runtime/tmp location for writable state. No host path is mounted. Container
+policy and the manifest, rather than source scanning, form the boundary. AS-028 retains future
+durable-publication authority.
 
 ## 12. Network and SSRF policy
 
@@ -160,9 +166,10 @@ Required controls are:
 - denial of credentials, fragments, ambiguous authorities, malformed hosts, and unsafe encodings;
 - denial of loopback, private, link-local, multicast, unspecified, carrier-grade NAT, and cloud
   metadata addresses unless immutable operator policy admits the exact origin;
-- authorization for every request, retry, redirect, and resolved address;
+- authorization for every request, retry, and resolved address;
 - DNS-rebinding resistance with no unvalidated second resolution;
-- redirects off by default and never credential-bearing across origins;
+- redirects rejected in AS-030C3 v1; any later support must be bounded, explicitly reauthorized,
+  and never credential-bearing across origins;
 - implicit/system proxies and feature-configured proxies disabled;
 - hostname and certificate verification enabled with no trust-all or TLS downgrade;
 - one absolute execution deadline plus bounded connect/request/read timeouts;
@@ -177,9 +184,11 @@ blocked pending an approved design change.
 
 The worker network namespace can reach only a platform-owned per-execution egress gateway. That
 gateway authorizes every origin and attempt, resolves and validates DNS once, connects to the
-selected validated address, reauthorizes redirects, independently validates upstream TLS, rejects
-proxy/TLS bypass semantics, and bounds deadlines and bytes. Namespace policy prevents direct
-worker egress, including localhost, metadata, Docker, runner and adjacent services. Deployment
+selected validated address, independently validates upstream TLS, rejects proxy/TLS bypass
+semantics, and bounds deadlines and bytes. AS-030C3 v1 rejects redirects and disables automatic
+following. Any later redirect support must independently reauthorize every normalized target and
+validated connection address through the gateway within a strict hop ceiling. Namespace policy
+prevents direct worker egress, including localhost, metadata, Docker, runner and adjacent services. Deployment
 egress remains defense in depth. Mock servers, listeners, inbound ports, WebSockets and non-HTTP
 protocols remain out of scope.
 
@@ -322,7 +331,8 @@ AS-030 is complete when:
 
 AS-030 excludes Karate UI/browser/WebDriver/CDP/desktop/mobile/image automation; arbitrary hostile
 or multi-tenant source; general-purpose sandbox/container orchestration; runtime plugin loading,
-installation, signing, or classloader isolation; arbitrary Java/JavaScript extension libraries;
-shell/process execution; mock/listener servers; performance/load testing; non-HTTP protocols;
+installation, signing, or classloader isolation; additional Java/JavaScript extension libraries;
+process authority outside the fixed worker; mock/listener servers; performance/load testing;
+non-HTTP protocols;
 new persistence or per-scenario history; platform execution retry changes; artifact download,
 viewer, signed URL, S3, retention, malware scanning, or active-content serving; and frontend work.

@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-/** Provider adapter for the AS-030C2 isolated worker foundation; Karate is not executed. */
+/** Provider adapter for AS-030C3 controlled sequential Karate execution. */
 public final class KarateEnginePlugin implements ExecutionEnginePlugin {
     public static final String ENGINE_ID = "karate";
     public static final String IMPLEMENTATION_VERSION = "1.5.2";
@@ -42,9 +42,10 @@ public final class KarateEnginePlugin implements ExecutionEnginePlugin {
             throw failure("INVALID_ENGINE_CONTEXT", "Karate engine context is invalid");
         }
         KarateSuiteConfiguration.parse(context.suiteConfiguration());
-        if (!context.environmentConfiguration().equals(Map.of()) || !context.variables().equals(Map.of())) {
+        if (!context.environmentConfiguration().equals(Map.of())) {
             throw failure("INVALID_ENGINE_CONTEXT", "Karate engine context is invalid");
         }
+        KarateSuiteConfiguration.parse(context.suiteConfiguration()).composeVariables(context.variables());
     }
 
     @Override
@@ -60,18 +61,22 @@ public final class KarateEnginePlugin implements ExecutionEnginePlugin {
         }
         OffsetDateTime startedAt = OffsetDateTime.now(clock);
         try (var source = validated.workspaceAccess().openPreparedSource()) {
-            var features = discovery.discover(source, KarateSuiteConfiguration.parse(validated.context().suiteConfiguration()));
-            workerRuntime.prove(validated.executionId(), source, features);
+            var configuration=KarateSuiteConfiguration.parse(validated.context().suiteConfiguration());
+            var features = discovery.discover(source, configuration);
+            var projected = discovery.projectedFiles(source, configuration);
+            var workerResult=workerRuntime.execute(validated.executionId(), source, projected, features,
+                    configuration, configuration.composeVariables(validated.context().variables()),
+                    validated.context().environmentBaseUrl());
+            OffsetDateTime finishedAt = OffsetDateTime.now(clock);
+            EngineExecutionState state=switch(workerResult.outcome()){case "SUCCEEDED"->EngineExecutionState.SUCCEEDED;case "FAILED"->EngineExecutionState.FAILED;case "CANCELLED"->EngineExecutionState.CANCELLED;default->throw failure("WORKER_PROTOCOL_ERROR","Karate worker result is invalid");};
+            return new EngineExecutionResult(validated.executionId(), ENGINE_ID, IMPLEMENTATION_VERSION,
+                    validated.preparedSource().workspaceId(), validated.preparedSource().resolvedRevision(),
+                    state, startedAt, finishedAt, Duration.between(startedAt, finishedAt));
         } catch (KarateEngineException exception) {
             throw exception;
         } catch (RuntimeException exception) {
             throw failure("FEATURE_DISCOVERY_FAILED", "Karate feature discovery failed");
         }
-        OffsetDateTime finishedAt = OffsetDateTime.now(clock);
-        return new EngineExecutionResult(validated.executionId(), ENGINE_ID, IMPLEMENTATION_VERSION,
-                validated.preparedSource().workspaceId(), validated.preparedSource().resolvedRevision(),
-                EngineExecutionState.SUCCEEDED, startedAt, finishedAt,
-                Duration.between(startedAt, finishedAt));
     }
 
     private static KarateEngineException failure(String code, String message) {

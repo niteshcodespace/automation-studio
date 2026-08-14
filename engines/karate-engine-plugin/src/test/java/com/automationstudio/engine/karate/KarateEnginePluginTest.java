@@ -42,6 +42,6 @@ class KarateEnginePluginTest {
     }
 
     private static KarateEnginePlugin plugin() {
-        return new KarateEnginePlugin(java.time.Clock.systemUTC(), new KarateFeatureDiscovery(), (id, source, paths) -> {});
+        return new KarateEnginePlugin(java.time.Clock.systemUTC(), new KarateFeatureDiscovery(), (id, source, projected, features, configuration, variables, base) -> new KarateWorkerRuntime.WorkerExecutionResult("SUCCEEDED",1,1,1,0,"NONE"));
     }
 }

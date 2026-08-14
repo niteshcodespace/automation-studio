@@ -11,23 +11,12 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>5.11.4</junit.version>
-        <karate.version>1.5.2</karate.version>
     </properties>
     <dependencies>
         <dependency>
             <groupId>com.automationstudio</groupId>
             <artifactId>engine-plugin-sdk</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.automationstudio</groupId>
-            <artifactId>karate-worker-runtime</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.karatelabs</groupId>
-            <artifactId>karate-core</artifactId>
-            <version>${karate.version}</version>
         </dependency>
         <dependency>
             <groupId>com.automationstudio</groupId>

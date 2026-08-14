@@ -15,6 +15,7 @@
         <module>engines/sample-engine-plugin</module>
         <module>engines/rest-assured-engine-plugin</module>
         <module>engines/karate-worker-runtime</module>
+        <module>engines/karate-gateway-runtime</module>
         <module>engines/karate-engine-plugin</module>
         <module>backend/studio-api</module>
     </modules>

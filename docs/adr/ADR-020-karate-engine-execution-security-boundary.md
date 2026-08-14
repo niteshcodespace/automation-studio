@@ -49,21 +49,31 @@ no supported provider replacement hook.
 Each invocation uses a pinned short-lived Linux worker container with a fixed minimal classpath,
 non-root user, read-only root, dropped capabilities, no-new-privileges, no Docker socket, scrubbed
 environment and system properties, PID/memory/CPU/disk limits, an enforced syscall/LSM policy that
-prevents feature-triggered executable launches, and execution-local tmpfs. The
+confines feature-triggered process activity to the worker, and execution-local tmpfs. The
 worker cannot see platform classes, services, credentials, workspaces, or host paths. This is
 least-authority containment for trusted source, not hostile multi-tenant sandbox certification.
 
 ### JavaScript and host authority
 
-The minimum normal Karate DSL and JavaScript needed for API composition and assertions may be
-enabled. `karate-config.js` and called features obey the same source, network, secret, and resource
-policy. Dynamic evaluation is disabled unless AS-030C proves a bounded implementation.
+The isolated disposable worker container, not the Karate JavaScript runtime, is the Java and
+process authority boundary. The minimum normal Karate DSL and JavaScript needed for API composition
+and assertions may be enabled. `karate-config.js` and called features obey the same source, network,
+secret, and resource policy. Dynamic evaluation remains disabled unless AS-030C proves a bounded
+implementation.
 
-Arbitrary Java host interop, `Java.type`, reflection, classloader access, platform/Spring service
-access, environment/system-property access, native loading, shell commands, child processes, and
-runtime classpath extension are prohibited. Enforceability is an AS-030C gate: if the selected
-runtime cannot impose these controls in-process. That gate failed for Karate 1.5.2; execution may
-resume only after the isolated worker boundary is implemented and verified.
+Runtime-local Java interoperability and process APIs, including `Java.type`, `karate.exec`, and
+`karate.fork`, may exist inside the worker. Their existence is not itself a violation. They must not
+provide access to Automation Studio runner, SDK, backend or Spring classes and services; runner or
+host filesystems; host environment, system properties or credentials; Docker control; host process
+authority; unrestricted network; cross-execution state; persistent state; native or classpath
+extension outside the fixed worker image. Source filtering is not a security control.
+
+These restrictions are enforced externally by a minimal worker-only classpath, non-root identity,
+dropped Linux capabilities, no-new-privileges, no host mounts or Docker socket, scrubbed environment
+and JVM properties, read-only root, physical source sealing, separate bounded writable runtime/tmp,
+restricted process namespace and PID/resource ceilings, enforced seccomp and applicable LSM policy,
+and deterministic execution-scoped cleanup. Failure to enforce any required control blocks real
+execution.
 
 ### Filesystem and source boundary
 
@@ -80,8 +90,14 @@ The worker network namespace can reach only a platform-owned per-execution egres
 egress is denied. The gateway normalizes and authorizes every HTTP(S) origin and attempt, resolves
 and validates all DNS answers, opens the connection to one selected validated address without a
 second resolver lookup, preserves the authorized hostname for upstream TLS/SNI verification,
-reauthorizes redirects, rejects implicit or feature-selected proxies and insecure TLS, and bounds
-request, response, decompression and deadline resources.
+rejects implicit or feature-selected proxies and insecure TLS, and bounds request, response,
+decompression and deadline resources.
+
+AS-030C3 v1 rejects redirects and disables library-level automatic redirect following. If redirect
+support is approved later, every `Location` is returned to the gateway authorization layer and the
+normalized target, origin, DNS answers and selected connection address are independently authorized
+within a strict hop ceiling before another upstream connection. No library may follow a redirect
+outside that path.
 
 For HTTPS the gateway terminates the worker-side connection with an execution-scoped trust anchor
 and independently validates upstream certificate and hostname, so feature-side trust-all settings
@@ -215,7 +231,7 @@ the provider hides isolation behind `ExecutionEnginePlugin`.
 
 - Karate UI/browser, WebDriver, CDP, desktop, mobile, and image automation;
 - hostile-source/multi-tenant sandbox certification and general container orchestration;
-- arbitrary Java extensions, shell/process execution, and runtime dependency loading;
+- additional Java/runtime dependencies and process authority outside the fixed disposable worker;
 - mock servers, inbound listeners, performance/load testing, and non-HTTP protocols;
 - new SDK capabilities, only if separately justified by provider-neutral evidence;
 - per-scenario persistence or public API changes; and

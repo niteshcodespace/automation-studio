@@ -239,4 +239,6 @@ automation code, not hostile tenant input. The in-process gate failed, so the AP
 only admitted source into an ephemeral worker tmpfs, denies direct worker egress, and routes HTTP
 through an authorization and DNS-pinning gateway. The provider hides worker lifecycle behind the
 unchanged SDK; registry, orchestrator, fencing, persistence, Workspace Manager and AS-028 ownership
-do not change. Karate UI/browser execution remains deferred.
+do not change. The disposable worker, not the Karate JavaScript runtime, is the Java/process
+authority boundary; runtime-local host APIs cannot reach platform classes, host resources or
+persistent state. Karate UI/browser execution remains deferred.

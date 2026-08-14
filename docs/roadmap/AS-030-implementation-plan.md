@@ -144,6 +144,16 @@ rather than a Karate-specific SDK hook.
 
 **Commit boundary:** Minimal enforceable API execution and security mechanism.
 
+### AS-030C3 External Worker Containment Completion
+
+The approved architecture treats the disposable worker container, not Karate's JavaScript runtime,
+as the Java/process authority boundary. C3 now enforces process/seccomp policy, physical read-only
+source sealing, separate bounded writable runtime/tmp, redirect rejection, bounded lifecycle
+commands and exhaustive worker/gateway/network cleanup. A real-container proof covers the external
+worker containment boundary. The implementation security, architecture and compatibility reviews
+are `NONE`; verification results are recorded in the development log.
+Secrets, parallelism, artifacts, production registration, and AS-030D/E/F remain excluded.
+
 ## AS-030D - Secret Injection and Bounded Parallel Scenarios
 
 **Objective:** Add sink-scoped credentials and controlled scenario concurrency without leakage or
