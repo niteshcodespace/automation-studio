@@ -1,6 +1,7 @@
 package com.automationstudio.engine.karate;
 
 import com.automationstudio.engine.sdk.PreparedSourceAccess;
+import com.automationstudio.engine.sdk.ExecutionSecretAccess;
 import java.io.*;import java.nio.charset.StandardCharsets;import java.security.MessageDigest;import java.time.*;import java.util.*;import java.util.concurrent.*;
 
 /** Owns the execution-scoped internal network, gateway, worker, IPC, deadline, and cleanup. */
@@ -8,17 +9,18 @@ final class DockerKarateWorkerRuntime implements KarateWorkerRuntime {
     private final String workerImage,gatewayImage;private final WorkerLimits limits;private final CommandRunner commands;
     DockerKarateWorkerRuntime(){this(requiredImage("automation.karate.worker.image","WORKER_IMAGE_NOT_CONFIGURED"),requiredImage("automation.karate.gateway.image","GATEWAY_IMAGE_NOT_CONFIGURED"),WorkerLimits.defaults(),new ProcessCommandRunner());}
     DockerKarateWorkerRuntime(String workerImage,String gatewayImage,WorkerLimits limits,CommandRunner commands){this.workerImage=Objects.requireNonNull(workerImage);this.gatewayImage=Objects.requireNonNull(gatewayImage);this.limits=Objects.requireNonNull(limits);this.commands=Objects.requireNonNull(commands);}
-    @Override public WorkerExecutionResult execute(UUID id,PreparedSourceAccess source,List<String> projected,List<String> features,KarateSuiteConfiguration configuration,Map<String,String> variables,String baseUrl){
-        String suffix=id.toString().replace("-","");String worker="as-karate-"+suffix,gateway="as-karate-gateway-"+suffix,network="as-karate-net-"+suffix;boolean networkCreated=false,gatewayCreated=false,workerCreated=false;Process process=null;long deadline=Instant.now().plus(limits.wallTime()).toEpochMilli();
+    @Override public WorkerExecutionResult execute(UUID id,PreparedSourceAccess source,List<String> projected,List<String> features,KarateSuiteConfiguration configuration,Map<String,String> variables,String baseUrl,ExecutionSecretAccess secretAccess){
+        String suffix=id.toString().replace("-","");String worker="as-karate-"+suffix,gateway="as-karate-gateway-"+suffix,network="as-karate-net-"+suffix;boolean networkCreated=false,gatewayCreated=false,workerCreated=false;Process process=null,gatewayProcess=null;long deadline=Instant.now().plus(limits.wallTime()).toEpochMilli();
         try{
             require(commands.run(DockerGatewayCommand.networkCreate(network,suffix),Duration.ofSeconds(30),limits.maxStderrBytes()),"GATEWAY_NETWORK_FAILED");networkCreated=true;
             require(commands.run(DockerGatewayCommand.create(gateway,gatewayImage,id,baseUrl,deadline,limits,false),Duration.ofSeconds(30),limits.maxStderrBytes()),"GATEWAY_START_FAILED");gatewayCreated=true;
             require(commands.run(DockerGatewayCommand.connect(network,gateway),Duration.ofSeconds(15),limits.maxStderrBytes()),"GATEWAY_NETWORK_FAILED");require(commands.run(DockerGatewayCommand.start(gateway),Duration.ofSeconds(15),limits.maxStderrBytes()),"GATEWAY_START_FAILED");
+            gatewayProcess=commands.start(DockerGatewayCommand.attach(gateway));Process brokerProcess=gatewayProcess;Thread.ofVirtual().name("karate-secret-broker").start(()->{try{new GatewaySecretBroker(secretAccess,configuration).serve(brokerProcess);}catch(IOException ignored){}});
             require(commands.run(DockerWorkerCommand.create(worker,network,workerImage,limits),Duration.ofSeconds(30),limits.maxStderrBytes()),"WORKER_START_FAILED");workerCreated=true;
             process=commands.start(DockerWorkerCommand.attach(worker));Process active=process;
             try(var executor=Executors.newVirtualThreadPerTaskExecutor()){Future<WorkerExecutionResult> exchange=executor.submit(()->exchange(id,source,projected,features,configuration,variables,"http://"+gateway+":8080/dispatch",active));try{WorkerExecutionResult result=exchange.get(limits.wallTime().toMillis(),TimeUnit.MILLISECONDS);if(!process.waitFor(limits.stopGrace().toMillis(),TimeUnit.MILLISECONDS)||process.exitValue()!=0)throw failure("WORKER_EXIT_FAILED");return result;}catch(TimeoutException e){exchange.cancel(true);throw failure("EXECUTION_TIMEOUT");}catch(ExecutionException e){if(e.getCause() instanceof KarateEngineException k)throw k;throw failure("WORKER_PROTOCOL_ERROR");}}
         }catch(InterruptedException e){Thread.currentThread().interrupt();return new WorkerExecutionResult("CANCELLED",0,0,0,0,"EXECUTION_CANCELLED");}catch(IOException e){throw failure("WORKER_RUNTIME_ERROR");}
-        finally{if(process!=null){try{process.getOutputStream().close();}catch(IOException ignored){}if(process.isAlive())process.destroyForcibly();}cleanupAll(worker,workerCreated,gateway,gatewayCreated,network,networkCreated);}
+        finally{if(process!=null){try{process.getOutputStream().close();}catch(IOException ignored){}if(process.isAlive())process.destroyForcibly();}if(gatewayProcess!=null){try{gatewayProcess.getOutputStream().close();}catch(IOException ignored){}if(gatewayProcess.isAlive())gatewayProcess.destroyForcibly();}cleanupAll(worker,workerCreated,gateway,gatewayCreated,network,networkCreated);}
     }
     private WorkerExecutionResult exchange(UUID id,PreparedSourceAccess source,List<String> projected,List<String> features,KarateSuiteConfiguration configuration,Map<String,String> variables,String gateway,Process process)throws IOException{
         OutputStream out=process.getOutputStream();InputStream in=new BoundedInputStream(process.getInputStream(),limits.maxStdoutBytes());send(out,WorkerProtocol.Message.of("HELLO",id));expect(in,"READY",id);long aggregate=0;

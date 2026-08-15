@@ -66,7 +66,7 @@ public final class KarateEnginePlugin implements ExecutionEnginePlugin {
             var projected = discovery.projectedFiles(source, configuration);
             var workerResult=workerRuntime.execute(validated.executionId(), source, projected, features,
                     configuration, configuration.composeVariables(validated.context().variables()),
-                    validated.context().environmentBaseUrl());
+                    validated.context().environmentBaseUrl(),validated.secretAccess());
             OffsetDateTime finishedAt = OffsetDateTime.now(clock);
             EngineExecutionState state=switch(workerResult.outcome()){case "SUCCEEDED"->EngineExecutionState.SUCCEEDED;case "FAILED"->EngineExecutionState.FAILED;case "CANCELLED"->EngineExecutionState.CANCELLED;default->throw failure("WORKER_PROTOCOL_ERROR","Karate worker result is invalid");};
             return new EngineExecutionResult(validated.executionId(), ENGINE_ID, IMPLEMENTATION_VERSION,

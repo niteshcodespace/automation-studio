@@ -37,7 +37,7 @@ final class GatewayTransport {
     }
     private static HttpUriRequest build(GatewayTargetPolicy.Authorized target,Request request){
         String method=request.method().toUpperCase(Locale.ROOT);if(!Set.of("GET","HEAD","POST","PUT","PATCH","DELETE","OPTIONS").contains(method))throw fail("GATEWAY_METHOD_DENIED");
-        var b=RequestBuilder.create(method).setUri(target.uri());int count=0;for(var e:request.headers().entrySet()){String name=e.getKey().toLowerCase(Locale.ROOT);if(++count>128||Set.of("host","connection","proxy-connection","proxy-authorization","authorization","cookie","transfer-encoding","upgrade","forwarded").contains(name))throw fail("GATEWAY_REQUEST_HEADERS_DENIED");for(String value:e.getValue()){if(value.length()>4096||control(value)||control(name))throw fail("GATEWAY_REQUEST_HEADERS_DENIED");b.addHeader(e.getKey(),value);}}
+        var b=RequestBuilder.create(method).setUri(target.uri());int count=0;for(var e:request.headers().entrySet()){String name=e.getKey().toLowerCase(Locale.ROOT);if(++count>128||Set.of("host","connection","proxy-connection","proxy-authorization","cookie","transfer-encoding","upgrade","forwarded").contains(name))throw fail("GATEWAY_REQUEST_HEADERS_DENIED");for(String value:e.getValue()){if(value.length()>4096||control(value)||control(name))throw fail("GATEWAY_REQUEST_HEADERS_DENIED");b.addHeader(e.getKey(),value);}}
         if(request.body().length>MAX_REQUEST)throw fail("GATEWAY_REQUEST_LIMIT");if(request.body().length>0)b.setEntity(new ByteArrayEntity(request.body()));return b.build();
     }
     private static String first(Map<String,List<String>> h,String k){var v=h.get(k);return v==null||v.isEmpty()?null:v.getFirst();}

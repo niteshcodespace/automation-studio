@@ -16,11 +16,12 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 class DockerWorkerContainmentIntegrationTest {
     @Test void confinesWorkerLocalJavaAndProcessAuthority() throws Exception {
         String image=required("automation.karate.worker.image"),gatewayImage=required("automation.karate.gateway.image");UUID id=UUID.randomUUID();String suffix=id.toString().replace("-","");
-        String network="as-karate-net-"+suffix,worker="as-karate-"+suffix,gateway="as-karate-gateway-"+suffix;Process attached=null;
+        String network="as-karate-net-"+suffix,worker="as-karate-"+suffix,gateway="as-karate-gateway-"+suffix;Process attached=null,gatewayAttached=null;
         try {
             run(List.of("docker","network","create","--internal","--label","automation-studio.execution="+suffix,network));
             run(DockerGatewayCommand.create(gateway,gatewayImage,id,"http://localhost:1",System.currentTimeMillis()+120_000,WorkerLimits.defaults(),true));
             run(DockerGatewayCommand.connect(network,gateway));run(DockerGatewayCommand.start(gateway));
+            gatewayAttached=new ProcessBuilder(DockerGatewayCommand.attach(gateway)).redirectError(ProcessBuilder.Redirect.INHERIT).start();Process gatewayBroker=gatewayAttached;Thread.ofVirtual().start(()->serveNone(gatewayBroker));
             run(DockerWorkerCommand.create(worker,network,image,WorkerLimits.defaults()));
             String inspect=run(List.of("docker","inspect","-f","{{.Config.User}}|{{.Config.OpenStdin}}|{{.HostConfig.ReadonlyRootfs}}|{{.HostConfig.PidMode}}|{{.HostConfig.PidsLimit}}|{{.HostConfig.Privileged}}|{{json .HostConfig.CapDrop}}|{{json .HostConfig.SecurityOpt}}|{{json .Mounts}}",worker));
             assertTrue(inspect.contains("10001:10001|true|true||128|false|[\"ALL\"]"));assertTrue(inspect.contains("no-new-privileges:true"));assertTrue(inspect.contains("seccomp=builtin"));assertTrue(inspect.endsWith("|[]"));
@@ -34,7 +35,7 @@ class DockerWorkerContainmentIntegrationTest {
             WorkerProtocol.Message result=expect(in,"EXECUTION_RESULT",id);assertEquals("SUCCEEDED",result.fields().get("outcome"),result.fields().toString());
             send(out,WorkerProtocol.Message.of("SHUTDOWN",id));expect(in,"BYE",id);out.close();assertTrue(attached.waitFor(15,TimeUnit.SECONDS));assertEquals(0,attached.exitValue());
         } finally {
-            if(attached!=null&&attached.isAlive())attached.destroyForcibly();bestEffort(List.of("docker","rm","-f",worker));bestEffort(List.of("docker","rm","-f",gateway));bestEffort(List.of("docker","network","rm",network));
+            if(attached!=null&&attached.isAlive())attached.destroyForcibly();if(gatewayAttached!=null&&gatewayAttached.isAlive())gatewayAttached.destroyForcibly();bestEffort(List.of("docker","rm","-f",worker));bestEffort(List.of("docker","rm","-f",gateway));bestEffort(List.of("docker","network","rm",network));
         }
         assertNotEquals(0,exit(List.of("docker","container","inspect",worker)));assertNotEquals(0,exit(List.of("docker","container","inspect",gateway)));assertNotEquals(0,exit(List.of("docker","network","inspect",network)));
     }
@@ -83,4 +84,6 @@ class DockerWorkerContainmentIntegrationTest {
     private static String run(List<String> command)throws Exception{Process p=new ProcessBuilder(command).redirectErrorStream(true).start();String output;try(var in=p.getInputStream()){output=new String(in.readAllBytes(),StandardCharsets.UTF_8).trim();}assertTrue(p.waitFor(Duration.ofSeconds(30).toMillis(),TimeUnit.MILLISECONDS),command.toString());assertEquals(0,p.exitValue(),output);return output;}
     private static int exit(List<String> command)throws Exception{Process p=new ProcessBuilder(command).redirectErrorStream(true).start();try(var in=p.getInputStream()){in.readAllBytes();}assertTrue(p.waitFor(15,TimeUnit.SECONDS));return p.exitValue();}
     private static void bestEffort(List<String> command){try{exit(command);}catch(Exception ignored){}}
+    private static void serveNone(Process gateway){try(var in=new DataInputStream(gateway.getInputStream());var out=new DataOutputStream(gateway.getOutputStream())){brokerText(out,"NONE");brokerText(out,"");out.flush();while(in.readInt()==1){out.writeInt(0);out.writeInt(0);out.flush();}}catch(IOException ignored){}}
+    private static void brokerText(DataOutputStream out,String value)throws IOException{byte[] bytes=value.getBytes(StandardCharsets.UTF_8);out.writeInt(bytes.length);out.write(bytes);}
 }

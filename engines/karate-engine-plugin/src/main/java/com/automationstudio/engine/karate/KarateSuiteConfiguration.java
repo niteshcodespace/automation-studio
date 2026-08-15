@@ -10,6 +10,7 @@ import java.util.regex.Pattern;
 public record KarateSuiteConfiguration(
         String featureRoot, List<String> includeTags, List<String> excludeTags,
         Map<String, String> variables, Map<String, String> secretReferences,
+        Authentication authentication,
         int maxFeatures, int maxDepth, int maxEntriesPerDirectory,
         long maxFeatureBytes, long maxAggregateBytes) {
 
@@ -20,7 +21,7 @@ public record KarateSuiteConfiguration(
     }
 
     private static final Set<String> FIELDS = Set.of("schemaVersion", "featureRoot", "includeTags",
-            "excludeTags", "variables", "secretReferences", "limits");
+            "excludeTags", "variables", "secretReferences", "authentication", "limits");
     private static final Set<String> LIMIT_FIELDS = Set.of("maxFeatures", "maxDepth",
             "maxEntriesPerDirectory", "maxFeatureBytes", "maxAggregateBytes");
     private static final Pattern PATH = Pattern.compile("[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*");
@@ -43,7 +44,8 @@ public record KarateSuiteConfiguration(
             throw failure("AMBIGUOUS_TAG_SELECTION", "Karate tag selection is ambiguous");
         }
         Map<String, String> variables = names(values.get("variables"), 64, 1024, true);
-        Map<String, String> secrets = names(values.get("secretReferences"), 32, 256, false);
+        Map<String, String> secrets = secretNames(values.get("secretReferences"));
+        Authentication authentication = Authentication.parse(values.get("authentication"), secrets.keySet());
         Map<String, Object> limits = objectMap(values.get("limits"));
         if (!LIMIT_FIELDS.containsAll(limits.keySet())) throw failure("INVALID_LIMITS", "Karate limits are invalid");
         int features = integer(limits, "maxFeatures", 256, 1, 256);
@@ -52,8 +54,18 @@ public record KarateSuiteConfiguration(
         long featureBytes = integer(limits, "maxFeatureBytes", 1_048_576, 1, 1_048_576);
         long aggregateBytes = integer(limits, "maxAggregateBytes", 33_554_432, 1, 33_554_432);
         if (aggregateBytes < featureBytes) throw failure("INVALID_LIMITS", "Karate limits are invalid");
-        return new KarateSuiteConfiguration(root, include, exclude, variables, secrets,
+        return new KarateSuiteConfiguration(root, include, exclude, variables, secrets, authentication,
                 features, depth, entries, featureBytes, aggregateBytes);
+    }
+
+    record Authentication(Type type,String secretRef,String usernameSecretRef,String placement){
+        enum Type{NONE,BEARER,BASIC,API_KEY_HEADER,API_KEY_QUERY}
+        private static final Set<String> FIELDS=Set.of("type","secretRef","usernameSecretRef","placement");
+        private static final Pattern PLACEMENT=Pattern.compile("[A-Za-z][A-Za-z0-9_-]{0,63}");
+        static Authentication parse(Object raw,Set<String> references){if(raw==null)return new Authentication(Type.NONE,null,null,null);Map<String,Object> map=objectMap(raw);if(!FIELDS.containsAll(map.keySet()))throw failure("AUTH_CONFIGURATION_INVALID","Karate authentication configuration is invalid");Type type;try{type=Type.valueOf(string(map.get("type"),32).toUpperCase(java.util.Locale.ROOT));}catch(RuntimeException e){throw failure("AUTH_CONFIGURATION_INVALID","Karate authentication configuration is invalid");}String secret=optional(map.get("secretRef")),username=optional(map.get("usernameSecretRef")),placement=optional(map.get("placement"));boolean valid=switch(type){case NONE->secret==null&&username==null&&placement==null;case BEARER->reference(secret,references)&&username==null&&placement==null;case BASIC->reference(secret,references)&&reference(username,references)&&placement==null&&!secret.equals(username);case API_KEY_HEADER,API_KEY_QUERY->reference(secret,references)&&username==null&&placement!=null&&PLACEMENT.matcher(placement).matches();};if(!valid||(type==Type.API_KEY_HEADER&&reservedHeader(placement)))throw failure("AUTH_CONFIGURATION_INVALID","Karate authentication configuration is invalid");return new Authentication(type,secret,username,placement);}
+        private static boolean reference(String value,Set<String> references){return value!=null&&references.contains(value);}
+        private static String optional(Object value){return value==null?null:string(value,256);}
+        private static boolean reservedHeader(String value){return Set.of("host","connection","proxy-connection","proxy-authorization","cookie","transfer-encoding","upgrade","forwarded").contains(value.toLowerCase(java.util.Locale.ROOT));}
     }
 
     private static List<String> tags(Object value) {
@@ -79,6 +91,8 @@ public record KarateSuiteConfiguration(
         });
         return Map.copyOf(result);
     }
+
+    private static Map<String,String> secretNames(Object value){if(value==null)return Map.of();Map<String,Object> map=objectMap(value);if(map.size()>32)throw failure("SECRET_REFERENCE_INVALID","Karate secret references are invalid");var result=new java.util.TreeMap<String,String>();map.forEach((name,raw)->{if(!NAME.matcher(name).matches()||RESERVED.matcher(name).matches())throw failure("SECRET_REFERENCE_INVALID","Karate secret references are invalid");try{result.put(name,string(raw,256));}catch(KarateEngineException e){throw failure("SECRET_REFERENCE_INVALID","Karate secret references are invalid");}});return Map.copyOf(result);}
 
     @SuppressWarnings("unchecked")
     private static Map<String, Object> objectMap(Object value) {

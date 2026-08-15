@@ -15,6 +15,7 @@ class KarateSuiteConfigurationTest {
         assertEquals("features", parsed.featureRoot());
         assertEquals(List.of("@smoke"), parsed.includeTags());
         assertEquals("logical-api-key", parsed.secretReferences().get("apiKey"));
+        assertEquals(KarateSuiteConfiguration.Authentication.Type.NONE,parsed.authentication().type());
     }
 
     @Test void rejectsUnknownFieldsAndTraversal() {
@@ -31,8 +32,10 @@ class KarateSuiteConfigurationTest {
 
     @Test void rejectsExcessiveLimitsAndSecretNames() {
         assertEquals("INVALID_LIMITS", failure(Map.of("schemaVersion", "1", "featureRoot", "features", "limits", Map.of("maxDepth", 33))).code());
-        assertEquals("INVALID_BINDINGS", failure(Map.of("schemaVersion", "1", "featureRoot", "features", "secretReferences", Map.of("bad name", "logical"))).code());
+        assertEquals("SECRET_REFERENCE_INVALID", failure(Map.of("schemaVersion", "1", "featureRoot", "features", "secretReferences", Map.of("bad name", "logical"))).code());
     }
+
+    @Test void validatesLogicalAuthenticationDeclarations(){var source=new java.util.LinkedHashMap<String,Object>(KarateTestFixtures.configuration());source.put("authentication",Map.of("type","bearer","secretRef","apiKey"));assertEquals(KarateSuiteConfiguration.Authentication.Type.BEARER,KarateSuiteConfiguration.parse(source).authentication().type());source.put("authentication",Map.of("type","api_key_header","secretRef","missing","placement","X-Key"));assertEquals("AUTH_CONFIGURATION_INVALID",failure(source).code());source.put("authentication",Map.of("type","api_key_header","secretRef","apiKey","placement","Host"));assertEquals("AUTH_CONFIGURATION_INVALID",failure(source).code());}
 
     private KarateEngineException failure(Map<String, Object> configuration) {
         return assertThrows(KarateEngineException.class, () -> KarateSuiteConfiguration.parse(configuration));

@@ -156,6 +156,24 @@ Secrets, parallelism, artifacts, production registration, and AS-030D/E/F remain
 
 ## AS-030D - Secret Injection and Bounded Parallel Scenarios
 
+### AS-030D1 - Execution-Scoped Secret Handling
+
+Implemented using the existing execution-scoped SDK secret capability and the controlled gateway.
+Logical references remain provider-side; authorization, DNS/address validation and collision checks
+precede per-request resolution. Bearer, basic, API-key header and API-key query injection occur only
+inside the gateway immediately before dispatch, with deterministic closure and sanitized failures.
+Worker IPC and execution state contain no secret material. D1 retains sequential execution and does
+not change SDK contracts, orchestration, lifecycle, persistence, artifacts, or registration.
+
+Independent review subsequently found that worker-supplied `Authorization` remained possible in
+none and API-key modes. The D1 remediation now reserves `Authorization` case-insensitively for every
+authentication mode before any broker request. Regression tests cover all five modes, case variants,
+duplicate names, sanitized rejection and the existing API-key header/query collision rules. The
+post-remediation focused D1 reactor passes 63 tests with two skips, and the isolated full reactor
+passes 1,286 tests with 20 skips; both have zero failures and zero errors.
+
+AS-030D2 parallel execution and AS-030D3 combined verification remain unstarted.
+
 **Objective:** Add sink-scoped credentials and controlled scenario concurrency without leakage or
 cross-execution state.
 
