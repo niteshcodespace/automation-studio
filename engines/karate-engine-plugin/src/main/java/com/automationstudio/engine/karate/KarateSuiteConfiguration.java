@@ -1,5 +1,6 @@
 package com.automationstudio.engine.karate;
 
+import java.math.BigInteger;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -10,7 +11,7 @@ import java.util.regex.Pattern;
 public record KarateSuiteConfiguration(
         String featureRoot, List<String> includeTags, List<String> excludeTags,
         Map<String, String> variables, Map<String, String> secretReferences,
-        Authentication authentication,
+        Authentication authentication, int parallelism,
         int maxFeatures, int maxDepth, int maxEntriesPerDirectory,
         long maxFeatureBytes, long maxAggregateBytes) {
 
@@ -21,7 +22,7 @@ public record KarateSuiteConfiguration(
     }
 
     private static final Set<String> FIELDS = Set.of("schemaVersion", "featureRoot", "includeTags",
-            "excludeTags", "variables", "secretReferences", "authentication", "limits");
+            "excludeTags", "variables", "secretReferences", "authentication", "parallelism", "limits");
     private static final Set<String> LIMIT_FIELDS = Set.of("maxFeatures", "maxDepth",
             "maxEntriesPerDirectory", "maxFeatureBytes", "maxAggregateBytes");
     private static final Pattern PATH = Pattern.compile("[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*");
@@ -46,6 +47,7 @@ public record KarateSuiteConfiguration(
         Map<String, String> variables = names(values.get("variables"), 64, 1024, true);
         Map<String, String> secrets = secretNames(values.get("secretReferences"));
         Authentication authentication = Authentication.parse(values.get("authentication"), secrets.keySet());
+        int parallelism = parallelism(values.get("parallelism"));
         Map<String, Object> limits = objectMap(values.get("limits"));
         if (!LIMIT_FIELDS.containsAll(limits.keySet())) throw failure("INVALID_LIMITS", "Karate limits are invalid");
         int features = integer(limits, "maxFeatures", 256, 1, 256);
@@ -54,7 +56,7 @@ public record KarateSuiteConfiguration(
         long featureBytes = integer(limits, "maxFeatureBytes", 1_048_576, 1, 1_048_576);
         long aggregateBytes = integer(limits, "maxAggregateBytes", 33_554_432, 1, 33_554_432);
         if (aggregateBytes < featureBytes) throw failure("INVALID_LIMITS", "Karate limits are invalid");
-        return new KarateSuiteConfiguration(root, include, exclude, variables, secrets, authentication,
+        return new KarateSuiteConfiguration(root, include, exclude, variables, secrets, authentication, parallelism,
                 features, depth, entries, featureBytes, aggregateBytes);
     }
 
@@ -111,6 +113,22 @@ public record KarateSuiteConfiguration(
             throw failure("INVALID_LIMITS", "Karate limits are invalid");
         }
         return number.intValue();
+    }
+
+    private static int parallelism(Object value) {
+        if (value == null) return 1;
+        BigInteger integer;
+        if (value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long) {
+            integer = BigInteger.valueOf(((Number) value).longValue());
+        } else if (value instanceof BigInteger bigInteger) {
+            integer = bigInteger;
+        } else {
+            throw failure("INVALID_PARALLELISM", "Karate parallelism is invalid");
+        }
+        if (integer.compareTo(BigInteger.ONE) < 0 || integer.compareTo(BigInteger.valueOf(8)) > 0) {
+            throw failure("INVALID_PARALLELISM", "Karate parallelism is invalid");
+        }
+        return integer.intValue();
     }
 
     private static String string(Object value, int maximum) {

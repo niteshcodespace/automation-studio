@@ -1,6 +1,7 @@
 package com.automationstudio.engine.karate;
 
 import static org.junit.jupiter.api.Assertions.*;
+import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -35,9 +36,30 @@ class KarateSuiteConfigurationTest {
         assertEquals("SECRET_REFERENCE_INVALID", failure(Map.of("schemaVersion", "1", "featureRoot", "features", "secretReferences", Map.of("bad name", "logical"))).code());
     }
 
+    @Test void acceptsBoundedParallelismAndDefaultsAbsentToSequential() {
+        assertEquals(1, KarateSuiteConfiguration.parse(configurationWithParallelism(null)).parallelism());
+        assertEquals(1, KarateSuiteConfiguration.parse(configurationWithParallelism(1)).parallelism());
+        assertEquals(2, KarateSuiteConfiguration.parse(configurationWithParallelism(2)).parallelism());
+        assertEquals(8, KarateSuiteConfiguration.parse(configurationWithParallelism(8)).parallelism());
+    }
+
+    @Test void rejectsInvalidParallelismWithSanitizedDeterministicFailure() {
+        for (Object value : List.of(0, -1, 9, "malformed", 2.0, BigInteger.ONE.shiftLeft(100))) {
+            var failure = failure(configurationWithParallelism(value));
+            assertEquals("INVALID_PARALLELISM", failure.code());
+            assertEquals("Karate parallelism is invalid", failure.getMessage());
+        }
+    }
+
     @Test void validatesLogicalAuthenticationDeclarations(){var source=new java.util.LinkedHashMap<String,Object>(KarateTestFixtures.configuration());source.put("authentication",Map.of("type","bearer","secretRef","apiKey"));assertEquals(KarateSuiteConfiguration.Authentication.Type.BEARER,KarateSuiteConfiguration.parse(source).authentication().type());source.put("authentication",Map.of("type","api_key_header","secretRef","missing","placement","X-Key"));assertEquals("AUTH_CONFIGURATION_INVALID",failure(source).code());source.put("authentication",Map.of("type","api_key_header","secretRef","apiKey","placement","Host"));assertEquals("AUTH_CONFIGURATION_INVALID",failure(source).code());}
 
     private KarateEngineException failure(Map<String, Object> configuration) {
         return assertThrows(KarateEngineException.class, () -> KarateSuiteConfiguration.parse(configuration));
+    }
+
+    private Map<String, Object> configurationWithParallelism(Object parallelism) {
+        var configuration = new java.util.LinkedHashMap<String, Object>(KarateTestFixtures.configuration());
+        if (parallelism != null) configuration.put("parallelism", parallelism);
+        return configuration;
     }
 }

@@ -172,7 +172,13 @@ duplicate names, sanitized rejection and the existing API-key header/query colli
 post-remediation focused D1 reactor passes 63 tests with two skips, and the isolated full reactor
 passes 1,286 tests with 20 skips; both have zero failures and zero errors.
 
-AS-030D2 parallel execution and AS-030D3 combined verification remain unstarted.
+AS-030D2 runtime execution and AS-030D3 combined verification remain unstarted. The D2
+configuration architecture is defined: provider-local suite field `parallelism` accepts only
+integers `1..8` and defaults to `1`; provider-owned worker limits supply a runner maximum no greater
+than `8`; effective parallelism is the minimum of the suite request, runner maximum, and hard
+ceiling. External-call concurrency equals that effective value. Runtime implementation must retain
+one worker, gateway, network, lifecycle, and shared deadline, aggregate every selected scenario,
+and map any assertion failure to `FAILED`. No concurrent scheduling is active at this checkpoint.
 
 **Objective:** Add sink-scoped credentials and controlled scenario concurrency without leakage or
 cross-execution state.

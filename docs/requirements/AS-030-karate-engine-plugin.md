@@ -213,10 +213,22 @@ into native result state, that authentication form is blocked.
 
 ## 14. Parallelism, timeouts, cancellation, and resources
 
-Suite-requested parallelism is optional and must be a positive integer at or below an immutable
-operator ceiling. The v1 default operator ceiling is 8 concurrent scenarios and 8 concurrent
-external calls per execution. A runner may lower it based on capacity; feature code cannot raise
-or bypass it.
+The optional top-level Karate suite field `parallelism` is the sole suite-owned concurrency
+request. It is an integer in `1..8`; absence means requested parallelism `1`, preserving sequential
+behavior for existing suites. Zero, negative, above-ceiling, malformed, non-integral, overflowing,
+and otherwise unsupported values fail configuration validation and are never clamped.
+
+Provider-owned immutable worker limits hold the distinct runner/runtime maximum, which defaults to
+the v1 hard ceiling `8` and may be lowered by runner capacity. The effective value is
+`min(suiteRequestedParallelism, runnerMaximumParallelism, 8)`: runtime policy may lower but never
+raise the suite request. Effective external-call concurrency equals effective scenario parallelism,
+so it cannot remain independently at eight when scenario concurrency is lower.
+
+D2 retains one execution-scoped worker, gateway, Docker network, lifecycle, and shared execution
+deadline. Every selected scenario belongs to that execution; results are correlated independently
+of completion order, and any selected scenario assertion failure makes the execution `FAILED`.
+This configuration contract is defined before runtime activation; execution remains sequential
+until AS-030D2 runtime implementation is separately approved and completed.
 
 Additional maximum default ceilings are:
 

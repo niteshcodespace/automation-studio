@@ -131,6 +131,14 @@ maximum default is eight parallel scenarios/external calls, with lower runner-sp
 allowed. Requirements also cap discovery, scenarios, file/aggregate bytes, execution/request
 duration, response/log/report bytes, artifact count, call depth, queues, streams, and workers.
 
+The Karate-local suite field `parallelism` is the single request authority, accepts only integers
+`1..8`, and defaults to `1`. Provider-owned immutable worker limits are the separate runner maximum.
+Effective parallelism is `min(suiteRequestedParallelism, runnerMaximumParallelism, 8)`, and
+effective external-call concurrency is exactly that same value; neither feature code nor external
+calls can amplify concurrency. This does not multiply containment resources: one execution keeps
+one worker, one gateway, one network, and one shared deadline. D2 runtime scheduling remains
+unimplemented at this configuration checkpoint.
+
 The isolated sequential C2/C3 foundation uses operator-lowerable maximums: 30-minute wall time,
 one CPU core quota, 768 MiB container memory with a 512 MiB JVM heap, 128 PIDs/threads, 64 MiB
 tmpfs, 32 MiB aggregate projected source, 1 MiB per source/IPC frame, 40 MiB aggregate input, 1 MiB
