@@ -172,8 +172,9 @@ duplicate names, sanitized rejection and the existing API-key header/query colli
 post-remediation focused D1 reactor passes 63 tests with two skips, and the isolated full reactor
 passes 1,286 tests with 20 skips; both have zero failures and zero errors.
 
-AS-030D2 runtime execution and verification are complete; AS-030D3 combined verification remains
-unstarted. The D2 configuration architecture remains unchanged: provider-local suite field `parallelism` accepts only
+AS-030D2 implementation and D-stage combined verification are complete. The prior AS-030D3 wording
+was a planning/progress placeholder, not a separate executable story; AS-030F is the next mandatory
+AS-030 story. The D2 configuration architecture remains unchanged: provider-local suite field `parallelism` accepts only
 integers `1..8` and defaults to `1`; provider-owned worker limits supply a runner maximum no greater
 than `8`; effective parallelism is the minimum of the suite request, runner maximum, and hard
 ceiling. The provider calculates that value once and supplies it to Karate's native scenario
