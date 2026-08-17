@@ -6,17 +6,19 @@ import java.util.*;
 /** Exact-origin authorization with fail-closed special-address validation. */
 final class GatewayTargetPolicy {
     interface Resolver { InetAddress[] resolve(String host) throws UnknownHostException; }
-    private final Origin admitted; private final boolean allowNonGlobal; private final Resolver resolver;
-    GatewayTargetPolicy(String baseUrl, boolean allowNonGlobal) { this(baseUrl, allowNonGlobal, InetAddress::getAllByName); }
-    GatewayTargetPolicy(String baseUrl, boolean allowNonGlobal, Resolver resolver) {
-        this.admitted=Origin.from(parse(baseUrl)); this.allowNonGlobal=allowNonGlobal; this.resolver=Objects.requireNonNull(resolver);
+    enum AddressPolicy { GLOBAL_ONLY, LOOPBACK_ONLY_TEST }
+    private final Origin admitted; private final AddressPolicy addressPolicy; private final Resolver resolver;
+    GatewayTargetPolicy(String baseUrl, AddressPolicy addressPolicy) { this(baseUrl, addressPolicy, InetAddress::getAllByName); }
+    GatewayTargetPolicy(String baseUrl, AddressPolicy addressPolicy, Resolver resolver) {
+        this.admitted=Origin.from(parse(baseUrl)); this.addressPolicy=Objects.requireNonNull(addressPolicy); this.resolver=Objects.requireNonNull(resolver);
     }
     Authorized authorize(String raw) {
         URI uri=parse(raw); Origin origin=Origin.from(uri); if(!origin.equals(admitted)) fail("GATEWAY_TARGET_DENIED");
         try {
             InetAddress[] answers=resolver.resolve(origin.host());
             if(answers.length==0) fail("GATEWAY_DNS_DENIED");
-            if(!allowNonGlobal && Arrays.stream(answers).anyMatch(a -> !global(a))) fail("GATEWAY_ADDRESS_DENIED");
+            boolean valid=addressPolicy==AddressPolicy.GLOBAL_ONLY?Arrays.stream(answers).allMatch(GatewayTargetPolicy::global):Arrays.stream(answers).allMatch(InetAddress::isLoopbackAddress);
+            if(!valid) fail("GATEWAY_ADDRESS_DENIED");
             return new Authorized(uri,origin.host(),List.copyOf(Arrays.asList(answers)));
         } catch(UnknownHostException e) { throw new GatewayFailure("GATEWAY_DNS_DENIED"); }
     }

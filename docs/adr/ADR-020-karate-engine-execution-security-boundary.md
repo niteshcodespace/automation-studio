@@ -2,8 +2,19 @@
 
 ## Status
 
-Accepted by AS-030A and amended by the AS-030C1 blocker resolution. AS-030A and AS-030B are
-committed on `feature/AS-030-karate-engine-plugin`; runtime implementation has not resumed.
+Accepted by AS-030A, amended by the AS-030C1 blocker resolution, and implemented through AS-030C,
+AS-030D1/D2, AS-030E, and AS-030F. The earlier post-AS-030B checkpoint, at which runtime
+implementation had not yet resumed, is retained in repository history rather than representing the
+current status. AS-030F canonical verification and final executable security, architecture, and
+compatibility reviews are complete; independent documentation/closure re-verification remains.
+
+AS-030F addendum: production gateway admission is immutable provider-owned `GLOBAL_ONLY`. Only the
+inert canonical test explicitly constructs `LOOPBACK_ONLY_TEST`; it admits loopback and rejects
+private, site-local, link-local, and global addresses. This is not public configuration and does
+not alter the SDK, registry, orchestration, D1, D2, lifecycle, persistence, or AS-028 ownership.
+The exact-revision feature proof uses one worker, gateway, and execution network and publishes only
+its sanitized report through AS-028. Its test-only repository-root correction makes Docker context
+resolution independent of Maven's module working directory; no production behavior changed.
 
 ## Context
 

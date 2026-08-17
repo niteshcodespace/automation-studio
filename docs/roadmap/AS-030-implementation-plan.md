@@ -233,6 +233,8 @@ new persistence/migration/API, runtime plugin loading, UI/browser.
 
 ## AS-030F - Feature Verification and Documentation Reconciliation
 
+**Status:** Implemented and ready for independent verification after final isolated verification.
+
 **Objective:** Prove the full approved feature and reconcile repository authority.
 
 **Scope:** One inert exact-revision feature set proving discovery, tags, variables, a test secret,
@@ -250,6 +252,13 @@ without separate approval.
 **Dependency:** Accepted AS-030E.
 
 **Commit boundary:** Feature-level proof and documentation reconciliation only.
+
+The canonical inert fixture proves the exact-revision registry/orchestrator/provider/Docker
+worker/gateway/AS-028 path. Its initial blocker was a test-only working-directory assumption that
+placed engine contexts beneath `backend/studio-api`; bounded repository-root discovery corrected
+the fixture without changing production. Production remains immutable `GLOBAL_ONLY`; the fixture
+alone selects loopback-only `LOOPBACK_ONLY_TEST`. The requirements document owns the acceptance
+matrix and the development log owns measured final verification totals.
 
 ## Principal risks and stop conditions
 

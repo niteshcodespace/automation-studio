@@ -19,7 +19,7 @@ class DockerWorkerContainmentIntegrationTest {
         String network="as-karate-net-"+suffix,worker="as-karate-"+suffix,gateway="as-karate-gateway-"+suffix;Process attached=null,gatewayAttached=null;
         try {
             run(List.of("docker","network","create","--internal","--label","automation-studio.execution="+suffix,network));
-            run(DockerGatewayCommand.create(gateway,gatewayImage,id,"http://localhost:1",System.currentTimeMillis()+120_000,1,WorkerLimits.defaults(),true));
+            run(DockerGatewayCommand.create(gateway,gatewayImage,id,"http://localhost:1",System.currentTimeMillis()+120_000,1,WorkerLimits.defaults(),GatewayAddressPolicy.LOOPBACK_ONLY_TEST));
             run(DockerGatewayCommand.connect(network,gateway));run(DockerGatewayCommand.start(gateway));
             gatewayAttached=new ProcessBuilder(DockerGatewayCommand.attach(gateway)).redirectError(ProcessBuilder.Redirect.INHERIT).start();Process gatewayBroker=gatewayAttached;Thread.ofVirtual().start(()->serveNone(gatewayBroker));
             run(DockerWorkerCommand.create(worker,network,image,WorkerLimits.defaults()));

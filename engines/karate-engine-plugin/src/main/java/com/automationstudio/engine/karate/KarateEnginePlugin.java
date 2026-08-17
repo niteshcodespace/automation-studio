@@ -26,7 +26,11 @@ public final class KarateEnginePlugin implements ExecutionEnginePlugin {
     private final KarateFeatureDiscovery discovery;
     private final KarateWorkerRuntime workerRuntime;
 
-    public KarateEnginePlugin() { this(Clock.systemUTC(), new KarateFeatureDiscovery(), new DockerKarateWorkerRuntime()); }
+    public KarateEnginePlugin() { this(GatewayAddressPolicy.GLOBAL_ONLY); }
+
+    public KarateEnginePlugin(GatewayAddressPolicy addressPolicy) {
+        this(Clock.systemUTC(), new KarateFeatureDiscovery(), new DockerKarateWorkerRuntime(addressPolicy));
+    }
 
     KarateEnginePlugin(Clock clock, KarateFeatureDiscovery discovery, KarateWorkerRuntime workerRuntime) {
         this.clock = Objects.requireNonNull(clock, "Clock must not be null");

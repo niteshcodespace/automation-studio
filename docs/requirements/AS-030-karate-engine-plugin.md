@@ -368,3 +368,35 @@ process authority outside the fixed worker; mock/listener servers; performance/l
 non-HTTP protocols;
 new persistence or per-scenario history; platform execution retry changes; artifact download,
 viewer, signed URL, S3, retention, malware scanning, or active-content serving; and frontend work.
+
+## 21. AS-030F acceptance evidence
+
+AS-030F closes the mandatory feature-level proof with an inert exact-revision Git fixture. It
+selects `@as030f`, supplies suite and execution variables, resolves an execution-scoped synthetic
+bearer secret three times with deterministic closure, requests parallelism `2`, and runs three
+Scenario Outline rows through the authoritative registry, orchestrator, Docker worker, loopback
+gateway, normalized result, and AS-028 publisher/storage path. Production construction is immutable
+`GLOBAL_ONLY`; only the test-owned provider selects `LOOPBACK_ONLY_TEST`, which admits loopback
+and denies private, site-local, link-local, and global addresses.
+
+The first canonical run exposed a test-only path defect: Docker contexts resolved beneath
+`backend/studio-api`. Bounded parent traversal now validates the root POM, relevant modules,
+normalized absolute contexts, and Dockerfiles. No production behavior changed.
+
+| # / requirement | Owner | Production implementation | Unit / focused tests | Integration / canonical | Security evidence | Architecture evidence | Compatibility / full reactor | Status |
+|---|---|---|---|---|---|---|---|---|
+| 1. API-only provider, unchanged SDK, exact identity | A/E | Static provider identity `karate:1.5.2`; no SDK change | AS-027 and Karate conformance; registration tests | Registry resolves exact provider | Provider-neutral boundary review | Static dependency; one registry | Full reactor covers all providers | PASS |
+| 2. Trusted executable-source boundary | A/C2 | Prepared-source capability and isolated worker | Source projection, protocol, and containment suites | Exact committed Git revision materialized canonically | Executable source explicitly trusted; host authority confined | Workspace Manager retains ownership | Full reactor and exact-source snapshot | PASS |
+| 3. Confined discovery, tags, variables, calls, and reads | B/C1 | Root-confined discovery and strict configuration | Discovery/configuration/provider suites | `@as030f`, suite and execution variables proven | Traversal and unsupported configuration fail closed | Provider owns parsing; SDK unchanged | Focused 84/0/0/2; full reactor green | PASS |
+| 4. Deny Java/process/platform authority | C2 | Fixed non-root worker, no host mounts/socket, fixed entrypoint | Worker protocol, source projection, containment evidence | Canonical execution uses real contained worker | Filesystem, process, capability, and environment restrictions | One provider-owned worker boundary | Linux Docker proof and full reactor | PASS |
+| 5. Controlled outbound HTTP | C3/F | Execution gateway owns origin, DNS, proxy, redirect, TLS, deadline, and bounds | Gateway target, transport, authentication, and policy negatives | Canonical loopback request succeeds only under test policy | Production `GLOBAL_ONLY`; test mode loopback-only | One gateway and execution network | Focused gateway suite and full reactor | PASS |
+| 6. Sink-scoped secrets and closure | D1/F | Post-authorization gateway broker injection | D1 success/failure/retry/cancellation and collision suites | Three bearer resolutions; every value closed | No worker IPC secret, cache, or durable canary | Existing D1 authority unchanged | Focused and full reactor green | PASS |
+| 7. Bounded resources, parallelism, deadline, and cleanup | C2/D2/F | Effective parallelism `min(request, runner, 8)`; shared deadline | Limit, concurrency, timeout, interruption, and cleanup suites | Three rows at request `2`; worker/gateway/network absent afterward | Execution-local permits and fail-closed ceilings | One worker, gateway, network, lifecycle | Focused worker/provider suites; full reactor | PASS |
+| 8. SDK outcome and sanitized diagnostics | C3/D2/E | Native identities aggregate to SDK states | Success, assertion failure, cancellation, duplicate/missing identity tests | Canonical `SUCCEEDED` with counts 1/3/3/0 and exact revision | Stable categories; no native exception/detail leakage | D2 remains sole identity authority | Full reactor covers sequential and parallel behavior | PASS |
+| 9. Reports only through AS-028 | E/F | One allowlisted JSON `REPORT`; native reports prohibited | Report schema, duration, quota, abort, and sanitization suites | Canonical metadata, SHA-256, storage, and leakage proof | Secret, HTTP, path, source, and stack data excluded | AS-028 retains publisher/storage/metadata ownership | Full reactor 1,308/0/0/20 | PASS |
+| 10. Static registry and canonical orchestrator | E/F | Conditional static production bean | Enabled/absent registration and registry tests | Real registry and orchestrator invoke provider | No runtime plugin-loading surface | One registry and canonical orchestrator | studio-api and provider compatibility green | PASS |
+| 11. No schema, SDK, lifecycle, persistence, UI, or second authority | A-F | No migration/API/SDK/persistence change | Cross-provider, lifecycle, artifact, and conformance regressions | Canonical path reuses existing ownership | Final executable security review `NONE` | Final executable architecture review `NONE` | Builtin, Playwright, REST Assured, sample, and full reactor green | PASS |
+| 12. Focused, full-reactor, inert-feature, and documentation closure | F | N/A — criterion 12 is verification and documentation closure; it introduces no production implementation | Focused 84 tests, 0 failures, 0 errors, 2 skips | Exact 799/799 snapshot; canonical proof green | Final executable security review `NONE` | ADR status reconciled; architecture review `NONE` | 183 reports; 1,308/0/0/20; `BUILD SUCCESS` | PASS |
+
+Sanitized JUnit XML and inactive HTML remain `DEFERRED-OPTIONAL`; section 20 exclusions remain
+`EXCLUDED`.
