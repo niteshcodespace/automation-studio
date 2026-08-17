@@ -208,6 +208,9 @@ changes, distributed execution, UI/browser, artifacts, production assembly.
 
 ## AS-030E - Reporting, Static Assembly, and Lifecycle Integration
 
+**Status:** Implemented, duration-integrity blocker remediated, and ready for independent
+re-verification.
+
 **Objective:** Publish sanitized Karate evidence and assemble the provider through the existing
 production registry and orchestration path.
 

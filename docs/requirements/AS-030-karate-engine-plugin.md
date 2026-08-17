@@ -293,6 +293,15 @@ Native unsanitized Karate reports are never automatically published. AS-030E sha
 safe-by-construction evidence from an allowlisted provider-neutral model and publish it only
 through AS-028.
 
+The implemented mandatory AS-030E format is `karate-sanitized-summary.json`. It is constructed
+after normalized worker completion and synchronously proposed to the execution-scoped AS-028
+publisher before the provider returns its SDK result. Optional formats remain disabled unless a
+separate bounded opt-in contract is defined.
+
+The provider must first construct the SDK `EngineExecutionResult`, which remains the sole timing
+validation authority, and only then publish evidence using the validated result state and duration.
+Negative duration must publish zero reports; valid zero and positive durations must be preserved.
+
 Required evidence is one structural `REPORT` using `application/json`, containing schema version,
 engine identity, normalized outcome, bounded feature/scenario counts, duration, and sanitized
 failure categories. It excludes feature text, URLs, query values, request/response bodies and

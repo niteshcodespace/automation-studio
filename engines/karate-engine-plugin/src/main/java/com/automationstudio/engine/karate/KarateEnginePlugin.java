@@ -69,9 +69,14 @@ public final class KarateEnginePlugin implements ExecutionEnginePlugin {
                     validated.context().environmentBaseUrl(),validated.secretAccess());
             OffsetDateTime finishedAt = OffsetDateTime.now(clock);
             EngineExecutionState state=switch(workerResult.outcome()){case "SUCCEEDED"->EngineExecutionState.SUCCEEDED;case "FAILED"->EngineExecutionState.FAILED;case "CANCELLED"->EngineExecutionState.CANCELLED;default->throw failure("WORKER_PROTOCOL_ERROR","Karate worker result is invalid");};
-            return new EngineExecutionResult(validated.executionId(), ENGINE_ID, IMPLEMENTATION_VERSION,
+            Duration duration=Duration.between(startedAt, finishedAt);
+            EngineExecutionResult result=new EngineExecutionResult(validated.executionId(), ENGINE_ID, IMPLEMENTATION_VERSION,
                     validated.preparedSource().workspaceId(), validated.preparedSource().resolvedRevision(),
-                    state, startedAt, finishedAt, Duration.between(startedAt, finishedAt));
+                    state, startedAt, finishedAt, duration);
+            KarateEvidenceReport.publish(validated.artifactPublisher(), result.state(), workerResult, result.duration());
+            return result;
+        } catch (com.automationstudio.engine.sdk.ArtifactPublicationException exception) {
+            throw exception;
         } catch (KarateEngineException exception) {
             throw exception;
         } catch (RuntimeException exception) {

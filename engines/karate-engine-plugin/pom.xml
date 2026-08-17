@@ -11,12 +11,18 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>5.11.4</junit.version>
+        <jackson.version>3.1.4</jackson.version>
     </properties>
     <dependencies>
         <dependency>
             <groupId>com.automationstudio</groupId>
             <artifactId>engine-plugin-sdk</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>com.automationstudio</groupId>

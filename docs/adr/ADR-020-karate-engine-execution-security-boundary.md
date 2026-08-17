@@ -171,6 +171,12 @@ cancellation to `CANCELLED`; configuration, security, timeout, resource, transpo
 faults take the existing sanitized error path.
 
 One safe-by-construction provider-neutral JSON structural report is required through AS-028.
+The provider builds this report only from normalized worker counts, outcome, duration, engine
+identity, and sanitized diagnostic category; AS-028 retains storage, checksum, quota, metadata,
+abort, and completion ownership.
+The SDK result is constructed before publication so its canonical timing invariants are established
+before evidence crosses the AS-028 boundary. A backward clock therefore fails without publishing a
+report; zero and positive validated durations are published unchanged.
 Sanitized JUnit XML and inactive HTML are optional opt-in artifacts generated from an allowlisted
 model. Native unsanitized reports are not automatically published. Reports exclude request and
 response data, URLs, headers, cookies, tokens, secrets, variables, paths, source snippets, stack
