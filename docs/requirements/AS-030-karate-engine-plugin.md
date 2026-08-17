@@ -224,11 +224,22 @@ the v1 hard ceiling `8` and may be lowered by runner capacity. The effective val
 raise the suite request. Effective external-call concurrency equals effective scenario parallelism,
 so it cannot remain independently at eight when scenario concurrency is lower.
 
+D2 calculates the effective value once at the provider-owned worker-runtime boundary and passes
+only that bounded value to the worker and gateway. The worker delegates scheduling to Karate's
+native bounded scenario executor. The gateway independently enforces the same execution-local
+bound with a fair permit held across authorization, late secret materialization, and outbound
+completion; permit waiting and transport both consume the same absolute execution deadline.
+
 D2 retains one execution-scoped worker, gateway, Docker network, lifecycle, and shared execution
-deadline. Every selected scenario belongs to that execution; results are correlated independently
-of completion order, and any selected scenario assertion failure makes the execution `FAILED`.
-This configuration contract is defined before runtime activation; execution remains sequential
-until AS-030D2 runtime implementation is separately approved and completed.
+deadline. Every selected scenario belongs to that execution; execution-local identity aggregation
+associates each native Karate
+`Scenario.getUniqueId()` with its native `ScenarioResult` outcome independently of completion
+order. Expected identities observed before scenario execution must exactly equal completed result
+identities; duplicate, missing, or unexpected identities fail closed. The native identity includes
+the feature resource, section index, and outline example index, so duplicate display names and
+Examples rows remain distinct. Any selected scenario assertion failure makes the execution
+`FAILED`. Effective value `1`, including absent suite configuration, retains sequential behavior
+without a second scheduling framework.
 
 Additional maximum default ceilings are:
 

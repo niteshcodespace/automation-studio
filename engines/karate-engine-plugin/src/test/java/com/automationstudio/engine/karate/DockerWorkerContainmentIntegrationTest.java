@@ -19,7 +19,7 @@ class DockerWorkerContainmentIntegrationTest {
         String network="as-karate-net-"+suffix,worker="as-karate-"+suffix,gateway="as-karate-gateway-"+suffix;Process attached=null,gatewayAttached=null;
         try {
             run(List.of("docker","network","create","--internal","--label","automation-studio.execution="+suffix,network));
-            run(DockerGatewayCommand.create(gateway,gatewayImage,id,"http://localhost:1",System.currentTimeMillis()+120_000,WorkerLimits.defaults(),true));
+            run(DockerGatewayCommand.create(gateway,gatewayImage,id,"http://localhost:1",System.currentTimeMillis()+120_000,1,WorkerLimits.defaults(),true));
             run(DockerGatewayCommand.connect(network,gateway));run(DockerGatewayCommand.start(gateway));
             gatewayAttached=new ProcessBuilder(DockerGatewayCommand.attach(gateway)).redirectError(ProcessBuilder.Redirect.INHERIT).start();Process gatewayBroker=gatewayAttached;Thread.ofVirtual().start(()->serveNone(gatewayBroker));
             run(DockerWorkerCommand.create(worker,network,image,WorkerLimits.defaults()));
@@ -31,7 +31,7 @@ class DockerWorkerContainmentIntegrationTest {
             assertEquals("2",run(List.of("docker","network","inspect","-f","{{len .Containers}}",network)));
             send(out,new WorkerProtocol.Message("SOURCE",id,Map.of("path","features/a.feature","size",String.valueOf(source.length),"digest",HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(source)),"content",Base64.getEncoder().encodeToString(source))));expect(in,"ACCEPTED_SOURCE",id);
             send(out,WorkerProtocol.Message.of("COMPLETE",id));expect(in,"COMPLETED_FOUNDATION_PROOF",id);
-            send(out,new WorkerProtocol.Message("EXECUTE",id,Map.of("features",encoded(List.of("features/a.feature")),"includeTags",encoded(List.of()),"excludeTags",encoded(List.of()),"variables",encoded(List.of()),"gateway","http://as-karate-gateway-"+suffix+":8080/dispatch")));
+            send(out,new WorkerProtocol.Message("EXECUTE",id,Map.of("features",encoded(List.of("features/a.feature")),"includeTags",encoded(List.of()),"excludeTags",encoded(List.of()),"variables",encoded(List.of()),"gateway","http://as-karate-gateway-"+suffix+":8080/dispatch","parallelism","1")));
             WorkerProtocol.Message result=expect(in,"EXECUTION_RESULT",id);assertEquals("SUCCEEDED",result.fields().get("outcome"),result.fields().toString());
             send(out,WorkerProtocol.Message.of("SHUTDOWN",id));expect(in,"BYE",id);out.close();assertTrue(attached.waitFor(15,TimeUnit.SECONDS));assertEquals(0,attached.exitValue());
         } finally {

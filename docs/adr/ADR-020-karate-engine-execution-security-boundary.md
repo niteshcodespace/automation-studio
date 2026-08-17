@@ -135,9 +135,15 @@ The Karate-local suite field `parallelism` is the single request authority, acce
 `1..8`, and defaults to `1`. Provider-owned immutable worker limits are the separate runner maximum.
 Effective parallelism is `min(suiteRequestedParallelism, runnerMaximumParallelism, 8)`, and
 effective external-call concurrency is exactly that same value; neither feature code nor external
-calls can amplify concurrency. This does not multiply containment resources: one execution keeps
-one worker, one gateway, one network, and one shared deadline. D2 runtime scheduling remains
-unimplemented at this configuration checkpoint.
+calls can amplify concurrency. The provider calculates the value once, the worker supplies it to
+Karate's native scheduler, and the execution-scoped gateway enforces it with a fair permit held
+through request completion. Permit waiting and transport share the provider's absolute deadline.
+This does not multiply containment resources: one execution keeps one worker, one gateway, one
+network, and one shared deadline. No concurrency state is static or shared across executions.
+Parallel result association uses Karate's native feature/section/example scenario identity.
+Execution-local expected and completed identity sets must be exactly equal, duplicate insertion
+fails closed, and aggregate outcomes are derived from the identity-associated native results rather
+than callback completion order. These identities remain worker-internal and never cross the SDK.
 
 The isolated sequential C2/C3 foundation uses operator-lowerable maximums: 30-minute wall time,
 one CPU core quota, 768 MiB container memory with a 512 MiB JVM heap, 128 PIDs/threads, 64 MiB

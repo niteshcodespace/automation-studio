@@ -172,13 +172,21 @@ duplicate names, sanitized rejection and the existing API-key header/query colli
 post-remediation focused D1 reactor passes 63 tests with two skips, and the isolated full reactor
 passes 1,286 tests with 20 skips; both have zero failures and zero errors.
 
-AS-030D2 runtime execution and AS-030D3 combined verification remain unstarted. The D2
-configuration architecture is defined: provider-local suite field `parallelism` accepts only
+AS-030D2 runtime execution and verification are complete; AS-030D3 combined verification remains
+unstarted. The D2 configuration architecture remains unchanged: provider-local suite field `parallelism` accepts only
 integers `1..8` and defaults to `1`; provider-owned worker limits supply a runner maximum no greater
 than `8`; effective parallelism is the minimum of the suite request, runner maximum, and hard
-ceiling. External-call concurrency equals that effective value. Runtime implementation must retain
-one worker, gateway, network, lifecycle, and shared deadline, aggregate every selected scenario,
-and map any assertion failure to `FAILED`. No concurrent scheduling is active at this checkpoint.
+ceiling. The provider calculates that value once and supplies it to Karate's native scenario
+scheduler and an execution-local gateway permit guard. The guard covers authorization, late secret
+materialization, and outbound completion within the shared absolute deadline. Runtime execution
+retains one worker, gateway, network, and lifecycle, aggregates every selected scenario with
+an execution-local native-identity map, and maps any assertion failure to `FAILED`. Expected native
+scenario IDs must exactly equal completed native result IDs, with duplicate, missing, or unexpected
+identities rejected. Karate's feature/section/example identity keeps duplicate names and Scenario
+Outline rows distinct without changing the provider-neutral result contract.
+Final result-identity remediation focused D2 verification passed 76 tests with zero failures, zero
+errors, and two skips. The exact-current-source isolated full reactor passed 1,299 tests with zero
+failures, zero errors, and 20 skips (`BUILD SUCCESS`).
 
 **Objective:** Add sink-scoped credentials and controlled scenario concurrency without leakage or
 cross-execution state.
