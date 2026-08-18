@@ -224,7 +224,7 @@ Events include an event identifier, schema version, aggregate identifier, projec
 
 ## v0.1 Scope and Evolution
 
-v0.1 uses a Spring Boot modular monolith, Next.js web application, PostgreSQL, a dedicated Java runner, statically assembled Playwright Java and REST Assured engines, and PostgreSQL-based job claiming/outbox. AS-028 provides the platform-owned local-filesystem artifact adapter with PostgreSQL metadata and scoped discovery. It does not require AI, MCP, Kubernetes, Kafka, RabbitMQ, multi-tenancy, or high availability.
+v0.1 uses a Spring Boot modular monolith, Next.js web application, PostgreSQL, a dedicated Java runner, statically assembled Playwright Java and REST Assured engines, and PostgreSQL-based job claiming/outbox. AS-030 retains a statically assembled Karate provider adapter but places the Karate 1.5.2 runtime in a short-lived isolated Linux worker container behind bounded IPC and a platform-owned egress gateway. AS-028 provides the platform-owned local-filesystem artifact adapter with PostgreSQL metadata and scoped discovery. It does not require AI, MCP, Kubernetes, Kafka, RabbitMQ, multi-tenancy, or high availability.
 
 Future installations may add S3-compatible artifact storage, external secret management, separate AI services, MCP deployment, external brokers, isolated execution containers, specialized runner pools, Kubernetes, high availability, and multi-tenancy without changing the core domain boundaries.
 
@@ -233,3 +233,12 @@ environment base URL is the sole admitted authority; engine-level URI, address, 
 redirect, credential-forwarding, timeout, and response-size controls complement deployment egress
 policy. API credentials remain execution-scoped secrets and API reports use the AS-028 artifact
 boundary. No new control-plane or persistence container is introduced.
+
+AS-030 treats admitted Karate features and configuration as trusted executable repository
+automation code, not hostile tenant input. The in-process gate failed, so the API-only v1 projects
+only admitted source into an ephemeral worker tmpfs, denies direct worker egress, and routes HTTP
+through an authorization and DNS-pinning gateway. The provider hides worker lifecycle behind the
+unchanged SDK; registry, orchestrator, fencing, persistence, Workspace Manager and AS-028 ownership
+do not change. The disposable worker, not the Karate JavaScript runtime, is the Java/process
+authority boundary; runtime-local host APIs cannot reach platform classes, host resources or
+persistent state. Karate UI/browser execution remains deferred.
