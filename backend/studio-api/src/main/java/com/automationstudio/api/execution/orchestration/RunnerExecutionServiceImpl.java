@@ -89,8 +89,9 @@ public class RunnerExecutionServiceImpl implements RunnerExecutionService {
             case PASSED -> ownership.execution().markPassed(ownership.databaseTime());
             case FAILED -> ownership.execution().markFailed(ownership.databaseTime());
             case ERROR -> ownership.execution().markError(ownership.databaseTime());
+            case CANCELLED -> ownership.execution().markCancelled(ownership.databaseTime());
             default -> throw new RunnerExecutionException(
-                    "Execution terminal status must be PASSED, FAILED, or ERROR");
+                    "Execution terminal status must be PASSED, FAILED, CANCELLED, or ERROR");
         }
         Execution completed = executionRepository.saveAndFlush(ownership.execution());
         return new ExecutionCompletionResult(

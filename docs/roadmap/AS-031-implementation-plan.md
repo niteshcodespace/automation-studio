@@ -33,6 +33,27 @@ files changed; AS-031B remains unstarted.
 
 ## AS-031B - Provider-Neutral Execution Control and Supervision Prerequisite
 
+**Checkpoint:** Implemented locally for independent review. The SDK control, bounded canonical
+construction, virtual-thread supervisor, deadline/cancellation arbitration, one-shot teardown,
+late-result rejection, exact observed-version cancellation fencing, and bounded late-registration
+teardown protocol are present. Deterministic remediation tests cover non-cooperative providers,
+late completion, arbitration, teardown races, and stale cancellation observations. Existing providers
+retain their prior behavior. Cancellation-associated operational failures preserve the exact positive
+observation through sanitized platform exception metadata and persist `ERROR` through the normal
+locked ownership validator. The metadata-bearing exception constructor is private; public callers
+cannot supply N, and only package-internal orchestration enrichment after
+`PlatformExecutionControl` observes repository state can attach it. The public orchestration result
+also excludes N; a separate package-internal platform outcome carries exact observed N from the
+final production orchestrator to the coordinator. Alternate orchestrator implementations can
+produce ordinary results but cannot manufacture trusted fencing metadata. Positive observation and
+probe types plus the probe-injecting orchestrator and trusted coordinator construction paths are
+package-internal; package-local Spring assembly supplies only the repository-backed production
+probe. PostgreSQL-backed integration
+coverage drives the real coordinator, orchestrator, transactional completion service, locked
+repositories, and ownership validator, proving the four cancellation/error replacements, stale
+N-to-N+1 rejection without overwrite, and unchanged no-cancellation error persistence. Verification remains required
+before AS-031B acceptance or AS-031C work.
+
 **Objective:** Close the actual SDK/orchestrator gap before any Selenium dependency or provider
 module exists.
 

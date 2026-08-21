@@ -17,6 +17,10 @@ public class ExecutionStateValidator {
 
     public void validateCompletion(
             Execution execution, ExecutionStatus terminalStatus) {
+        if (terminalStatus == ExecutionStatus.CANCELLED) {
+            validate(execution, ExecutionStatus.CANCEL_REQUESTED, "complete cancellation");
+            return;
+        }
         if (terminalStatus == ExecutionStatus.ERROR) {
             validateErrorCompletion(execution);
             return;

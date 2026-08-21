@@ -57,7 +57,8 @@ public interface ExecutionEnginePluginConformanceContract {
                 context.suiteReference(), context.suiteConfiguration(), context.environmentBaseUrl(),
                 context.environmentConfiguration(), context.variables());
         var mismatchedRequest = new EngineExecutionRequest(mismatch, request.preparedSource(),
-                request.workspaceAccess(), request.secretAccess(), request.artifactPublisher());
+                request.workspaceAccess(), request.secretAccess(), request.artifactPublisher(),
+                request.executionControl());
         assertThrows(IllegalArgumentException.class,
                 () -> mismatchedRequest.validateFor(supplied.plugin().descriptor()));
     }
@@ -85,10 +86,11 @@ public interface ExecutionEnginePluginConformanceContract {
         assertEquals(EngineExecutionResult.class,
                 plugin.getClass().getMethod("execute", EngineExecutionRequest.class).getReturnType());
         assertEquals(List.of("context", "preparedSource", "workspaceAccess", "secretAccess",
-                        "artifactPublisher"),
+                        "artifactPublisher", "executionControl"),
                 List.of(EngineExecutionRequest.class.getRecordComponents()).stream()
                         .map(component -> component.getName()).toList());
         assertTrue(fixture().validRequest().toString().contains("REDACTED"));
+        assertNotNull(fixture().validRequest().executionControl());
         for (var field : plugin.getClass().getDeclaredFields()) {
             assertFalse(Path.class.isAssignableFrom(field.getType()),
                     "Plugins must consume bounded workspace capability, not physical paths");

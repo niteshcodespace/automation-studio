@@ -143,6 +143,80 @@ class ExecutionOrchestratorImplTest {
     }
 
     @Test
+    void canonicalInvocationAlwaysReceivesBoundedExecutionControl() {
+        when(engine.execute(any(EngineExecutionRequest.class))).thenAnswer(invocation -> {
+            EngineExecutionRequest sdkRequest = invocation.getArgument(0);
+            assertThat(sdkRequest.executionControl().isBounded()).isTrue();
+            assertThat(sdkRequest.executionControl().deadline()).isNotNull();
+            return result(EngineExecutionState.SUCCEEDED);
+        });
+
+        orchestrator.execute(request);
+    }
+
+    @Test
+    void trustedPlatformOutcomeCarriesExactObservedCancellationVersion() {
+        StorageBackedArtifactPublisher publisher = mock(StorageBackedArtifactPublisher.class);
+        ExecutionOrchestratorImpl platformOrchestrator = observedCancellationOrchestrator(
+                (plugin, sdkRequest, control) -> {
+                    assertThat(control.cancellationRequested()).isTrue();
+                    return result(EngineExecutionState.CANCELLED);
+                }, publisher);
+
+        PlatformExecutionOrchestrationResult outcome =
+                platformOrchestrator.executePlatform(request);
+
+        assertThat(outcome.result().engineResult().state())
+                .isEqualTo(com.automationstudio.engine.sdk.EngineExecutionState.CANCELLED);
+        assertThat(outcome.observedCancellationVersion()).isEqualTo(7L);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"EXECUTION_TEARDOWN_FAILED", "EXECUTION_TEARDOWN_TIMEOUT"})
+    void teardownFailureAfterCancellationPreservesExactObservedVersion(String code) {
+        orchestrator = observedCancellationOrchestrator((plugin, sdkRequest, control) -> {
+            assertThat(control.cancellationRequested()).isTrue();
+            throw new ExecutionOrchestrationException(code, "sanitized");
+        }, mock(StorageBackedArtifactPublisher.class));
+
+        assertFailure(code, "sanitized")
+                .satisfies(failure -> assertThat(
+                        ((ExecutionOrchestrationException) failure)
+                                .observedCancellationVersion()).isEqualTo(7L));
+    }
+
+    @Test
+    void artifactFailureAfterCancellationPreservesExactObservedVersion() {
+        StorageBackedArtifactPublisher publisher = mock(StorageBackedArtifactPublisher.class);
+        doThrow(new IllegalStateException("private artifact detail")).when(publisher).complete();
+        orchestrator = observedCancellationOrchestrator((plugin, sdkRequest, control) -> {
+            assertThat(control.cancellationRequested()).isTrue();
+            return result(EngineExecutionState.CANCELLED);
+        }, publisher);
+
+        assertFailure("ARTIFACT_PUBLICATION_FAILED", "Required artifact publication failed")
+                .satisfies(failure -> assertThat(
+                        ((ExecutionOrchestrationException) failure)
+                                .observedCancellationVersion()).isEqualTo(7L));
+    }
+
+    @Test
+    void cleanupFailureAfterCancellationPreservesExactObservedVersion() {
+        StorageBackedArtifactPublisher publisher = mock(StorageBackedArtifactPublisher.class);
+        orchestrator = observedCancellationOrchestrator((plugin, sdkRequest, control) -> {
+            assertThat(control.cancellationRequested()).isTrue();
+            return result(EngineExecutionState.CANCELLED);
+        }, publisher);
+        when(workspaceManager.release(preparation.workspace()))
+                .thenThrow(new IllegalStateException("private cleanup detail"));
+
+        assertFailure("WORKSPACE_CLEANUP_FAILED", "Workspace cleanup failed")
+                .satisfies(failure -> assertThat(
+                        ((ExecutionOrchestrationException) failure)
+                                .observedCancellationVersion()).isEqualTo(7L));
+    }
+
+    @Test
     void admittedReferencesCreateUnresolvedScopePassedNarrowlyToEngine() {
         ExecutionSecretReference reference = new ExecutionSecretReference(
                 "login.password",
@@ -617,6 +691,17 @@ class ExecutionOrchestratorImplTest {
                 ignored -> { throw new IllegalStateException("unused"); },
                 (workspaceId, projectId, executionId) -> publisher,
                 CLOCK);
+    }
+
+    private ExecutionOrchestratorImpl observedCancellationOrchestrator(
+            ExecutionSupervisor supervisor, StorageBackedArtifactPublisher publisher) {
+        when(publisher.executionId()).thenReturn(request.executionId());
+        return new ExecutionOrchestratorImpl(
+                preparationService, registry, workspaceManager, secretScopeFactory,
+                ignored -> { throw new IllegalStateException("unused"); },
+                (workspaceId, projectId, executionId) -> publisher,
+                ignored -> new ExecutionCancellationObservation(true, 7),
+                supervisor, CLOCK);
     }
 
     private StorageBackedArtifactPublisher productionPublisher(

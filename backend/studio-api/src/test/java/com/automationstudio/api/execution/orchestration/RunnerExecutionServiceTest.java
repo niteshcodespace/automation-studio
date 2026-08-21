@@ -164,6 +164,71 @@ class RunnerExecutionServiceTest {
     }
 
     @Test
+    void acceptsExactObservedCancellationVersionWithoutWeakeningLeaseOwnership() {
+        Execution execution = execution(ExecutionStatus.RUNNING);
+        execution.requestCancellation(NOW.minusSeconds(1), "operator", null);
+        execution.setVersion(6);
+        ExecutionLease lease = lease(execution);
+        stubLocks(execution, lease);
+        when(executionRepository.saveAndFlush(execution)).thenAnswer(invocation -> {
+            execution.setVersion(7); return execution;
+        });
+
+        ExecutionCompletionResult result = service.complete(request(6), ExecutionStatus.CANCELLED);
+
+        assertThat(result.status()).isEqualTo(ExecutionStatus.CANCELLED);
+        assertThat(result.executionVersion()).isEqualTo(7);
+
+        RunnerExecutionRequest wrongRunner = new RunnerExecutionRequest(
+                EXECUTION_ID, "other", CLAIM_TOKEN, 3, 4, 6);
+        assertThatThrownBy(() -> service.complete(wrongRunner, ExecutionStatus.CANCELLED))
+                .isInstanceOf(ExecutionOwnershipException.class);
+        assertThatThrownBy(() -> service.complete(new RunnerExecutionRequest(
+                EXECUTION_ID, "runner", UUID.randomUUID(), 3, 4, 6), ExecutionStatus.CANCELLED))
+                .isInstanceOf(ExecutionOwnershipException.class);
+        assertThatThrownBy(() -> service.complete(new RunnerExecutionRequest(
+                EXECUTION_ID, "runner", CLAIM_TOKEN, 4, 4, 6), ExecutionStatus.CANCELLED))
+                .isInstanceOf(ExecutionOwnershipException.class);
+        assertThatThrownBy(() -> service.complete(new RunnerExecutionRequest(
+                EXECUTION_ID, "runner", CLAIM_TOKEN, 3, 5, 6), ExecutionStatus.CANCELLED))
+                .isInstanceOf(ExecutionOwnershipException.class);
+    }
+
+    @Test
+    void rejectsStaleObservedCancellationVersionAfterUnrelatedVersionAdvance() {
+        Execution execution = execution(ExecutionStatus.RUNNING);
+        execution.requestCancellation(NOW.minusSeconds(1), "operator", null);
+        execution.setVersion(7);
+        ExecutionLease lease = lease(execution);
+        stubLocks(execution, lease);
+
+        assertThatThrownBy(() -> service.complete(request(6), ExecutionStatus.CANCELLED))
+                .isInstanceOf(ExecutionOwnershipException.class)
+                .hasMessageContaining("Execution version");
+        verify(executionRepository, never()).saveAndFlush(execution);
+    }
+
+    @Test
+    void cancellationAssociatedErrorUsesExactObservationAndRejectsItAfterVersionAdvance() {
+        Execution execution = execution(ExecutionStatus.RUNNING);
+        execution.requestCancellation(NOW.minusSeconds(1), "operator", null);
+        execution.setVersion(6);
+        ExecutionLease lease = lease(execution);
+        stubLocks(execution, lease);
+        when(executionRepository.saveAndFlush(execution)).thenAnswer(invocation -> {
+            execution.setVersion(7); return execution;
+        });
+
+        assertThat(service.complete(request(6), ExecutionStatus.ERROR).status())
+                .isEqualTo(ExecutionStatus.ERROR);
+
+        execution.setVersion(7);
+        assertThatThrownBy(() -> service.complete(request(6), ExecutionStatus.ERROR))
+                .isInstanceOf(ExecutionOwnershipException.class)
+                .hasMessageContaining("Execution version");
+    }
+
+    @Test
     void rejectsOwnershipMismatchBeforeLifecycleWork() {
         Execution execution = execution(ExecutionStatus.CLAIMED);
         ExecutionLease lease = lease(execution);

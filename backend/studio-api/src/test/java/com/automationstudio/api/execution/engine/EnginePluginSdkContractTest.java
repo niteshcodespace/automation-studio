@@ -68,6 +68,7 @@ class EnginePluginSdkContractTest {
             public ResolvedSecret resolve(String logicalName) { throw new UnsupportedOperationException(); }
         };
         var request = new EngineExecutionRequest(context, source, workspace, secrets);
+        assertThat(request.executionControl().isBounded()).isFalse();
         assertThat(request.artifactPublisher().executionId()).isEqualTo(executionId);
         assertThatThrownBy(() -> request.artifactPublisher().publish(
                 new ArtifactPublication(com.automationstudio.engine.sdk.ArtifactCategory.LOG,

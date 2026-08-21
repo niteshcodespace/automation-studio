@@ -33,15 +33,19 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
     private final ExecutionSecretScopeFactory secretScopeFactory;
     private final EngineWorkspaceAccessResolver workspaceAccessResolver;
     private final ArtifactPublisherFactory artifactPublisherFactory;
+    private final ExecutionCancellationProbe cancellationProbe;
+    private final ExecutionSupervisor executionSupervisor;
     private final Clock clock;
 
-    public ExecutionOrchestratorImpl(
+    ExecutionOrchestratorImpl(
             SourcePreparationService preparationService,
             ExecutionEngineRegistry engineRegistry,
             WorkspaceManager workspaceManager,
             ExecutionSecretScopeFactory secretScopeFactory,
             EngineWorkspaceAccessResolver workspaceAccessResolver,
             ArtifactPublisherFactory artifactPublisherFactory,
+            ExecutionCancellationProbe cancellationProbe,
+            ExecutionSupervisor executionSupervisor,
             Clock clock) {
         this.preparationService = Objects.requireNonNull(
                 preparationService, "Source preparation service must not be null");
@@ -55,7 +59,24 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
                 workspaceAccessResolver, "Engine workspace access resolver must not be null");
         this.artifactPublisherFactory = Objects.requireNonNull(
                 artifactPublisherFactory, "Artifact publisher factory must not be null");
+        this.cancellationProbe = Objects.requireNonNull(
+                cancellationProbe, "Execution cancellation probe must not be null");
+        this.executionSupervisor = Objects.requireNonNull(
+                executionSupervisor, "Execution supervisor must not be null");
         this.clock = Objects.requireNonNull(clock, "Clock must not be null");
+    }
+
+    public ExecutionOrchestratorImpl(
+            SourcePreparationService preparationService,
+            ExecutionEngineRegistry engineRegistry,
+            WorkspaceManager workspaceManager,
+            ExecutionSecretScopeFactory secretScopeFactory,
+            EngineWorkspaceAccessResolver workspaceAccessResolver,
+            ArtifactPublisherFactory artifactPublisherFactory,
+            Clock clock) {
+        this(preparationService, engineRegistry, workspaceManager, secretScopeFactory,
+                workspaceAccessResolver, artifactPublisherFactory,
+                ExecutionCancellationProbe.never(), new ExecutionSupervisorImpl(clock), clock);
     }
 
     /** Compatibility constructor for callers whose engine invocation does not open source access. */
@@ -92,6 +113,11 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
 
     @Override
     public ExecutionOrchestrationResult execute(ExecutionOrchestrationRequest request) {
+        return executePlatform(request).result();
+    }
+
+    PlatformExecutionOrchestrationResult executePlatform(
+            ExecutionOrchestrationRequest request) {
         if (request == null) {
             throw new ExecutionOrchestrationException(
                     "INVALID_EXECUTION_REQUEST", "Execution request must not be null");
@@ -153,8 +179,12 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
         }
 
         EngineExecutionResult engineResult;
+        PlatformExecutionControl executionControl = null;
         try {
             ExecutionEnginePlugin engine = support.engine();
+            executionControl = new PlatformExecutionControl(
+                    request.context().metadata().timeout(), clock, System::nanoTime,
+                    () -> cancellationProbe.observe(request.executionId()));
             EngineExecutionRequest sdkRequest = new EngineExecutionRequest(
                             EngineExecutionContextProjection.from(request.context()),
                             new PreparedSource(
@@ -164,46 +194,57 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
                             new PreparedWorkspaceAccessCapability(
                             preparation, workspaceAccessResolver),
                             secretScope,
-                            artifactPublisher);
-            engineResult = engine.execute(sdkRequest);
+                            artifactPublisher,
+                            executionControl);
+            engineResult = executionSupervisor.execute(engine, sdkRequest, executionControl);
         } catch (RuntimeException failure) {
-            throw cleanupArtifactPublisher(
+            ExecutionOrchestrationException operationalFailure =
+                    failure instanceof ExecutionOrchestrationException orchestrationFailure
+                            ? orchestrationFailure
+                            : failure(
+                                    failure instanceof ArtifactPublicationException
+                                            ? "ARTIFACT_PUBLICATION_FAILED"
+                                            : "ENGINE_EXECUTION_FAILED",
+                                    failure instanceof ArtifactPublicationException
+                                            ? "Required artifact publication failed"
+                                            : "Execution engine failed",
+                                    failure);
+            throw preserveCancellationObservation(cleanupArtifactPublisher(
                     artifactPublisher,
                     secretScope,
                     preparation.workspace(),
-                    failure(
-                            failure instanceof ArtifactPublicationException
-                                    ? "ARTIFACT_PUBLICATION_FAILED"
-                                    : "ENGINE_EXECUTION_FAILED",
-                            failure instanceof ArtifactPublicationException
-                                    ? "Required artifact publication failed"
-                                    : "Execution engine failed",
-                            failure));
+                    operationalFailure), executionControl);
         }
 
         ExecutionOrchestrationException resultViolation =
                 validateEngineResult(request, preparation, support, engineResult);
         if (resultViolation != null) {
-            throw cleanupArtifactPublisher(
-                    artifactPublisher, secretScope, preparation.workspace(), resultViolation);
+            throw preserveCancellationObservation(cleanupArtifactPublisher(
+                    artifactPublisher, secretScope, preparation.workspace(), resultViolation),
+                    executionControl);
         }
 
         try {
             artifactPublisher.complete();
         } catch (RuntimeException failure) {
-            throw cleanupArtifactPublisher(
+            throw preserveCancellationObservation(cleanupArtifactPublisher(
                     artifactPublisher, secretScope, preparation.workspace(),
                     failure("ARTIFACT_PUBLICATION_FAILED",
-                            "Required artifact publication failed", null));
+                            "Required artifact publication failed", null)), executionControl);
         }
 
         ExecutionOrchestrationException cleanupFailure = cleanup(
                 secretScope, preparation.workspace(), null);
         if (cleanupFailure != null) {
-            throw cleanupFailure;
+            throw preserveCancellationObservation(cleanupFailure, executionControl);
         }
-        return new ExecutionOrchestrationResult(
-                engineResult, OffsetDateTime.now(clock));
+        return new PlatformExecutionOrchestrationResult(
+                new ExecutionOrchestrationResult(engineResult, OffsetDateTime.now(clock)),
+                engineResult.state() == com.automationstudio.engine.sdk.EngineExecutionState.CANCELLED
+                        && executionControl.lastCancellationObservation() != null
+                        && executionControl.lastCancellationObservation().requested()
+                        ? executionControl.lastCancellationObservation().executionVersion()
+                        : null);
     }
 
     private ExecutionOrchestrationException validatePreparation(
@@ -363,6 +404,18 @@ public final class ExecutionOrchestratorImpl implements ExecutionOrchestrator {
                 "ENGINE_RESULT_INVARIANT_VIOLATION",
                 "Execution engine returned inconsistent evidence",
                 null);
+    }
+
+    private static ExecutionOrchestrationException preserveCancellationObservation(
+            ExecutionOrchestrationException failure, PlatformExecutionControl executionControl) {
+        if (executionControl == null) {
+            return failure;
+        }
+        ExecutionCancellationObservation observation =
+                executionControl.lastCancellationObservation();
+        return observation != null && observation.requested()
+                ? failure.withObservedCancellationVersion(observation.executionVersion())
+                : failure;
     }
 
     private static ExecutionOrchestrationException failure(

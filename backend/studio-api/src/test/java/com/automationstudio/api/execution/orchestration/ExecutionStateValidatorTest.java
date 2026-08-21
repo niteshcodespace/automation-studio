@@ -30,4 +30,15 @@ class ExecutionStateValidatorTest {
         assertThatThrownBy(() -> validator.validateStart(new Execution()))
                 .isInstanceOf(RunnerExecutionException.class);
     }
+
+    @Test
+    void permitsCancellationOnlyFromCancellationRequested() {
+        Execution execution = new Execution();
+        execution.claim();
+        execution.start(OffsetDateTime.parse("2026-07-29T10:00:00Z"));
+        assertThatThrownBy(() -> validator.validateCompletion(execution, ExecutionStatus.CANCELLED))
+                .isInstanceOf(RunnerExecutionException.class);
+        execution.requestCancellation(OffsetDateTime.parse("2026-07-29T10:00:01Z"), "operator", null);
+        validator.validateCompletion(execution, ExecutionStatus.CANCELLED);
+    }
 }

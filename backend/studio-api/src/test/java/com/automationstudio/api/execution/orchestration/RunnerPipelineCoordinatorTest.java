@@ -38,6 +38,7 @@ class RunnerPipelineCoordinatorTest {
 
     @Mock private RunnerExecutionService runnerExecutionService;
     @Mock private ExecutionOrchestrator orchestrator;
+    @Mock private ExecutionOrchestratorImpl platformOrchestrator;
     @Mock private AdmittedSourceSnapshotMapper mapper;
     @Mock private ExecutionContext context;
 
@@ -115,7 +116,31 @@ class RunnerPipelineCoordinatorTest {
     }
 
     @Test
-    void cancellationIsNotReinterpretedAsInfrastructureError() {
+    void supervisedCancellationCompletesThroughLifecycle() {
+        coordinator = new RunnerPipelineCoordinatorImpl(
+                runnerExecutionService,
+                platformOrchestrator,
+                mapper,
+                new WorkspaceProviderId("controlled"));
+        when(context.executionId()).thenReturn(EXECUTION_ID);
+        when(runnerExecutionService.start(request)).thenReturn(start(Map.of()));
+        when(mapper.map(Map.of())).thenReturn(source());
+        when(platformOrchestrator.executePlatform(any())).thenReturn(
+                new PlatformExecutionOrchestrationResult(
+                        orchestration(EngineExecutionState.CANCELLED), 7L));
+        when(runnerExecutionService.complete(any(), eq(ExecutionStatus.CANCELLED)))
+                .thenReturn(completion(ExecutionStatus.CANCELLED));
+
+        assertThat(coordinator.execute(request).completion().status())
+                .isEqualTo(ExecutionStatus.CANCELLED);
+        ArgumentCaptor<RunnerExecutionRequest> completion =
+                ArgumentCaptor.forClass(RunnerExecutionRequest.class);
+        verify(runnerExecutionService).complete(completion.capture(), eq(ExecutionStatus.CANCELLED));
+        assertThat(completion.getValue().expectedExecutionVersion()).isEqualTo(7);
+    }
+
+    @Test
+    void providerCancellationWithoutPersistentObservationFailsClosed() {
         when(context.executionId()).thenReturn(EXECUTION_ID);
         when(runnerExecutionService.start(request)).thenReturn(start(Map.of()));
         when(mapper.map(Map.of())).thenReturn(source());
@@ -126,6 +151,24 @@ class RunnerPipelineCoordinatorTest {
                         failure -> assertThat(failure.code())
                                 .isEqualTo("CANCELLATION_REQUIRES_LIFECYCLE"));
         verify(runnerExecutionService, never()).complete(any(), any());
+    }
+
+    @Test
+    void operationalFailureWithoutCancellationUsesStartVersionFence() {
+        when(context.executionId()).thenReturn(EXECUTION_ID);
+        when(runnerExecutionService.start(request)).thenReturn(start(Map.of()));
+        when(mapper.map(Map.of())).thenReturn(source());
+        when(orchestrator.execute(any())).thenThrow(
+                new ExecutionOrchestrationException("ENGINE_EXECUTION_FAILED", "sanitized"));
+        when(runnerExecutionService.complete(any(), eq(ExecutionStatus.ERROR)))
+                .thenReturn(completion(ExecutionStatus.ERROR));
+
+        coordinator.execute(request);
+
+        ArgumentCaptor<RunnerExecutionRequest> completion =
+                ArgumentCaptor.forClass(RunnerExecutionRequest.class);
+        verify(runnerExecutionService).complete(completion.capture(), eq(ExecutionStatus.ERROR));
+        assertThat(completion.getValue().expectedExecutionVersion()).isEqualTo(6);
     }
 
     private ExecutionStartResult start(Map<String, Object> snapshot) {

@@ -8,7 +8,8 @@ public record EngineExecutionRequest(
         PreparedSource preparedSource,
         WorkspaceAccess workspaceAccess,
         ExecutionSecretAccess secretAccess,
-        ArtifactPublisher artifactPublisher) {
+        ArtifactPublisher artifactPublisher,
+        ExecutionControl executionControl) {
 
     public EngineExecutionRequest {
         context = Objects.requireNonNull(context, "Engine context must not be null");
@@ -17,6 +18,8 @@ public record EngineExecutionRequest(
         secretAccess = Objects.requireNonNull(secretAccess, "Secret access must not be null");
         artifactPublisher = Objects.requireNonNull(
                 artifactPublisher, "Artifact publisher must not be null");
+        executionControl = Objects.requireNonNull(
+                executionControl, "Execution control must not be null");
         if (!context.executionId().equals(workspaceAccess.executionId())
                 || !context.executionId().equals(secretAccess.executionId())
                 || !context.executionId().equals(artifactPublisher.executionId())
@@ -29,10 +32,21 @@ public record EngineExecutionRequest(
             EngineExecutionContext context,
             PreparedSource preparedSource,
             WorkspaceAccess workspaceAccess,
+            ExecutionSecretAccess secretAccess,
+            ArtifactPublisher artifactPublisher) {
+        this(context, preparedSource, workspaceAccess, secretAccess, artifactPublisher,
+                ExecutionControl.unavailable());
+    }
+
+    public EngineExecutionRequest(
+            EngineExecutionContext context,
+            PreparedSource preparedSource,
+            WorkspaceAccess workspaceAccess,
             ExecutionSecretAccess secretAccess) {
         this(context, preparedSource, workspaceAccess, secretAccess,
                 ArtifactPublisher.unavailable(Objects.requireNonNull(
-                        context, "Engine context must not be null").executionId()));
+                        context, "Engine context must not be null").executionId()),
+                ExecutionControl.unavailable());
     }
 
     public UUID executionId() {

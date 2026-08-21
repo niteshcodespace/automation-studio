@@ -12,6 +12,7 @@ public final class RunnerPipelineCoordinatorImpl implements RunnerPipelineCoordi
 
     private final RunnerExecutionService runnerExecutionService;
     private final ExecutionOrchestrator executionOrchestrator;
+    private final ExecutionOrchestratorImpl platformExecutionOrchestrator;
     private final AdmittedSourceSnapshotMapper sourceSnapshotMapper;
     private final WorkspaceProviderId workspaceProviderId;
 
@@ -24,6 +25,23 @@ public final class RunnerPipelineCoordinatorImpl implements RunnerPipelineCoordi
                 runnerExecutionService, "Runner execution service must not be null");
         this.executionOrchestrator = Objects.requireNonNull(
                 executionOrchestrator, "Execution orchestrator must not be null");
+        this.platformExecutionOrchestrator = null;
+        this.sourceSnapshotMapper = Objects.requireNonNull(
+                sourceSnapshotMapper, "Admitted source snapshot mapper must not be null");
+        this.workspaceProviderId = Objects.requireNonNull(
+                workspaceProviderId, "Workspace provider ID must not be null");
+    }
+
+    RunnerPipelineCoordinatorImpl(
+            RunnerExecutionService runnerExecutionService,
+            ExecutionOrchestratorImpl executionOrchestrator,
+            AdmittedSourceSnapshotMapper sourceSnapshotMapper,
+            WorkspaceProviderId workspaceProviderId) {
+        this.runnerExecutionService = Objects.requireNonNull(
+                runnerExecutionService, "Runner execution service must not be null");
+        this.executionOrchestrator = Objects.requireNonNull(
+                executionOrchestrator, "Execution orchestrator must not be null");
+        this.platformExecutionOrchestrator = executionOrchestrator;
         this.sourceSnapshotMapper = Objects.requireNonNull(
                 sourceSnapshotMapper, "Admitted source snapshot mapper must not be null");
         this.workspaceProviderId = Objects.requireNonNull(
@@ -41,13 +59,18 @@ public final class RunnerPipelineCoordinatorImpl implements RunnerPipelineCoordi
                     new WorkspaceId(start.executionId()),
                     start.executionId(),
                     workspaceProviderId);
-            ExecutionOrchestrationResult result = executionOrchestrator.execute(
-                    new ExecutionOrchestrationRequest(
-                            start.context(), new SourcePreparationRequest(planned, source)));
-            ExecutionStatus terminalStatus = terminalStatus(result);
+            ExecutionOrchestrationRequest orchestrationRequest = new ExecutionOrchestrationRequest(
+                    start.context(), new SourcePreparationRequest(planned, source));
+            PlatformExecutionOrchestrationResult platformResult =
+                    platformExecutionOrchestrator == null
+                            ? PlatformExecutionOrchestrationResult.ordinary(
+                                    executionOrchestrator.execute(orchestrationRequest))
+                            : platformExecutionOrchestrator.executePlatform(orchestrationRequest);
+            ExecutionOrchestrationResult result = platformResult.result();
+            ExecutionStatus terminalStatus = terminalStatus(platformResult);
             return result(
                     runnerExecutionService.complete(
-                            completionRequest(request, start), terminalStatus),
+                            completionRequest(request, start, platformResult), terminalStatus),
                     start);
         } catch (ExecutionOwnershipException ownershipFailure) {
             throw ownershipFailure;
@@ -57,6 +80,11 @@ public final class RunnerPipelineCoordinatorImpl implements RunnerPipelineCoordi
             }
             return result(runnerExecutionService.complete(
                     completionRequest(request, start), ExecutionStatus.ERROR), start);
+        } catch (ExecutionOrchestrationException orchestrationFailure) {
+            return result(runnerExecutionService.complete(
+                    completionRequest(
+                            request, start, orchestrationFailure.observedCancellationVersion()),
+                    ExecutionStatus.ERROR), start);
         } catch (RuntimeException infrastructureFailure) {
             return result(runnerExecutionService.complete(
                     completionRequest(request, start), ExecutionStatus.ERROR), start);
@@ -73,19 +101,41 @@ public final class RunnerPipelineCoordinatorImpl implements RunnerPipelineCoordi
         return new RunnerPipelineResult(completion, start.context(), start.startedAt());
     }
 
-    private static ExecutionStatus terminalStatus(ExecutionOrchestrationResult result) {
+    private static ExecutionStatus terminalStatus(
+            PlatformExecutionOrchestrationResult platformResult) {
+        ExecutionOrchestrationResult result = platformResult.result();
         EngineExecutionState state = result.engineResult().state();
         return switch (state) {
             case SUCCEEDED -> ExecutionStatus.PASSED;
             case FAILED -> ExecutionStatus.FAILED;
-            case CANCELLED -> throw new RunnerPipelineException(
-                    "CANCELLATION_REQUIRES_LIFECYCLE",
-                    "Cancelled execution requires the cancellation lifecycle");
+            case CANCELLED -> {
+                if (platformResult.observedCancellationVersion() == null) {
+                    throw new RunnerPipelineException(
+                            "CANCELLATION_REQUIRES_LIFECYCLE",
+                            "Cancelled execution requires an observed persistent cancellation");
+                }
+                yield ExecutionStatus.CANCELLED;
+            }
         };
     }
 
     private static RunnerExecutionRequest completionRequest(
             RunnerExecutionRequest request, ExecutionStartResult start) {
+        return completionRequest(request, start, (Long) null);
+    }
+
+    private static RunnerExecutionRequest completionRequest(
+            RunnerExecutionRequest request, ExecutionStartResult start,
+            PlatformExecutionOrchestrationResult orchestrationResult) {
+        return completionRequest(request, start,
+                orchestrationResult == null
+                        ? null
+                        : orchestrationResult.observedCancellationVersion());
+    }
+
+    private static RunnerExecutionRequest completionRequest(
+            RunnerExecutionRequest request, ExecutionStartResult start,
+            Long observedCancellationVersion) {
         if (start == null) {
             return request;
         }
@@ -95,6 +145,8 @@ public final class RunnerPipelineCoordinatorImpl implements RunnerPipelineCoordi
                 request.claimToken(),
                 start.leaseGeneration(),
                 start.leaseVersion(),
-                start.executionVersion());
+                observedCancellationVersion != null
+                        ? observedCancellationVersion
+                        : start.executionVersion());
     }
 }
