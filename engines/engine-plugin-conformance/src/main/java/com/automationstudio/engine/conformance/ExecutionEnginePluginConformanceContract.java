@@ -18,6 +18,7 @@ import java.util.List;
 import java.nio.file.Path;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ExecutionException;
 import org.junit.jupiter.api.Test;
 
 /** JUnit 5 contract that exercises a plugin directly, without a platform registry or services. */
@@ -69,6 +70,14 @@ public interface ExecutionEnginePluginConformanceContract {
         EngineExecutionRequest request = supplied.validRequest();
         ExecutionEnginePlugin plugin = supplied.plugin();
         request.validateFor(plugin.descriptor());
+        ExecutionEnginePluginFixture.ExecutionFailureExpectation expectedFailure =
+                supplied.expectedExecutionFailure();
+        if (expectedFailure != null) {
+            Throwable failure = assertThrows(expectedFailure.type(), () -> plugin.execute(request));
+            expectedFailure.assertIdentity(failure);
+            assertTrue(supplied.cleanupObserved(request.executionId()));
+            return;
+        }
         EngineExecutionResult result = plugin.execute(request);
         assertSame(result, result.validateFor(request, plugin.descriptor()));
         assertEquals(supplied.expectedState(), result.state());
@@ -109,6 +118,17 @@ public interface ExecutionEnginePluginConformanceContract {
                     .toList();
             var executionIds = new HashSet<>();
             for (int index = 0; index < requests.size(); index++) {
+                ExecutionEnginePluginFixture.ExecutionFailureExpectation expectedFailure =
+                        supplied.expectedExecutionFailure();
+                if (expectedFailure != null) {
+                    int requestIndex = index;
+                    ExecutionException failure = assertThrows(
+                            ExecutionException.class, () -> futures.get(requestIndex).get());
+                    assertTrue(expectedFailure.type().isInstance(failure.getCause()));
+                    expectedFailure.assertIdentity(failure.getCause());
+                    assertTrue(supplied.cleanupObserved(requests.get(index).executionId()));
+                    continue;
+                }
                 EngineExecutionResult result = futures.get(index).get();
                 assertNotNull(result.validateFor(requests.get(index), supplied.plugin().descriptor()));
                 assertTrue(executionIds.add(result.executionId()), "Execution identity was reused");

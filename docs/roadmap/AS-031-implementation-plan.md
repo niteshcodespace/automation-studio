@@ -85,6 +85,15 @@ and full-reactor verification plus security/architecture/compatibility review pa
 
 ## AS-031C - Provider Module, Dependency, Manifest, and Conformance Foundation
 
+**Checkpoint:** Focused independent-review remediation is implemented locally and remains
+uncommitted pending re-review. The parser rejects before parsing or constructing global step 5,001,
+and deterministic conformance rejection now validates provider-specific failure identity through a
+provider-neutral type-plus-assertion expectation. Focused online/offline and provider compatibility
+reactors pass, as does a fresh backend compile. The root test failure remains classified as
+pre-existing; no backend repair was attempted. Dependency, license, vulnerability, provenance,
+checksum, inertness, and the unchanged Selenium Manager native-payload observation are recorded in
+the development log. AS-031D has not started.
+
 **Objective:** Create the provider-local module and passive source contract without browser execution.
 
 **Implementation:** Reactor module, pinned Selenium dependency after resolved-tree/license/
@@ -92,7 +101,8 @@ vulnerability review, descriptor `selenium-java`/`1.0.0`, schema `1.0`, bounded 
 immutable scenario/action identities, strict suite configuration, exception taxonomy, inert
 execution seam, and conformance fixture. No worker/browser/driver creation or registration.
 
-**Tests:** Identity, descriptor, dependency boundary, SDK conformance, sanitized exceptions,
+**Tests:** Identity, descriptor, dependency boundary, SDK conformance, exact deterministic rejection
+identity, 5,000/5,001 global-step boundary and early sanitized rejection, sanitized exceptions,
 reflection/dependency leakage, and ordinary browser-inert reactor tests.
 
 **Security:** Prove Selenium types stay provider-local and Selenium Manager cannot become an

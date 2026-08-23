@@ -17,6 +17,7 @@
         <module>engines/karate-worker-runtime</module>
         <module>engines/karate-gateway-runtime</module>
         <module>engines/karate-engine-plugin</module>
+        <module>engines/selenium-engine-plugin</module>
         <module>backend/studio-api</module>
     </modules>
 </project>
