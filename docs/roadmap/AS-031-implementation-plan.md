@@ -164,6 +164,51 @@ direct network authority.
 
 **Exit:** Controlled sequential browser execution and deterministic cleanup pass independent review.
 
+### AS-031D1 implementation checkpoint
+
+Resource identity, worker lifecycle, and bounded IPC are implemented locally. Evidence covers the
+JDK-only worker module/image contract, strict fixed control protocol, immutable execution/container
+identity, digest-only platform-owned Docker argv, pre-acquisition composite teardown, partial and
+concurrent cleanup, fail-closed label/ID verification, and sanitized absence semantics. The
+foundation uses `--network none` solely to start an isolated worker; D2 network topology and its
+security acceptance have not started. Browser/driver execution, provider activation, backend
+integration, and later AS-031 stages remain excluded.
+
+Local verification: worker 7/7; focused conformance 17/17 and Selenium 30/30; compatibility sample
+9/9, REST Assured 36/36, Karate 36 pass plus its existing conditional skip, and Selenium 30/30.
+
+Focused remediation after independent review coordinates startup and teardown through one explicit
+resource state machine, gives all cleanup work one 1.5-second deadline below the AS-031B platform
+bound, terminates exact Docker/attach processes before bounded reader joining, and makes immutable
+container-ID inspection authoritative for absence. Deterministic concurrency, timeout, identity,
+and partial-lifecycle verification is required before this checkpoint is ready for re-review. D1 is
+not approved here, and D2 has not started.
+
+Final remediation stores one absolute deadline for the complete termination attempt. No late
+handoff constructs another cleanup budget: exact worker or attach ownership arriving too late is
+retained as `OWNED_BUT_UNRESOLVED`, and the single immutable terminal report remains unsafe.
+Startup waiting is capped to preserve most of the 1.5-second budget for resource cleanup. The
+focused A-M matrix exercises every specified lifecycle boundary without claiming D1 approval or
+starting D2.
+
+Final deadline propagation uses one immutable monotonic deadline object across the aggregate,
+Docker command runner, attach IPC, process termination, and all cleanup callers. No lower cleanup
+layer resets the timeout. Strengthened deterministic evidence covers the real create/ownership seam,
+worker/teardown latching, fake-ticker expiry, process-backed attach failure, and exact blocked child
+and reader termination. This remains a local re-review checkpoint, not D1 approval; D2 is unstarted.
+
+ProcessAttach hard-bound remediation replaces the earlier virtual-thread/task-scope claim. A blocked
+Windows process-pipe operation is supervised by narrow daemon platform threads; no executor close can
+join a helper after the deadline. Graceful SHUTDOWN/BYE receives at most 100 ms inside the original
+budget, after which exact-process destroy/forced destroy and supervised stream closure take priority.
+Helper completion is evidence, not a reason to extend the deadline: an unresolved writer, reader, or
+closer keeps cleanup unsafe. Separate deterministic tests prove an uninterruptible write and a close
+activated only after successful protocol exchange both return at the 250 ms deadline with accurate
+unsafe state. Ten-run real timing evidence is 203-237 ms for Matrix L and 105-118 ms for Matrix M;
+the real 1.5-second hostile-attach acceptance returned in 111 ms, below two seconds. Focused
+attach/matrix verification is 17/17; the required reactor is conformance 17/17, worker 7/7, and
+Selenium 51/51. D1 remains awaiting independent approval, and D2 has not started.
+
 ## AS-031F - Static Lifecycle Integration and Canonical Qualification
 
 **Objective:** Assemble one production provider and prove the complete canonical path.

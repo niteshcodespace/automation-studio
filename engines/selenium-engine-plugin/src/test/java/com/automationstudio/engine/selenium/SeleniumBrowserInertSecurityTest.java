@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 class SeleniumBrowserInertSecurityTest {
     private static final List<String> PROHIBITED = List.of(
             "org/openqa/selenium", "WebDriver", "RemoteWebDriver", "ChromeDriver",
-            "DriverService", "SeleniumManager", "ProcessBuilder", "getRuntime",
+            "DriverService", "SeleniumManager", "getRuntime",
             "java/net/Socket", "java/net/http", "com/automationstudio/api");
 
     @Test void productionBytecodeContainsNoRuntimeOrBackendReferences() throws IOException {
@@ -24,6 +24,15 @@ class SeleniumBrowserInertSecurityTest {
                 PROHIBITED.forEach(value -> assertFalse(constants.contains(value),
                         file + " must not reference " + value));
             }
+        }
+    }
+
+    @Test void dockerCliExecutionIsArgvOnlyAndShellFree() throws IOException {
+        String source = Files.readString(Path.of("src", "main", "java", "com", "automationstudio",
+                "engine", "selenium", "SeleniumContainmentCommandRunner.java"));
+        assertTrue(source.contains("new ProcessBuilder(command)"));
+        for (String prohibited : List.of("cmd /c", "cmd.exe", "sh -c", "bash -c")) {
+            assertFalse(source.contains(prohibited));
         }
     }
 
