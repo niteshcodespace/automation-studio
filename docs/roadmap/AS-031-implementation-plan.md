@@ -209,6 +209,68 @@ the real 1.5-second hostile-attach acceptance returned in 111 ms, below two seco
 attach/matrix verification is 17/17; the required reactor is conformance 17/17, worker 7/7, and
 Selenium 51/51. D1 remains awaiting independent approval, and D2 has not started.
 
+### AS-031D2a1 safe containment primitives checkpoint
+
+Conditional architecture approval unlocks only topology-independent D2a1 primitives. The package-
+local foundation adds a non-owning `ContainmentBudgetSlice` that always retains the exact original
+immutable `ContainmentDeadline`; nested slices preserve the greatest ancestor/requested tail reserve
+and distinguish ordinary time from the remaining absolute containment allowance. No numeric D2
+reserve is encoded.
+
+Resource truth is represented by evidence-bearing sealed dispositions rather than independent
+ownership/absence booleans. `ExecutionOutcome` is separate from `ContainmentCode`, attachment has
+explicit `NOT_STARTED`/`OPEN`/`CLOSED`/`UNRESOLVED` states, and the closed safe predicate accepts only
+authoritatively never-acquired, owned-and-absent, or foreign-and-excluded resources. Ambiguous,
+unknown, present, and all late-ownership states remain unsafe; late-owned absence is deliberately not
+accepted without a later review.
+
+One abstract cleanup coordinator owns the original deadline, admits exactly one destructive owner,
+shares one completion and immutable terminal report with every caller, serializes acquisition closure
+with publication, and monotonically records late ownership as a safety compromise. An immutable
+dependency DAG supports multiple prerequisites and independent siblings without encoding Docker or a
+linear topology. Acquisition results are neutral classifications only and contain no recovery,
+candidate-adoption, Docker API, CLI, or network behavior.
+
+D2a2 remains blocked. No Docker acquisition, anchor/bootstrap/gateway, nftables, conntrack,
+capability, namespace, DNAT/SNAT, browser, or WebDriver implementation is authorized. The existing
+worker remains `--network none`; AS-031D2 is not approved by this checkpoint.
+
+Independent-review remediation removes the split between report-local and coordinator-local safety.
+One shared `AuthoritativeContainmentState` is now the only safety API; its immutable report payload is
+published once, while late ownership can only monotonically compromise that same shared state.
+`NeverAcquired` and owned absence now require cleanup-scoped, owner-issued capabilities rather than
+free-text positive evidence. The cleanup pre-registers one immutable transition for every fixed
+resource role; issuer, role, resource revision, and owned identity are validated again when the
+authority privately constructs the terminal report/state. Authority-free disposition safety and
+caller-created terminal states are unavailable, so a capability cannot certify another cleanup,
+role, resource, revision, or report. No-attempt closure applies only to the exact untouched registered
+transition when its cleanup closes acquisition.
+
+The absence source and successful observation types are private and cleanup-owned. Ordinary package
+code cannot inject a verifier lambda or textual success. The normal source is unavailable until a
+future trusted integration exists; a private reflective test seam exercises positive issuance
+without exposing production authority. Owned absence remains bound to causal ownership plus role,
+acquisition, cleanup-attempt, and fresh observation revisions and is consumed once, rejecting
+pre-acquisition/pre-cleanup use, mismatch, foreign authority, staleness, failure, and replay.
+Ambiguous or caller-reported acquisition results cannot transition to `NeverAcquired`.
+`ForeignExclusionProof` intentionally has no D2a1 issuer: without an authoritative D2a2 topology
+source, foreign collision cannot transition to `ForeignExcluded`.
+
+Owner cleanup runs inside a coordinator boundary that closes acquisition and publishes one fixed
+unsafe result if work throws or is interrupted. Observers wait only for the exact original deadline's
+remaining time and never publish a fallback. Dependency evidence is an immutable revisioned snapshot;
+only the cleanup owner can mutate it or perform an eligible action, and the decision plus action are
+serialized under the same owner lock. Null evidence fails closed and stale decisions are rejected.
+The original deadline now clamps remaining time monotonically even for a regressing injected ticker.
+Observers recheck the shared completion after both a zero-budget observation and a timed timeout, so
+publication winning or tying either boundary returns the exact canonical state.
+D2a2 and all policy/network work remain blocked pending independent D2a1 re-review.
+
+Second-remediation verification passed 36/36 focused D2a1 tests and the required reactor passed
+conformance 17/17, worker runtime 7/7, and Selenium plugin 87/87. This supersedes the prior local
+39/39 and 90/90 remediation counts after the authority-consumption redesign. The checkpoint remains
+unstaged and uncommitted pending the issue #20 independent re-review gate.
+
 ## AS-031F - Static Lifecycle Integration and Canonical Qualification
 
 **Objective:** Assemble one production provider and prove the complete canonical path.
