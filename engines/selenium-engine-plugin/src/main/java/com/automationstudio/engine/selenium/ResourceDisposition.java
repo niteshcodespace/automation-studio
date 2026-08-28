@@ -97,6 +97,13 @@ sealed interface ResourceDisposition permits ResourceDisposition.NeverAcquired,
             return new OwnedPresent(issuer, role, acquisitionRevision, result.identity(),
                     result.causalResponse());
         }
+        static OwnedPresent issueVerified(SingleOwnerCleanup.ProofIssuer issuer,
+                ContainmentResourceRole role, long acquisitionRevision,
+                ContainmentIdentity identity, ContainmentEvidence evidence,
+                Object verifiedHandoff) {
+            Objects.requireNonNull(verifiedHandoff, "verifiedHandoff");
+            return new OwnedPresent(issuer, role, acquisitionRevision, identity, evidence);
+        }
         ContainmentIdentity identity() { return identity; }
         ContainmentEvidence identityEvidence() { return identityEvidence; }
         boolean matches(SingleOwnerCleanup.ProofIssuer expectedIssuer,
