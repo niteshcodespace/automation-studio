@@ -37,7 +37,16 @@ final class SingleOwnerCleanup {
     private long resourceRevision;
     private long cleanupRevision;
     private long observationRevision;
-    private final Map<String, VerifiedHandoff> dockerOwnership = new HashMap<>();
+    record DockerIdentityKey(ContainmentResourceRole role, String immutableId) {
+        DockerIdentityKey {
+            Objects.requireNonNull(role, "role");
+            if (immutableId == null || !immutableId.matches("[a-f0-9]{64}"))
+                throw new IllegalArgumentException("Invalid immutable Docker ID");
+        }
+    }
+    private final Map<DockerIdentityKey, Object> dockerOwnership = new HashMap<>();
+    private final DockerNetworkAuthority networkAuthority;
+    private DockerNetworkAuthority.Attempt networkAttempt;
 
     SingleOwnerCleanup(ContainmentDeadline deadline) {
         this(deadline, AwaitBoundary.NONE, false, null);
@@ -66,6 +75,9 @@ final class SingleOwnerCleanup {
         this.deadline = Objects.requireNonNull(deadline, "deadline");
         this.awaitBoundary = Objects.requireNonNull(awaitBoundary, "awaitBoundary");
         this.docker = productionDocker ? DockerCliControlPlane.trusted(proofIssuer) : docker;
+        this.networkAuthority = productionDocker ? new DockerNetworkAuthority(this, proofIssuer,
+                deadline, DockerCliNetworkControlPlane.trusted(proofIssuer),
+                DockerNetworkAuthority.Boundaries.NONE, dockerOwnership, this::compromiseLocked) : null;
         this.absenceSource = this.docker != null
                 ? new DockerAbsenceSource(proofIssuer, this.docker, deadline)
                 : trustedAbsenceEnabled ? new TrustedAbsenceSource(proofIssuer)
@@ -73,6 +85,21 @@ final class SingleOwnerCleanup {
         for (ContainmentResourceRole role : ContainmentResourceRole.values()) {
             resources.put(role, new ResourceTransition(role, Math.incrementExact(resourceRevision)));
         }
+    }
+
+    private SingleOwnerCleanup(ContainmentDeadline deadline, AwaitBoundary awaitBoundary,
+            DockerControlPlane docker, DockerNetworkControlPlane network,
+            DockerNetworkAuthority.Boundaries networkBoundaries) {
+        this.deadline = Objects.requireNonNull(deadline, "deadline");
+        this.awaitBoundary = Objects.requireNonNull(awaitBoundary, "awaitBoundary");
+        this.docker = docker;
+        this.networkAuthority = new DockerNetworkAuthority(this, proofIssuer, deadline,
+                Objects.requireNonNull(network, "network"), Objects.requireNonNull(networkBoundaries),
+                dockerOwnership, this::compromiseLocked);
+        this.absenceSource = docker == null ? new UnavailableAbsenceSource()
+                : new DockerAbsenceSource(proofIssuer, docker, deadline);
+        for (ContainmentResourceRole role : ContainmentResourceRole.values())
+            resources.put(role, new ResourceTransition(role, Math.incrementExact(resourceRevision)));
     }
 
     synchronized Claim claim() {
@@ -114,6 +141,64 @@ final class SingleOwnerCleanup {
         return resources.get(Objects.requireNonNull(role, "role"));
     }
 
+    synchronized DockerNetworkAuthority.Attempt beginNetworkAcquisition(Claim claim, UUID executionId) {
+        requireOwner(claim); if (acquisitionsClosed) throw new IllegalStateException("Acquisitions are closed");
+        if (networkAuthority == null) throw new IllegalStateException("Network authority is unavailable");
+        ResourceTransition network = resources.get(ContainmentResourceRole.NETWORK);
+        if (network.state != ResourceTransition.State.OPEN)
+            throw new IllegalStateException("Network transition is not open");
+        network.state = ResourceTransition.State.ACQUIRING;
+        networkAttempt = networkAuthority.begin(proofIssuer, Objects.requireNonNull(executionId), network.revision);
+        return networkAttempt;
+    }
+
+    DockerNetworkAuthority.AcquisitionStatus acquireNetwork(Claim claim,
+            DockerNetworkAuthority.Attempt expected) {
+        synchronized (this) { requireOwner(claim); if (acquisitionsClosed)
+                throw new IllegalStateException("Acquisitions are closed");
+            if (expected != networkAttempt) throw new IllegalArgumentException("Foreign network attempt"); }
+        var status = networkAuthority.acquire(proofIssuer, expected);
+        applyNetworkAcquisition(status, expected); return status;
+    }
+
+    DockerNetworkAuthority.AcquisitionStatus recordLateNetworkAcquisition(Claim claim,
+            DockerNetworkAuthority.Attempt expected, String immutableId) {
+        synchronized (this) { requireOwner(claim);
+            if (expected != networkAttempt) throw new IllegalArgumentException("Foreign network attempt"); }
+        var status = networkAuthority.recordLate(proofIssuer, expected, immutableId);
+        applyNetworkAcquisition(status, expected); return status;
+    }
+
+    synchronized List<DockerNetworkAuthority.LedgerEntry> networkLedger(Claim claim) {
+        requireOwner(claim); if (networkAuthority == null) return List.of();
+        return networkAuthority.ledger(proofIssuer);
+    }
+
+    private synchronized void applyNetworkAcquisition(DockerNetworkAuthority.AcquisitionStatus status,
+            DockerNetworkAuthority.Attempt expected) {
+        ResourceTransition network = resources.get(ContainmentResourceRole.NETWORK);
+        if (status == DockerNetworkAuthority.AcquisitionStatus.ACQUIRED) {
+            var entry = networkAuthority.ledger(proofIssuer).get(0);
+            network.owned = ResourceDisposition.OwnedPresent.issueVerified(proofIssuer,
+                    ContainmentResourceRole.NETWORK, network.revision,
+                    new ContainmentIdentity(entry.immutableId()),
+                    new ContainmentEvidence("verified-docker-network-inspection"), expected);
+            network.disposition = network.owned; network.state = ResourceTransition.State.OWNED;
+            network.ownershipDaemon = entry.daemonIdentity();
+        } else if (status == DockerNetworkAuthority.AcquisitionStatus.DEFINITE_NO_SIDE_EFFECT) {
+            var proof = AcquisitionClosureProof.definitelyNotDispatched(proofIssuer,
+                    ContainmentResourceRole.NETWORK, network.revision, expected,
+                    networkAuthority.closureOutcome());
+            network.disposition = ResourceDisposition.neverAcquired(proofIssuer,
+                    ContainmentResourceRole.NETWORK, network.revision, proof);
+            network.state = ResourceTransition.State.CLOSED;
+        } else if (status == DockerNetworkAuthority.AcquisitionStatus.AMBIGUOUS) {
+            network.disposition = new ResourceDisposition.Ambiguous(
+                    new ContainmentEvidence("docker-network-acquisition-ambiguous"));
+            network.state = ResourceTransition.State.CLOSED;
+        }
+    }
+
     private AuthoritativeContainmentState executeOwner(Claim claim, OwnerCleanupWork work) {
         synchronized (this) {
             requireOwner(claim);
@@ -132,7 +217,38 @@ final class SingleOwnerCleanup {
         } catch (Throwable failure) {
             outcome = ownerFailureOutcome();
         }
+        reconcileNetworkForPublication(claim);
         return publishOnce(outcome);
+    }
+
+    private void reconcileNetworkForPublication(Claim claim) {
+        final DockerNetworkAuthority.Attempt expected;
+        final boolean workerAbsent;
+        synchronized (this) {
+            requireOwner(claim); expected = networkAttempt;
+            if (networkAuthority == null || expected == null) return;
+            ResourceDisposition worker = resources.get(ContainmentResourceRole.WORKER).disposition;
+            workerAbsent = worker instanceof ResourceDisposition.OwnedAbsent
+                    || worker instanceof ResourceDisposition.NeverAcquired;
+        }
+        var result = networkAuthority.reconcile(proofIssuer, expected, workerAbsent);
+        synchronized (this) {
+            ResourceTransition network = resources.get(ContainmentResourceRole.NETWORK);
+            if (result.status() == DockerNetworkAuthority.ReconciliationStatus.ABSENT
+                    && network.disposition instanceof ResourceDisposition.OwnedPresent present) {
+                var proof = AuthoritativeAbsenceProof.issue(proofIssuer, ContainmentResourceRole.NETWORK,
+                        present.identity(), network.revision, cleanupRevision,
+                        Math.incrementExact(observationRevision),
+                        new ContainmentEvidence("docker-network-exact-id-absent"));
+                network.disposition = ResourceDisposition.ownedAbsent(proofIssuer,
+                        ContainmentResourceRole.NETWORK, network.revision, present, proof);
+                network.state = ResourceTransition.State.CLOSED;
+            } else if (result.status() != DockerNetworkAuthority.ReconciliationStatus.ABSENT) {
+                network.disposition = new ResourceDisposition.Ambiguous(
+                        new ContainmentEvidence("docker-network-reconciliation-unresolved"));
+                network.state = ResourceTransition.State.CLOSED; compromiseLocked();
+            }
+        }
     }
 
     private synchronized AuthoritativeContainmentState publishOnce(TerminalOutcome outcome) {
@@ -416,12 +532,29 @@ final class SingleOwnerCleanup {
             synchronized (SingleOwnerCleanup.this) {
                 awaitBoundary.c7DuringHandoff();
                 requireOwner(claim); requireAttempt(expected);
-                VerifiedHandoff existing = dockerOwnership.get(handoff.fingerprint.containerId());
+                DockerIdentityKey identityKey = new DockerIdentityKey(role,
+                        handoff.fingerprint.containerId());
+                Object registered = dockerOwnership.get(identityKey);
+                VerifiedHandoff existing = registered instanceof VerifiedHandoff value ? value : null;
+                if (registered != null && existing == null) {
+                    compromiseLocked(); return DockerAcquisitionStatus.CONFLICT;
+                }
                 if (existing != null) {
                     if (existing.sameProvenance(handoff)) return DockerAcquisitionStatus.IDEMPOTENT;
                     compromiseLocked(); return DockerAcquisitionStatus.CONFLICT;
                 }
-                dockerOwnership.put(handoff.fingerprint.containerId(), handoff);
+                boolean crossRoleConflict = dockerOwnership.keySet().stream().anyMatch(key ->
+                        key.immutableId().equals(handoff.fingerprint.containerId()) && key.role() != role);
+                dockerOwnership.put(identityKey, handoff);
+                if (crossRoleConflict) {
+                    var retained = ResourceDisposition.OwnedPresent.issueVerified(proofIssuer, role,
+                            revision, new ContainmentIdentity(handoff.fingerprint.containerId()),
+                            new ContainmentEvidence("verified-cross-role-collision"), handoff);
+                    retainedLateOwnership.put(handoff.fingerprint.containerId(),
+                            new RetainedDockerOwnership(retained, handoff.daemonIdentity));
+                    compromiseLocked();
+                    return DockerAcquisitionStatus.CONFLICT;
+                }
                 if (state == State.DISPATCH_IN_PROGRESS && !acquisitionsClosed && !late) {
                     owned = ResourceDisposition.OwnedPresent.issueVerified(proofIssuer, role, revision,
                             new ContainmentIdentity(handoff.fingerprint.containerId()),
@@ -591,6 +724,12 @@ final class SingleOwnerCleanup {
                 lastAbsent = ResourceDisposition.ownedAbsent(
                         proofIssuer, role, revision, retained, proof);
             }
+            synchronized (SingleOwnerCleanup.this) {
+                if (lastAbsent != null && owned == null) {
+                    state = State.CLOSED;
+                    disposition = lastAbsent;
+                }
+            }
             return lastAbsent;
         }
 
@@ -669,7 +808,7 @@ final class SingleOwnerCleanup {
     }
     private static final class NonceHolder { private static final SecureRandom RANDOM = new SecureRandom(); }
 
-    private void compromiseLocked() {
+    private synchronized void compromiseLocked() {
         terminalCompromised = true;
         if (terminalState != null) terminalState.compromise();
     }
