@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1.7
+FROM --platform=linux/amd64 alpine@sha256:eafc1edb577d2e9b458664a15f23ea1c370214193226069eb22921169fc7e43f AS build
+ARG GATEWAY_EXECUTABLE_DIGEST
+RUN apk add --no-cache musl-dev gcc=14.2.0-r6
+WORKDIR /src
+COPY gateway.c .
+RUN gcc -static -Os -s -fstack-protector-strong -Wl,-z,relro,-z,now -o gateway-entrypoint gateway.c
+FROM scratch AS executable
+COPY --from=build /src/gateway-entrypoint /gateway-entrypoint
+
+FROM build AS verified
+ARG GATEWAY_EXECUTABLE_DIGEST
+RUN test -n "$GATEWAY_EXECUTABLE_DIGEST" && echo "$GATEWAY_EXECUTABLE_DIGEST  gateway-entrypoint" | sha256sum -c -
+
+FROM scratch
+ARG GATEWAY_EXECUTABLE_DIGEST
+LABEL com.automationstudio.executable-digest="sha256:${GATEWAY_EXECUTABLE_DIGEST}"
+COPY --from=verified /src/gateway-entrypoint /opt/automation-studio/gateway-entrypoint
+COPY passwd /etc/passwd
+COPY group /etc/group
+USER 65532:65532
+ENTRYPOINT ["/opt/automation-studio/gateway-entrypoint"]

@@ -13,17 +13,19 @@ final class ContainmentTerminalReport {
     private final Map<ContainmentResourceRole, Long> revisions;
     private final AttachmentState workerAttachment;
     private final DependencyEvidence dependencyClosure;
+    private final D2cTerminalEvidence d2cEvidence;
 
     private ContainmentTerminalReport(SingleOwnerCleanup.ProofIssuer issuer,
             ExecutionOutcome executionOutcome, ContainmentCode containmentCode,
             Map<ContainmentResourceRole, ResourceDisposition> dispositions,
             Map<ContainmentResourceRole, Long> revisions, AttachmentState workerAttachment,
-            DependencyEvidence dependencyClosure) {
+            DependencyEvidence dependencyClosure,D2cTerminalEvidence d2cEvidence) {
         this.issuer = Objects.requireNonNull(issuer, "issuer");
         this.executionOutcome = Objects.requireNonNull(executionOutcome, "executionOutcome");
         this.containmentCode = Objects.requireNonNull(containmentCode, "containmentCode");
         this.workerAttachment = Objects.requireNonNull(workerAttachment, "workerAttachment");
         this.dependencyClosure = Objects.requireNonNull(dependencyClosure, "dependencyClosure");
+        this.d2cEvidence=Objects.requireNonNull(d2cEvidence,"d2cEvidence");
         var dispositionCopy = new EnumMap<ContainmentResourceRole, ResourceDisposition>(
                 ContainmentResourceRole.class);
         var revisionCopy = new EnumMap<ContainmentResourceRole, Long>(ContainmentResourceRole.class);
@@ -51,8 +53,11 @@ final class ContainmentTerminalReport {
             Map<ContainmentResourceRole, Long> revisions, AttachmentState workerAttachment,
             DependencyEvidence dependencyClosure) {
         return new ContainmentTerminalReport(issuer, executionOutcome, containmentCode,
-                dispositions, revisions, workerAttachment, dependencyClosure);
+                dispositions, revisions, workerAttachment, dependencyClosure,D2cTerminalEvidence.empty());
     }
+    static ContainmentTerminalReport issue(SingleOwnerCleanup.ProofIssuer issuer,ExecutionOutcome executionOutcome,ContainmentCode containmentCode,
+            Map<ContainmentResourceRole,ResourceDisposition> dispositions,Map<ContainmentResourceRole,Long> revisions,AttachmentState workerAttachment,
+            DependencyEvidence dependencyClosure,D2cTerminalEvidence d2cEvidence){return new ContainmentTerminalReport(issuer,executionOutcome,containmentCode,dispositions,revisions,workerAttachment,dependencyClosure,d2cEvidence);}
 
     boolean issuedBy(SingleOwnerCleanup.ProofIssuer expected) { return issuer == expected; }
     ExecutionOutcome executionOutcome() { return executionOutcome; }
@@ -66,7 +71,7 @@ final class ContainmentTerminalReport {
     DependencyEvidence dependencyClosure() { return dependencyClosure; }
 
     boolean resourcesSafe() {
-        return dispositions.entrySet().stream().allMatch(entry -> entry.getValue().safeFor(
+        return d2cEvidence.safe()&&dispositions.entrySet().stream().allMatch(entry -> entry.getValue().safeFor(
                 issuer, entry.getKey(), revisions.get(entry.getKey())));
     }
 

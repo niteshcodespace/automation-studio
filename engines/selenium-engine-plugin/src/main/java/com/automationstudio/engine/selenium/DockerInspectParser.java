@@ -19,14 +19,15 @@ final class DockerInspectParser {
             if (array == null || !array.isArray() || array.size() != 1) throw invalid();
             JsonNode root = array.get(0), config = object(root, "Config"), host = object(root, "HostConfig");
             JsonNode labels = object(config, "Labels"), restart = object(host, "RestartPolicy");
+            ContainmentResourceRole role = ContainmentResourceRole.valueOf(text(labels, "automation-studio.role"));
             return new DockerResourceFingerprint(text(root, "Id"),
                     UUID.fromString(text(labels, "automation-studio.execution")),
-                    ContainmentResourceRole.valueOf(text(labels, "automation-studio.role")),
+                    role,
                     text(labels, "automation-studio.attempt"), text(root, "Image"),
                     strings(config.get("Entrypoint")), strings(config.get("Cmd")), text(config, "User"),
                     bool(host, "ReadonlyRootfs"), text(restart, "Name"), integer(restart, "MaximumRetryCount"),
                     text(host, "NetworkMode"), bool(host, "Privileged"), text(host, "PidMode"),
-                    text(host, "IpcMode"), isolation(host), authoritativeEnvironment(config.get("Env")));
+                    text(host, "IpcMode"), isolation(host), authoritativeEnvironment(config.get("Env"), role));
         } catch (RuntimeException failure) {
             if (failure instanceof IllegalArgumentException) throw failure;
             throw invalid();
@@ -66,9 +67,10 @@ final class DockerInspectParser {
         for (JsonNode element : value) { if (!element.isObject()) throw invalid(); result.add(element); }
         return result;
     }
-    private static List<String> authoritativeEnvironment(JsonNode value) {
+    private static List<String> authoritativeEnvironment(JsonNode value, ContainmentResourceRole role) {
         List<String> all = strings(value); var result = new ArrayList<String>();
-        for (String entry : all) if (entry.startsWith("LANG=")) result.add(entry);
+        String key = role == ContainmentResourceRole.GATEWAY ? "AS_GATEWAY_MODE=" : "LANG=";
+        for (String entry : all) if (entry.startsWith(key)) result.add(entry);
         if (result.size() != 1) throw invalid();
         return result;
     }

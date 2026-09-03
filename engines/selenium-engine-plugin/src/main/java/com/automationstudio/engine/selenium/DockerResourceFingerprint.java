@@ -33,7 +33,7 @@ record DockerResourceFingerprint(String containerId, UUID executionId,
         restartPolicy = required(restartPolicy, "restartPolicy");
         if (restartMaximumRetryCount < 0) throw new IllegalArgumentException("Invalid retry count");
         networkMode = required(networkMode, "networkMode");
-        pidMode = required(pidMode, "pidMode");
+        pidMode = Objects.requireNonNull(pidMode, "pidMode");
         ipcMode = required(ipcMode, "ipcMode");
         isolationTuples = sortedUnique(isolationTuples, "isolationTuples");
         environment = sortedUnique(environment, "environment");

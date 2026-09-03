@@ -141,7 +141,7 @@ final class DockerCliNetworkControlPlane implements DockerNetworkControlPlane {
                 && Integer.valueOf(0).equals(result.exitStatus()) && result.responseComplete()
                 && value != null && !value.isBlank() && value.length() <= 4096 ? value : null;
     }
-    private static CommandResult runProcess(List<String> argv, ContainmentDeadline deadline) {
+    static CommandResult runProcess(List<String> argv, ContainmentDeadline deadline) {
         return runProcess(argv, deadline,
                 value -> new ProcessBuilder(value).redirectErrorStream(true).start(), ProcessBoundary.NONE);
     }

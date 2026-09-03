@@ -29,7 +29,7 @@ record DockerResourceSpec(UUID executionId, ContainmentResourceRole role, String
         restartPolicy = required(restartPolicy, "restartPolicy");
         if (restartMaximumRetryCount < 0) throw new IllegalArgumentException("Invalid retry count");
         networkMode = required(networkMode, "networkMode");
-        pidMode = required(pidMode, "pidMode");
+        pidMode = Objects.requireNonNull(pidMode, "pidMode");
         ipcMode = required(ipcMode, "ipcMode");
         isolationTuples = sorted(isolationTuples, "isolationTuples");
         environment = sorted(environment, "environment");

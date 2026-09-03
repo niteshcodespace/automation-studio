@@ -1,0 +1,7 @@
+FROM maven:3.9.11-eclipse-temurin-21
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev libcap2-bin util-linux && rm -rf /var/lib/apt/lists/*
+RUN useradd --system --create-home --shell /bin/sh automation-studio-netns
+COPY . /workspace
+WORKDIR /workspace
+RUN --mount=type=cache,target=/root/.m2 mvn -pl engines/selenium-engine-plugin -am -DskipTests test-compile && cp -a /root/.m2 /workspace/.m2 && chown -R automation-studio-netns:automation-studio-netns /workspace
+ENTRYPOINT ["/bin/sh","/workspace/engines/selenium-engine-plugin/src/helper/qualify-runtime.sh"]

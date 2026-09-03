@@ -47,6 +47,7 @@ final class SingleOwnerCleanup {
     private final Map<DockerIdentityKey, Object> dockerOwnership = new HashMap<>();
     private final DockerNetworkAuthority networkAuthority;
     private DockerNetworkAuthority.Attempt networkAttempt;
+    private D2cTopologyAuthority d2cTopology;
 
     SingleOwnerCleanup(ContainmentDeadline deadline) {
         this(deadline, AwaitBoundary.NONE, false, null);
@@ -133,6 +134,26 @@ final class SingleOwnerCleanup {
 
     <N> DependencyController<N> dependencies(ContainmentDependencyDag<N> dag) {
         return new DependencyController<>(Objects.requireNonNull(dag, "dag"));
+    }
+
+    synchronized D2cTopologyAuthority d2cTopology(Claim claim, long topologyGeneration) {
+        requireOwner(claim);
+        if (acquisitionsClosed) throw new IllegalStateException("Acquisitions are closed");
+        if (d2cTopology != null) throw new IllegalStateException("D2c topology already exists");
+        d2cTopology = new D2cTopologyAuthority(proofIssuer, deadline, topologyGeneration,
+                this::compromiseLocked, this::registerD2cGatewayIdentity);
+        return d2cTopology;
+    }
+
+    private synchronized void registerD2cGatewayIdentity(String immutableId,
+            DockerControlPlane.DockerDaemonIdentity daemonIdentity) {
+        Objects.requireNonNull(daemonIdentity, "daemonIdentity");
+        var key = new DockerIdentityKey(ContainmentResourceRole.GATEWAY, immutableId);
+        boolean crossRole = dockerOwnership.keySet().stream().anyMatch(value ->
+                value.immutableId().equals(immutableId) && value.role()!=ContainmentResourceRole.GATEWAY);
+        if (crossRole) { compromiseLocked(); throw new IllegalStateException("Cross-role Docker identity collision"); }
+        Object existing=dockerOwnership.putIfAbsent(key, daemonIdentity);
+        if (existing!=null && !existing.equals(daemonIdentity)) { compromiseLocked(); throw new IllegalStateException("Gateway daemon identity changed"); }
     }
 
     synchronized ResourceTransition resource(Claim claim, ContainmentResourceRole role) {
@@ -252,6 +273,7 @@ final class SingleOwnerCleanup {
     }
 
     private synchronized AuthoritativeContainmentState publishOnce(TerminalOutcome outcome) {
+        if (d2cTopology != null) d2cTopology.requireClosedForPublication();
         if (terminalState == null) {
             var dispositions = new EnumMap<ContainmentResourceRole, ResourceDisposition>(
                     ContainmentResourceRole.class);
@@ -263,7 +285,7 @@ final class SingleOwnerCleanup {
             });
             var report = ContainmentTerminalReport.issue(proofIssuer, outcome.executionOutcome(),
                     outcome.containmentCode(), dispositions, revisions, outcome.workerAttachment(),
-                    outcome.dependencyClosure());
+                    outcome.dependencyClosure(),d2cTopology==null?D2cTerminalEvidence.empty():d2cTopology.terminalEvidence());
             if (ownershipEvidence.stream().anyMatch(evidence -> !report.reconciles(evidence))) {
                 terminalCompromised = true;
             }
